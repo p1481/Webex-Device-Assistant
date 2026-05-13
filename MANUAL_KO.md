@@ -333,4 +333,3 @@ curl -X POST http://127.0.0.1:8000/debug/messages \
 - [ARCHITECTURE.md](ARCHITECTURE.md)
 - [INSTALL.md](INSTALL.md)
 - [USER_MANUAL.md](USER_MANUAL.md)
-- [MANUAL.md](MANUAL.md)

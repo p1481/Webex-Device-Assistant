@@ -41,7 +41,7 @@ Docs: /admin-page/docs, /admin-page/architecture-guide
 
 For the detailed current-state document, see:
 
-- [`ARCHITECTURE_CURRENT.md`](ARCHITECTURE_CURRENT.md)
+- [`ARCHITECTURE.md`](ARCHITECTURE.md)
 - Browser HTML: `/admin-page/architecture-guide`
 - Documentation index: `/admin-page/docs`
 
@@ -251,7 +251,7 @@ export WEBEX_TOKEN_MANAGER_API_KEY=...
 - `GET /admin-page/docs`
 - `GET /admin-page/docs-ko`
 - `GET /admin-page/architecture-guide`
-- `GET /admin-page/manuals/ARCHITECTURE_CURRENT.md`
+- `GET /admin-page/manuals/ARCHITECTURE.md`
 
 ## Project layout
 
@@ -283,8 +283,7 @@ curl -sS http://127.0.0.1:8000/admin-page/healthz
 
 ## Documentation
 
-- [`ARCHITECTURE_CURRENT.md`](ARCHITECTURE_CURRENT.md): current service/API/config/LLM/feature guide.
-- [`ARCHITECTURE.md`](ARCHITECTURE.md): earlier architecture manual.
+- [`ARCHITECTURE.md`](ARCHITECTURE.md): current architecture, service/API/config/LLM, operations, and feature guide.
 - [`INSTALL.md`](INSTALL.md): install and setup guide.
 - [`USER_MANUAL.md`](USER_MANUAL.md): user-facing usage guide.
 - [`MANUAL_KO.md`](MANUAL_KO.md): Korean companion guide.

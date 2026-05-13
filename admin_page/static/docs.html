@@ -25,14 +25,14 @@
               <span class="identity-card__label">Authoritative source</span>
               <strong>Repo-root markdown manuals</strong>
               <span class="identity-card__status"
-              >ARCHITECTURE.md · ARCHITECTURE_CURRENT.md · INSTALL.md · USER_MANUAL.md · MANUAL_KO.md</span
+              >ARCHITECTURE.md · INSTALL.md · USER_MANUAL.md · MANUAL_KO.md</span
               >
             </div>
 
           <dl class="hero-stats">
             <div>
               <dt>Manuals</dt>
-              <dd>5</dd>
+              <dd>4</dd>
             </div>
             <div>
               <dt>Execution modes</dt>
@@ -74,8 +74,8 @@
             <a class="button" href="/admin-page/manuals/ARCHITECTURE.md"
               >Architecture manual</a
             >
-            <a class="button" href="/admin-page/architecture-guide">Current architecture HTML</a>
-            <a class="button" href="/admin-page/manuals/ARCHITECTURE_CURRENT.md">Current architecture MD</a>
+            <a class="button" href="/admin-page/architecture-guide">Architecture HTML</a>
+            <a class="button" href="/admin-page/manuals/ARCHITECTURE.md">Architecture MD</a>
             <a class="button" href="/admin-page/manuals/INSTALL.md">Install manual</a>
             <a class="button" href="/admin-page/manuals/USER_MANUAL.md">User manual</a>
             <a class="button button--ghost" href="/admin-page/manuals/MANUAL_KO.md">Korean guide</a>
@@ -86,38 +86,9 @@
           <article class="panel doc-card">
             <div class="section-heading">
               <p class="eyebrow">ARCHITECTURE.md</p>
-              <h3>Architecture</h3>
+              <h3>Architecture and operations</h3>
               <p>
-                The app stays LLM-first in both execution modes while keeping orchestration,
-                execution, transport, and the thin admin surface clearly separated.
-              </p>
-            </div>
-
-            <ul class="docs-list">
-              <li><code>assistant_app/</code> owns orchestration, provider wiring, and Webex ingress.</li>
-              <li>
-                <code>device_executor/</code> owns separated-mode execution and
-                <code>direct_tool_adapter/</code> owns all-LLM execution bindings.
-              </li>
-              <li>
-                <code>admin_page/</code> remains a thin browser surface backed by
-                <code>/admin/*</code> APIs, not a separate backend service.
-              </li>
-            </ul>
-
-            <div class="doc-card__footer">
-              <a class="button button--ghost" href="/admin-page/manuals/ARCHITECTURE.md"
-                >Read full architecture manual</a
-              >
-            </div>
-          </article>
-
-          <article class="panel doc-card">
-            <div class="section-heading">
-              <p class="eyebrow">ARCHITECTURE_CURRENT.md</p>
-              <h3>Current architecture and operations</h3>
-              <p>
-                A generated current-state reference for services, APIs, configuration,
+                Current-state reference for services, APIs, configuration,
                 LLM integration, Webex cloud xAPI execution, and feature-level usage.
               </p>
             </div>
@@ -129,8 +100,8 @@
             </ul>
 
             <div class="doc-card__footer">
-              <a class="button button--ghost" href="/admin-page/architecture-guide">Open current architecture HTML</a>
-              <a class="button button--ghost" href="/admin-page/manuals/ARCHITECTURE_CURRENT.md">Read current architecture markdown</a>
+              <a class="button button--ghost" href="/admin-page/architecture-guide">Open architecture HTML</a>
+              <a class="button button--ghost" href="/admin-page/manuals/ARCHITECTURE.md">Read architecture markdown</a>
             </div>
           </article>
 

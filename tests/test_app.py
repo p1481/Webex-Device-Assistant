@@ -5415,9 +5415,9 @@ def test_admin_page_docs_renders_manual_summaries() -> None:
     assert "Webex Device Assistant Manuals" in body
     assert "/admin-page/manuals/ARCHITECTURE.md" in body
     assert "/admin-page/architecture-guide" in body
-    assert "/admin-page/manuals/ARCHITECTURE_CURRENT.md" in body
     assert "/admin-page/manuals/INSTALL.md" in body
     assert "/admin-page/manuals/USER_MANUAL.md" in body
+    assert "ARCHITECTURE_CURRENT.md" not in body
     assert "Open the full markdown manuals" in body
 
 
@@ -5432,9 +5432,9 @@ def test_admin_page_static_css_asset_is_served() -> None:
     ("manual_name", "expected_heading"),
     [
         ("ARCHITECTURE.md", "# Architecture Manual"),
-        ("ARCHITECTURE_CURRENT.md", "# Webex Device Assistant - Architecture and Operations Guide"),
         ("INSTALL.md", "# Install Manual"),
         ("USER_MANUAL.md", "# User Manual"),
+        ("MANUAL_KO.md", "# Webex Device Assistant 앱 아키텍처 및 사용 가이드"),
     ],
 )
 def test_admin_page_manual_routes_serve_top_level_manuals(
@@ -5452,7 +5452,7 @@ def test_admin_page_architecture_guide_renders_current_html_manual() -> None:
     assert "text/html" in response.headers["content-type"]
     body = response.text
     assert "Device Assistant Guide" in body
-    assert "/admin-page/manuals/ARCHITECTURE_CURRENT.md" in body
+    assert "/admin-page/manuals/ARCHITECTURE.md" in body
     assert "Cameras.SpeakerTrack.Set" in body
 
 
