@@ -210,29 +210,41 @@ class DeviceClient:
         "speaker_closeup": "speaker_closeup",
     }
     CAMERA_MODE_ORDER: ClassVar[tuple[str, ...]] = (
-        "best_overview",
-        "speaker_closeup",
-        "frames",
+        "Auto",
+        "BestOverview",
+        "Closeup",
+        "Current",
+        "Dynamic",
+        "Frames",
+        "Manual",
     )
     CAMERA_MODE_CONFIG_VALUES: ClassVar[dict[str, str]] = {
-        "best_overview": "BestOverview",
-        "speaker_closeup": "Closeup",
-        "frames": "Frames",
+        "Auto": "Auto",
+        "BestOverview": "BestOverview",
+        "Closeup": "Closeup",
+        "Current": "Current",
+        "Dynamic": "Dynamic",
+        "Frames": "Frames",
+        "Manual": "Manual",
     }
     CAMERA_MODE_CONFIG_ALIASES: ClassVar[dict[str, str]] = {
-        "bestoverview": "best_overview",
-        "best overview": "best_overview",
-        "best-overview": "best_overview",
-        "best_overview": "best_overview",
-        "closeup": "speaker_closeup",
-        "close up": "speaker_closeup",
-        "speakercloseup": "speaker_closeup",
-        "speaker closeup": "speaker_closeup",
-        "speaker close-up": "speaker_closeup",
-        "speaker-closeup": "speaker_closeup",
-        "speaker_closeup": "speaker_closeup",
-        "frames": "frames",
-        "frame": "frames",
+        "auto": "Auto",
+        "bestoverview": "BestOverview",
+        "best overview": "BestOverview",
+        "best-overview": "BestOverview",
+        "best_overview": "BestOverview",
+        "closeup": "Closeup",
+        "close up": "Closeup",
+        "speakercloseup": "Closeup",
+        "speaker closeup": "Closeup",
+        "speaker close-up": "Closeup",
+        "speaker-closeup": "Closeup",
+        "speaker_closeup": "Closeup",
+        "current": "Current",
+        "dynamic": "Dynamic",
+        "frames": "Frames",
+        "frame": "Frames",
+        "manual": "Manual",
     }
 
     def __init__(self, config: AppConfig, token_provider: WebexTokenProvider) -> None:
@@ -736,11 +748,22 @@ class DeviceClient:
         if self.config.device_mock_mode:
             return f"Mock camera mode set to {mode} on {target_device}."
 
-        config_value = self.CAMERA_MODE_CONFIG_VALUES.get(mode)
+        normalized_mode = mode.strip()
+        config_value = self.CAMERA_MODE_CONFIG_VALUES.get(normalized_mode)
+        if config_value is None:
+            alias_key = " ".join(normalized_mode.casefold().replace("_", " ").split())
+            canonical_mode = self.CAMERA_MODE_CONFIG_ALIASES.get(alias_key)
+            if canonical_mode is None:
+                canonical_mode = self.CAMERA_MODE_CONFIG_ALIASES.get(
+                    alias_key.replace(" ", "")
+                )
+            if canonical_mode is not None:
+                normalized_mode = canonical_mode
+                config_value = self.CAMERA_MODE_CONFIG_VALUES.get(canonical_mode)
         if config_value is None:
             raise RuntimeError(
-                "Unsupported camera mode request. Supported writable camera modes are: "
-                "best_overview, speaker_closeup, frames."
+                "Unsupported camera mode request. Supported camera modes are: "
+                "Auto, BestOverview, Closeup, Current, Dynamic, Frames, Manual."
             )
 
         async with httpx.AsyncClient(
@@ -759,7 +782,7 @@ class DeviceClient:
             ],
         )
         device_name = device.display_name or target_device
-        return f"Set camera mode to {mode} on {device_name} (DefaultBehavior: {config_value})."
+        return f"Set camera mode to {normalized_mode} on {device_name} (DefaultBehavior: {config_value})."
 
     async def list_supported_camera_modes(self, target_device: str) -> tuple[str, ...]:
         if self.config.device_mock_mode:
@@ -783,16 +806,21 @@ class DeviceClient:
     ) -> tuple[str, ...]:
         normalized_modes: list[str] = []
         for value in values:
-            normalized_key = " ".join(value.strip().casefold().replace("_", " ").split())
-            mode = self.CAMERA_MODE_CONFIG_ALIASES.get(normalized_key)
+            stripped = value.strip()
+            if not stripped:
+                continue
+            mode = self.CAMERA_MODE_CONFIG_VALUES.get(stripped)
             if mode is None:
-                compact_key = normalized_key.replace(" ", "")
-                mode = self.CAMERA_MODE_CONFIG_ALIASES.get(compact_key)
+                normalized_key = " ".join(
+                    stripped.casefold().replace("_", " ").split()
+                )
+                mode = self.CAMERA_MODE_CONFIG_ALIASES.get(normalized_key)
+                if mode is None:
+                    compact_key = normalized_key.replace(" ", "")
+                    mode = self.CAMERA_MODE_CONFIG_ALIASES.get(compact_key)
             if mode is not None and mode not in normalized_modes:
                 normalized_modes.append(mode)
-        return tuple(
-            mode for mode in self.CAMERA_MODE_ORDER if mode in normalized_modes
-        )
+        return tuple(normalized_modes)
 
     async def set_layout(self, target_device: str, layout_name: str) -> str:
         normalized_layout_name = self._normalize_layout_name(layout_name)

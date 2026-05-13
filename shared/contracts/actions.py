@@ -115,9 +115,13 @@ class SetSelfviewParams(TargetDeviceParams):
 
 
 class WritableCameraMode(str, Enum):
-    BEST_OVERVIEW = "best_overview"
-    SPEAKER_CLOSEUP = "speaker_closeup"
-    FRAMES = "frames"
+    AUTO = "Auto"
+    BEST_OVERVIEW = "BestOverview"
+    CLOSEUP = "Closeup"
+    CURRENT = "Current"
+    DYNAMIC = "Dynamic"
+    FRAMES = "Frames"
+    MANUAL = "Manual"
 
 
 class SetCameraModeParams(TargetDeviceParams):

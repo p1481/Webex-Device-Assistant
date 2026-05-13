@@ -1957,7 +1957,7 @@ def test_device_client_set_camera_mode_frames_uses_default_behavior_patch(
 
     result = asyncio.run(device_client.set_camera_mode("Board Pro", "frames"))
 
-    assert result == "Set camera mode to frames on Board Pro (DefaultBehavior: Frames)."
+    assert result == "Set camera mode to Frames on Board Pro (DefaultBehavior: Frames)."
     assert patch_client.requests == [
         (
             "PATCH",
@@ -2009,10 +2009,10 @@ def test_device_client_set_camera_mode_speaker_closeup_uses_default_behavior_pat
         StaticTokenProvider(),
     )
 
-    result = asyncio.run(device_client.set_camera_mode("Board Pro", "speaker_closeup"))
+    result = asyncio.run(device_client.set_camera_mode("Board Pro", "Closeup"))
 
     assert result == (
-        "Set camera mode to speaker_closeup on Board Pro (DefaultBehavior: Closeup)."
+        "Set camera mode to Closeup on Board Pro (DefaultBehavior: Closeup)."
     )
     assert patch_client.requests[0][2]["json"] == [
         {
@@ -2043,9 +2043,9 @@ def test_device_client_set_camera_mode_rejects_unsupported_mode_before_mutation(
 
     with pytest.raises(
         RuntimeError,
-        match="Unsupported camera mode request. Supported writable camera modes are: best_overview, speaker_closeup, frames.",
+        match="Unsupported camera mode request. Supported camera modes are: Auto, BestOverview, Closeup, Current, Dynamic, Frames, Manual.",
     ):
-        _ = asyncio.run(device_client.set_camera_mode("Board Pro", "manual"))
+        _ = asyncio.run(device_client.set_camera_mode("Board Pro", "NotSupportedMode"))
 
 
 def test_device_client_get_camera_mode_does_not_infer_effective_mode_when_nothing_is_active(
@@ -5877,7 +5877,7 @@ def test_device_client_set_camera_mode_patches_speakertrack_default_behavior(
 
     result = asyncio.run(device_client.set_camera_mode("Board Pro", "frames"))
 
-    assert result == "Set camera mode to frames on Board Pro (DefaultBehavior: Frames)."
+    assert result == "Set camera mode to Frames on Board Pro (DefaultBehavior: Frames)."
     assert resolve_client.requests == [
         (
             "GET",
@@ -5953,7 +5953,7 @@ def test_device_client_lists_supported_camera_modes_from_speakertrack_default_be
 
     result = asyncio.run(device_client.list_supported_camera_modes("Board Pro"))
 
-    assert result == ("best_overview", "frames")
+    assert result == ("BestOverview", "Frames")
     assert api_client.requests == [
         (
             "GET",
@@ -5974,4 +5974,108 @@ def test_device_client_lists_supported_camera_modes_from_speakertrack_default_be
                 },
             },
         ),
+    ]
+
+
+def test_device_client_lists_all_supported_camera_modes_from_speakertrack_default_behavior(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    api_client = QueuedAsyncClient()
+    api_client.responses.append(
+        make_response(
+            "GET",
+            "/devices",
+            200,
+            {"items": [{"id": "device-1", "displayName": "Board Pro"}]},
+        )
+    )
+    api_client.responses.append(
+        make_response(
+            "GET",
+            "/deviceConfigurations",
+            200,
+            {
+                "items": [
+                    {
+                        "key": "Cameras.SpeakerTrack.DefaultBehavior",
+                        "valueSpace": {
+                            "enum": [
+                                "Auto",
+                                "BestOverview",
+                                "Closeup",
+                                "Current",
+                                "Dynamic",
+                                "Frames",
+                                "Manual",
+                            ]
+                        },
+                    }
+                ]
+            },
+        )
+    )
+    _ = build_client_queue(api_client)
+    monkeypatch.setattr(
+        "device_executor.device_client.httpx.AsyncClient", async_client_factory
+    )
+    device_client = DeviceClient(
+        AppConfig(
+            webex_mock_mode=False,
+            webex_bot_person_id="bot-person-id",
+            webex_webhook_secret="secret",
+            device_mock_mode=False,
+        ),
+        StaticTokenProvider(),
+    )
+
+    result = asyncio.run(device_client.list_supported_camera_modes("Board Pro"))
+
+    assert result == (
+        "Auto",
+        "BestOverview",
+        "Closeup",
+        "Current",
+        "Dynamic",
+        "Frames",
+        "Manual",
+    )
+
+
+def test_device_client_set_camera_mode_accepts_manual_default_behavior(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    resolve_client = QueuedAsyncClient()
+    resolve_client.responses.append(
+        make_response(
+            "GET",
+            "/devices",
+            200,
+            {"items": [{"id": "device-1", "displayName": "Board Pro"}]},
+        )
+    )
+    patch_client = QueuedAsyncClient()
+    patch_client.responses.append(make_response("PATCH", "/deviceConfigurations", 200, []))
+    _ = build_client_queue(resolve_client, patch_client)
+    monkeypatch.setattr(
+        "device_executor.device_client.httpx.AsyncClient", async_client_factory
+    )
+    device_client = DeviceClient(
+        AppConfig(
+            webex_mock_mode=False,
+            webex_bot_person_id="bot-person-id",
+            webex_webhook_secret="secret",
+            device_mock_mode=False,
+        ),
+        StaticTokenProvider(),
+    )
+
+    result = asyncio.run(device_client.set_camera_mode("Board Pro", "Manual"))
+
+    assert result == "Set camera mode to Manual on Board Pro (DefaultBehavior: Manual)."
+    assert patch_client.requests[0][2]["json"] == [
+        {
+            "op": "replace",
+            "path": "Cameras.SpeakerTrack.DefaultBehavior/sources/configured/value",
+            "value": "Manual",
+        }
     ]

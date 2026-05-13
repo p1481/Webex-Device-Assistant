@@ -406,8 +406,8 @@ class RuleBasedProvider:
                 )
             return OrchestrationDecision(
                 reply_text=(
-                    "I currently support only these camera modes: "
-                    "best_overview, speaker_closeup, and frames."
+                    "I currently support these camera modes based on the device-reported "
+                    "DefaultBehavior values: Auto, BestOverview, Closeup, Current, Dynamic, Frames, and Manual."
                 )
             )
 
@@ -1028,14 +1028,22 @@ class RuleBasedProvider:
                 "best overview",
                 "best_overview",
                 "overview mode",
+                "bestoverview",
             },
-            WritableCameraMode.SPEAKER_CLOSEUP: {
+            WritableCameraMode.CLOSEUP: {
                 "speaker closeup",
                 "speaker_closeup",
                 "closeup",
                 "close-up",
+                "speaker-closeup",
+                "speaker close-up",
+                "speakercloseup",
             },
+            WritableCameraMode.AUTO: {"auto"},
+            WritableCameraMode.CURRENT: {"current"},
+            WritableCameraMode.DYNAMIC: {"dynamic"},
             WritableCameraMode.FRAMES: {"frames", "framing"},
+            WritableCameraMode.MANUAL: {"manual"},
         }
         for mode, phrases in mode_phrases.items():
             if any(phrase in lowered_text for phrase in phrases):

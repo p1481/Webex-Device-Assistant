@@ -657,12 +657,12 @@ class Orchestrator:
         )
 
     def _camera_mode_title(self, mode: str) -> str:
-        titles = {
-            "best_overview": "Best Overview",
-            "speaker_closeup": "Speaker Closeup",
+        aliases = {
+            "best_overview": "BestOverview",
+            "speaker_closeup": "Closeup",
             "frames": "Frames",
         }
-        return titles.get(mode, mode.replace("_", " ").title())
+        return aliases.get(mode, mode)
 
     def _build_camera_mode_card_pending_action(
         self, message: InboundUserMessage
@@ -690,21 +690,37 @@ class Orchestrator:
         compact = re.sub(r"[\s_-]+", "", normalized_text.casefold())
         mode_phrases: tuple[tuple[WritableCameraMode, tuple[str, ...]], ...] = (
             (
+                WritableCameraMode.AUTO,
+                ("auto",),
+            ),
+            (
                 WritableCameraMode.BEST_OVERVIEW,
                 ("best overview", "best_overview", "best-overview", "bestoverview"),
             ),
             (
-                WritableCameraMode.SPEAKER_CLOSEUP,
+                WritableCameraMode.CLOSEUP,
                 (
+                    "closeup",
+                    "close up",
                     "speaker closeup",
                     "speaker_closeup",
                     "speaker-closeup",
                     "speakercloseup",
-                    "closeup",
-                    "close up",
                 ),
             ),
+            (
+                WritableCameraMode.CURRENT,
+                ("current",),
+            ),
+            (
+                WritableCameraMode.DYNAMIC,
+                ("dynamic",),
+            ),
             (WritableCameraMode.FRAMES, ("frames", "frame")),
+            (
+                WritableCameraMode.MANUAL,
+                ("manual",),
+            ),
         )
         for mode, phrases in mode_phrases:
             for phrase in phrases:

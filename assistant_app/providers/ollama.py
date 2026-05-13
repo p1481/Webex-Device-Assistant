@@ -61,15 +61,22 @@ from shared.contracts import (
 
 class OllamaProvider:
     CAMERA_MODE_LAYOUT_ALIASES = {
+        "auto": WritableCameraMode.AUTO,
         "frames": WritableCameraMode.FRAMES,
         "frame": WritableCameraMode.FRAMES,
         "best overview": WritableCameraMode.BEST_OVERVIEW,
         "best-overview": WritableCameraMode.BEST_OVERVIEW,
         "best_overview": WritableCameraMode.BEST_OVERVIEW,
-        "speaker closeup": WritableCameraMode.SPEAKER_CLOSEUP,
-        "speaker close-up": WritableCameraMode.SPEAKER_CLOSEUP,
-        "speaker-closeup": WritableCameraMode.SPEAKER_CLOSEUP,
-        "speaker_closeup": WritableCameraMode.SPEAKER_CLOSEUP,
+        "bestoverview": WritableCameraMode.BEST_OVERVIEW,
+        "speaker closeup": WritableCameraMode.CLOSEUP,
+        "speaker close-up": WritableCameraMode.CLOSEUP,
+        "speaker-closeup": WritableCameraMode.CLOSEUP,
+        "speaker_closeup": WritableCameraMode.CLOSEUP,
+        "speakercloseup": WritableCameraMode.CLOSEUP,
+        "closeup": WritableCameraMode.CLOSEUP,
+        "current": WritableCameraMode.CURRENT,
+        "dynamic": WritableCameraMode.DYNAMIC,
+        "manual": WritableCameraMode.MANUAL,
     }
 
     def __init__(self, default_target_device: str) -> None:
@@ -213,7 +220,7 @@ class OllamaProvider:
             '"set_volume": {"target_device": string, "level": number}|null, '
             '"set_video_mute": {"target_device": string, "muted": boolean}|null, '
             '"set_selfview": {"target_device": string, "enabled": boolean}|null, '
-            '"set_camera_mode": {"target_device": string, "mode": "best_overview"|"speaker_closeup"|"frames"}|null, '
+            '"set_camera_mode": {"target_device": string, "mode": "Auto"|"BestOverview"|"Closeup"|"Current"|"Dynamic"|"Frames"|"Manual"}|null, '
             '"set_layout": {"target_device": string, "layout_name": string}|null, '
             '"set_presentation": {"target_device": string, "enabled": boolean}|null, '
             '"switch_input_source": {"target_device": string, "source_id": string}|null, '
@@ -731,9 +738,8 @@ class OllamaProvider:
             raw_mode = raw_set_camera_mode.get("mode")
             if not isinstance(raw_mode, str):
                 return None
-            try:
-                mode = WritableCameraMode(raw_mode)
-            except ValueError:
+            mode = self._normalize_camera_mode(raw_mode)
+            if mode is None:
                 return None
             return ActionProposal(
                 intent=intent,
@@ -1264,6 +1270,26 @@ class OllamaProvider:
         ):
             return normalized_raw_target_device
         return ""
+
+    def _normalize_camera_mode(self, raw_mode: str) -> WritableCameraMode | None:
+        normalized = " ".join(raw_mode.strip().casefold().replace("_", " ").split())
+        direct_map = {
+            "auto": WritableCameraMode.AUTO,
+            "bestoverview": WritableCameraMode.BEST_OVERVIEW,
+            "best overview": WritableCameraMode.BEST_OVERVIEW,
+            "closeup": WritableCameraMode.CLOSEUP,
+            "speaker closeup": WritableCameraMode.CLOSEUP,
+            "current": WritableCameraMode.CURRENT,
+            "dynamic": WritableCameraMode.DYNAMIC,
+            "frames": WritableCameraMode.FRAMES,
+            "frame": WritableCameraMode.FRAMES,
+            "manual": WritableCameraMode.MANUAL,
+        }
+        mode = direct_map.get(normalized)
+        if mode is not None:
+            return mode
+        compact = normalized.replace(" ", "")
+        return direct_map.get(compact)
 
     def _normalize_meeting_identifier(
         self, raw_meeting_identifier: object
