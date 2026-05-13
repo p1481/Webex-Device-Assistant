@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Webex Device Assistant Architecture Guide</title>
+    <link rel="stylesheet" href="/admin-page/static/admin.css" />
+  </head>
+  <body>
+    <div class="page-shell page-shell--docs">
+      <aside class="hero-panel">
+        <div class="hero-panel__glow"></div>
+        <div class="hero-panel__content">
+          <div>
+            <p class="eyebrow">Architecture</p>
+            <h1>Device Assistant Guide</h1>
+            <p class="hero-copy">
+              서비스, API, 구성, LLM 연동, Webex cloud xAPI 실행 경로, 기능별 사용법을 한 페이지에서 확인하는 운영 문서입니다.
+            </p>
+          </div>
+          <div class="identity-card">
+            <span class="identity-card__label">Source of truth</span>
+            <strong>ARCHITECTURE_CURRENT.md</strong>
+            <span class="identity-card__status">FastAPI · Webex xAPI · Ollama · Admin Page</span>
+          </div>
+          <dl class="hero-stats">
+            <div><dt>Service</dt><dd>FastAPI</dd></div>
+            <div><dt>Modes</dt><dd>2</dd></div>
+            <div><dt>Providers</dt><dd>Rule/Ollama</dd></div>
+          </dl>
+        </div>
+      </aside>
+
+      <main class="dashboard">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Current System</p>
+            <h2>Architecture, APIs, configuration, LLM, and feature usage</h2>
+          </div>
+          <div class="topbar__actions">
+            <a class="button button--ghost" href="/admin-page">Admin page</a>
+            <a class="button button--ghost" href="/admin-page/docs">Docs index</a>
+            <a class="button" href="/admin-page/manuals/ARCHITECTURE_CURRENT.md">Markdown</a>
+          </div>
+        </header>
+
+        <section class="panel">
+          <div class="panel__header">
+            <div>
+              <p class="eyebrow">Flow</p>
+              <h3>High-level architecture</h3>
+            </div>
+            <p class="panel__summary">Natural language is converted into canonical actions, policy/approval is applied, then Webex cloud xAPI executes the device request.</p>
+          </div>
+          <pre class="code-block"><code>User/Webex/Debug API
+  → FastAPI assistant_app.main
+  → ProviderRegistry: rule-based or Ollama
+  → Orchestrator: intent + slots + cards
+  → PolicyStore / ApprovalStore
+  → ModeRouter
+      separated: DeviceExecutor → DeviceClient → Webex cloud xAPI
+      all-LLM: AllLlmToolRuntime → execute_device_action → DirectToolAdapter → DeviceClient</code></pre>
+        </section>
+
+        <section class="docs-grid" aria-label="Architecture cards">
+          <article class="panel doc-card">
+            <div class="section-heading">
+              <p class="eyebrow">Service</p>
+              <h3>FastAPI runtime</h3>
+              <p><code>assistant_app.main:app</code> registers health, debug, Webex webhook, admin JSON, and admin-page routes.</p>
+            </div>
+            <ul class="docs-list">
+              <li>Health: <code>GET /healthz</code></li>
+              <li>Local test: <code>POST /debug/messages</code></li>
+              <li>Admin UI: <code>GET /admin-page</code></li>
+              <li>Webex ingress: <code>/webhooks/webex/messages</code>, <code>/webhooks/webex/attachment-actions</code></li>
+            </ul>
+          </article>
+
+          <article class="panel doc-card">
+            <div class="section-heading">
+              <p class="eyebrow">LLM</p>
+              <h3>Provider integration</h3>
+              <p>Runtime analysis currently supports deterministic rule parsing and local Ollama parsing.</p>
+            </div>
+            <ul class="docs-list">
+              <li><code>DEFAULT_PROVIDER=rule-based</code>: predictable parser.</li>
+              <li><code>DEFAULT_PROVIDER=ollama</code>: local LLM structured proposal flow.</li>
+              <li><code>DEFAULT_PROVIDER_MODEL</code> and <code>DEFAULT_PROVIDER_BASE_URL</code> configure model/runtime.</li>
+              <li>all-LLM mode still validates the canonical request before executing the tool.</li>
+            </ul>
+          </article>
+
+          <article class="panel doc-card">
+            <div class="section-heading">
+              <p class="eyebrow">Execution</p>
+              <h3>Separated vs all-LLM</h3>
+              <p>Both modes preserve policy and approval. Separated mode executes directly through the deterministic executor; all-LLM mode requires one validated tool call.</p>
+            </div>
+            <ul class="docs-list">
+              <li><code>DEFAULT_EXECUTION_MODE=separated</code> is the safest default.</li>
+              <li><code>DEFAULT_EXECUTION_MODE=all-llm</code> uses <code>execute_device_action</code>.</li>
+              <li>Reboot and factory reset are separated-mode only.</li>
+            </ul>
+          </article>
+
+          <article class="panel doc-card">
+            <div class="section-heading">
+              <p class="eyebrow">Configuration</p>
+              <h3>Environment variables</h3>
+              <p>Mock mode defaults allow local startup before real Webex credentials are available.</p>
+            </div>
+            <ul class="docs-list">
+              <li><code>WEBEX_MOCK_MODE</code>, <code>DEVICE_MOCK_MODE</code>: default <code>true</code>.</li>
+              <li><code>WEBEX_BOT_TOKEN</code>, <code>WEBEX_BOT_PERSON_ID</code>, <code>WEBEX_WEBHOOK_SECRET</code>: required for real Webex ingress.</li>
+              <li><code>WEBEX_TOKEN_MANAGER_BASE_URL</code>, <code>WEBEX_TOKEN_MANAGER_API_KEY</code>: required for real device execution.</li>
+              <li><code>DEFAULT_TARGET_DEVICE</code>: fallback device name.</li>
+            </ul>
+          </article>
+        </section>
+
+        <section class="panel">
+          <div class="panel__header">
+            <div>
+              <p class="eyebrow">APIs</p>
+              <h3>Main API surface</h3>
+            </div>
+            <p class="panel__summary">Use debug APIs for local verification, webhook APIs for Webex, and admin APIs for operations.</p>
+          </div>
+          <div class="docs-grid">
+            <div class="callout"><strong>Debug</strong><p><code>GET /debug/webex/runtime</code>, <code>POST /debug/messages</code>, <code>POST /debug/approvals/{request_id}</code></p></div>
+            <div class="callout"><strong>Webex</strong><p><code>POST /webhooks/webex/messages</code>, <code>POST /webhooks/webex/attachment-actions</code></p></div>
+            <div class="callout"><strong>Admin</strong><p><code>/admin/settings</code>, <code>/admin/policies</code>, <code>/admin/approvals</code>, <code>/admin/audit</code>, <code>/admin/devices</code>, <code>/admin/stats</code></p></div>
+            <div class="callout"><strong>Docs</strong><p><code>/admin-page/docs</code>, <code>/admin-page/docs-ko</code>, <code>/admin-page/architecture-guide</code>, <code>/admin-page/manuals/ARCHITECTURE_CURRENT.md</code></p></div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel__header">
+            <div>
+              <p class="eyebrow">Features</p>
+              <h3>Function usage examples</h3>
+            </div>
+            <p class="panel__summary">Most mutating actions create approval requests by default.</p>
+          </div>
+          <div class="docs-grid">
+            <article class="doc-card"><h4>Read-only</h4><ul class="docs-list"><li><code>Room Bar 상태 알려줘</code></li><li><code>Room Bar 온도랑 습도 알려줘</code></li><li><code>Room Bar 다음 회의 알려줘</code></li><li><code>장비 목록 보여줘</code></li></ul></article>
+            <article class="doc-card"><h4>Meeting/call</h4><ul class="docs-list"><li><code>Room Bar 다음 회의 참가해줘</code></li><li><code>Room Bar 통화 종료</code></li><li><code>Room Bar에서 user@example.com으로 전화</code></li><li><code>Room Bar DTMF 1234 보내줘</code></li></ul></article>
+            <article class="doc-card"><h4>Audio/video</h4><ul class="docs-list"><li><code>Room Bar 마이크 음소거</code></li><li><code>Room Bar 볼륨 50</code></li><li><code>Room Bar 셀프뷰 켜줘</code></li><li><code>Room Bar 비디오 끄기</code></li></ul></article>
+            <article class="doc-card"><h4>Camera/display</h4><ul class="docs-list"><li><code>Room Bar 카메라 모드 Frames로 변경</code></li><li>Camera command: <code>Cameras.SpeakerTrack.Set</code></li><li>Behavior: <code>Manual</code>, <code>Dynamic</code>, <code>BestOverview</code>, <code>Closeup</code>, <code>Frames</code>, <code>GroupAndSpeaker</code></li><li>Display mode patches <code>Video.Output.Connector[n].MonitorRole</code></li></ul></article>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel__header">
+            <div>
+              <p class="eyebrow">Runbook</p>
+              <h3>Local commands</h3>
+            </div>
+          </div>
+          <pre class="code-block"><code>cd "/home/p1481/youngcle_code/06. Device Assistant"
+.venv/bin/python -m uvicorn assistant_app.main:app --reload
+.venv/bin/python -m pytest -q
+.venv/bin/python -m ruff check .
+.venv/bin/python -m pyright
+curl -sS http://127.0.0.1:8000/healthz</code></pre>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

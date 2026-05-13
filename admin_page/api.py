@@ -12,6 +12,7 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 INDEX_FILE = STATIC_DIR / "index.html"
 DOCS_FILE = STATIC_DIR / "docs.html"
 DOCS_KO_FILE = STATIC_DIR / "docs-ko.html"
+ARCHITECTURE_GUIDE_FILE = STATIC_DIR / "architecture-guide.html"
 WEBEX_TEST_FILE = STATIC_DIR / "webex-test.html"
 ALLOWED_ASSETS = {
     "admin.css": STATIC_DIR / "admin.css",
@@ -23,6 +24,7 @@ MANUAL_FILES = {
     "INSTALL.md": REPO_ROOT / "INSTALL.md",
     "USER_MANUAL.md": REPO_ROOT / "USER_MANUAL.md",
     "MANUAL_KO.md": REPO_ROOT / "MANUAL_KO.md",
+    "ARCHITECTURE_CURRENT.md": REPO_ROOT / "ARCHITECTURE_CURRENT.md",
 }
 
 
@@ -42,6 +44,12 @@ async def admin_page_docs() -> HTMLResponse:
 @router.get("/docs-ko/", response_class=HTMLResponse)
 async def admin_page_docs_ko() -> HTMLResponse:
     return HTMLResponse(DOCS_KO_FILE.read_text(encoding="utf-8"))
+
+
+@router.get("/architecture-guide", response_class=HTMLResponse)
+@router.get("/architecture-guide/", response_class=HTMLResponse)
+async def admin_page_architecture_guide() -> HTMLResponse:
+    return HTMLResponse(ARCHITECTURE_GUIDE_FILE.read_text(encoding="utf-8"))
 
 
 @router.get("/webex-test", response_class=HTMLResponse)
