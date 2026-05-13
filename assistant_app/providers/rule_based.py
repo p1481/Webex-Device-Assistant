@@ -872,6 +872,10 @@ class RuleBasedProvider:
         if korean_phrase_target is not None:
             return korean_phrase_target
 
+        lowered = " ".join(text.casefold().split())
+        if "룸바" in lowered or "룸 바" in lowered:
+            return "Room Bar"
+
         trailing_target = self._extract_trailing_target_device(text)
         if trailing_target is not None:
             return trailing_target

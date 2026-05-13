@@ -4911,6 +4911,62 @@ def test_device_client_command_backed_microphone_modes_include_exact_config_guid
     ]
 
 
+def test_device_client_accepts_object_response_from_device_configuration_patch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    resolve_client = QueuedAsyncClient()
+    resolve_client.responses.append(
+        make_response(
+            "GET",
+            "/devices",
+            200,
+            {"items": [{"id": "device-1", "displayName": "Board Pro"}]},
+        )
+    )
+    resolve_client.responses.append(
+        make_response(
+            "GET",
+            "/deviceConfigurations",
+            200,
+            {
+                "items": [
+                    {
+                        "key": "Video.Monitors",
+                        "valueSpace": {"enum": ["Auto", "Dual", "Single"]},
+                    }
+                ]
+            },
+        )
+    )
+    config_client = QueuedAsyncClient()
+    config_client.responses.append(
+        httpx.Response(
+            200,
+            json={"items": []},
+            request=httpx.Request(
+                "PATCH", "https://webexapis.com/v1/deviceConfigurations"
+            ),
+        )
+    )
+    _ = build_client_queue(resolve_client, config_client)
+    monkeypatch.setattr(
+        "device_executor.device_client.httpx.AsyncClient", async_client_factory
+    )
+    device_client = DeviceClient(
+        AppConfig(
+            webex_mock_mode=False,
+            webex_bot_person_id="bot-person-id",
+            webex_webhook_secret="secret",
+            device_mock_mode=False,
+        ),
+        StaticTokenProvider(),
+    )
+
+    result = asyncio.run(device_client.set_display_mode("Board Pro", "dual"))
+
+    assert "Set display mode to dual on Board Pro." in result
+
+
 @pytest.mark.parametrize(
     ("method_name", "kwargs", "expected_path", "expected_json"),
     [
@@ -5718,6 +5774,45 @@ def test_device_client_set_layout_includes_current_layout_and_documented_candida
             },
         )
     ]
+
+
+def test_device_client_switch_input_source_400_returns_actionable_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    resolve_client = QueuedAsyncClient()
+    resolve_client.responses.append(
+        make_response(
+            "GET",
+            "/devices",
+            200,
+            {"items": [{"id": "device-1", "displayName": "Room Bar"}]},
+        )
+    )
+    command_client = QueuedAsyncClient()
+    command_client.responses.append(
+        make_response(
+            "POST",
+            "/xapi/command/Video.Input.SetMainVideoSource",
+            400,
+            {"message": "Bad Request"},
+        )
+    )
+    _ = build_client_queue(resolve_client, command_client)
+    monkeypatch.setattr(
+        "device_executor.device_client.httpx.AsyncClient", async_client_factory
+    )
+    device_client = DeviceClient(
+        AppConfig(
+            webex_mock_mode=False,
+            webex_bot_person_id="bot-person-id",
+            webex_webhook_secret="secret",
+            device_mock_mode=False,
+        ),
+        StaticTokenProvider(),
+    )
+
+    with pytest.raises(RuntimeError, match="source is connected and supported"):
+        asyncio.run(device_client.switch_input_source("Room Bar", "pc"))
 
 
 def test_device_client_switch_input_source_resolves_remote_alias_to_connector_id(

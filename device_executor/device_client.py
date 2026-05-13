@@ -76,6 +76,10 @@ class DeviceResolutionError(RuntimeError):
 class DeviceClient:
     DEVICE_ALIASES: ClassVar[dict[str, str]] = {
         "홈오피스": "Home Office",
+        "룸바": "Room Bar",
+        "룸바 기기": "Room Bar",
+        "룸 바": "Room Bar",
+        "room bar": "Room Bar",
     }
     MAIN_DEVICE_TYPES: ClassVar[frozenset[str]] = frozenset({"roomdesk"})
     INPUT_SOURCE_ALIASES: ClassVar[dict[str, str]] = {
@@ -847,11 +851,21 @@ class DeviceClient:
 
         device = await self._with_resolved_device(target_device)
         connector_id = self._resolve_input_source_id(source_id)
-        _ = await self._execute_command(
-            device.id,
-            "Video.Input.SetMainVideoSource",
-            {"ConnectorId": connector_id},
-        )
+        try:
+            _ = await self._execute_command(
+                device.id,
+                "Video.Input.SetMainVideoSource",
+                {"ConnectorId": connector_id},
+            )
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 400:
+                raise RuntimeError(
+                    f"Cannot switch input source to {source_id} on "
+                    f"{device.display_name or target_device}. Webex rejected "
+                    f"connector {connector_id}; check that the source is connected "
+                    "and supported by this device."
+                ) from exc
+            raise
         return (
             f"Switched input source to {source_id} on "
             f"{device.display_name or target_device}."
@@ -1497,9 +1511,14 @@ class DeviceClient:
             return []
 
         payload = cast(object, response.json())
-        if not isinstance(payload, list):
-            raise RuntimeError("Unexpected Webex device configuration response shape.")
-        return cast(list[object], payload)
+        if isinstance(payload, list):
+            return cast(list[object], payload)
+        if isinstance(payload, dict):
+            items = cast(dict[str, object], payload).get("items")
+            if isinstance(items, list):
+                return cast(list[object], items)
+            return [payload]
+        raise RuntimeError("Unexpected Webex device configuration response shape.")
 
     async def _fetch_device_configuration_enum_values(
         self,

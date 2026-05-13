@@ -1242,14 +1242,14 @@ class OllamaProvider:
             raw_target_device.strip() if isinstance(raw_target_device, str) else None
         )
 
+        if isinstance(mentioned_target_device, str) and mentioned_target_device.strip():
+            return mentioned_target_device.strip()
         if (
             normalized_raw_target_device is not None
             and normalized_raw_target_device
             and normalized_raw_target_device != self.default_target_device
         ):
             return normalized_raw_target_device
-        if isinstance(mentioned_target_device, str) and mentioned_target_device.strip():
-            return mentioned_target_device.strip()
         if (
             normalized_raw_target_device is not None
             and normalized_raw_target_device

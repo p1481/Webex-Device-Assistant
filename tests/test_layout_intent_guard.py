@@ -40,6 +40,65 @@ def test_ollama_provider_treats_frames_as_camera_mode_not_video_layout() -> None
     assert proposal.set_layout is None
 
 
+def test_ollama_provider_recovers_korean_room_bar_target_when_model_omits_payload_target() -> None:
+    provider = OllamaProvider(default_target_device="")
+    message = InboundUserMessage(
+        session_id="ko-target",
+        user_id="user-1",
+        text="룸바 기기 상태 확인",
+    )
+    content = json.dumps(
+        {
+            "action_proposal": {
+                "intent": "get_status",
+                "summary": "Get device status.",
+                "confidence": 0.8,
+            }
+        }
+    )
+
+    decision = provider._parse_decision(content, message)
+
+    assert decision is not None
+    proposal = decision.action_proposal
+    assert proposal is not None
+    assert proposal.intent == Intent.GET_STATUS
+    assert proposal.get_status is not None
+    assert proposal.get_status.target_device == "Room Bar"
+
+
+def test_ollama_provider_prefers_korean_room_bar_mention_over_model_roomba_misread() -> None:
+    provider = OllamaProvider(default_target_device="")
+    message = InboundUserMessage(
+        session_id="ko-roomba",
+        user_id="user-1",
+        text="룸바 기기 상태 확인",
+    )
+    content = json.dumps(
+        {
+            "action_proposal": {
+                "intent": "get_status",
+                "summary": "Get device status.",
+                "confidence": 0.8,
+                "get_status": {"target_device": "roomba"},
+            }
+        }
+    )
+
+    decision = provider._parse_decision(content, message)
+
+    assert decision is not None
+    proposal = decision.action_proposal
+    assert proposal is not None
+    assert proposal.get_status is not None
+    assert proposal.get_status.target_device == "Room Bar"
+
+
+def test_device_client_resolves_common_korean_device_aliases() -> None:
+    assert DeviceClient.DEVICE_ALIASES["룸바"] == "Room Bar"
+    assert DeviceClient.DEVICE_ALIASES["룸바 기기"] == "Room Bar"
+
+
 def test_device_client_rejects_frames_as_video_layout_candidate() -> None:
     try:
         DeviceClient._normalize_layout_name("Frames")
