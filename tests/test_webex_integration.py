@@ -4962,9 +4962,9 @@ def test_device_client_accepts_object_response_from_device_configuration_patch(
         StaticTokenProvider(),
     )
 
-    result = asyncio.run(device_client.set_display_mode("Board Pro", "dual"))
+    result = asyncio.run(device_client.set_display_mode("Board Pro", "left-video-right-video"))
 
-    assert "Set display mode to dual on Board Pro." in result
+    assert "Set display mode to left-video-right-video on Board Pro" in result
 
 
 @pytest.mark.parametrize(
@@ -4972,14 +4972,19 @@ def test_device_client_accepts_object_response_from_device_configuration_patch(
     [
         (
             "set_display_mode",
-            {"mode": "dual"},
+            {"mode": "left-video-right-video"},
             "/deviceConfigurations",
             [
                 {
                     "op": "replace",
-                    "path": "Video.Monitors/sources/configured/value",
-                    "value": "Dual",
-                }
+                    "path": "Video.Output.Connector[1].MonitorRole/sources/configured/value",
+                    "value": "First",
+                },
+                {
+                    "op": "replace",
+                    "path": "Video.Output.Connector[2].MonitorRole/sources/configured/value",
+                    "value": "Second",
+                },
             ],
         ),
         (
@@ -5076,7 +5081,7 @@ def test_device_client_patches_supported_device_configurations(
             },
         )
     ]
-    if method_name == "set_display_mode":
+    if False and method_name == "set_display_mode":
         expected_resolve_requests.append(
             (
                 "GET",
@@ -5359,11 +5364,11 @@ def test_device_client_config_backed_display_mode_uses_exact_webex_values_before
         StaticTokenProvider(),
     )
 
-    result = asyncio.run(device_client.set_display_mode("Codec Pro G2", "dual"))
+    result = asyncio.run(device_client.set_display_mode("Codec Pro G2", "left-video-right-video"))
 
     assert result == (
-        "Set display mode to dual on Codec Pro G2. Exact configurable display mode "
-        "values reported by Webex: Auto, Dual, Single."
+        "Set display mode to left-video-right-video on Codec Pro G2 "
+        "(connector 1: First, connector 2: Second)."
     )
     assert api_client.requests == [
         (
@@ -5373,18 +5378,7 @@ def test_device_client_config_backed_display_mode_uses_exact_webex_values_before
                 "headers": {"Authorization": "Bearer bot-token"},
                 "params": {"displayName": "Codec Pro G2"},
             },
-        ),
-        (
-            "GET",
-            "/deviceConfigurations",
-            {
-                "headers": {"Authorization": "Bearer bot-token"},
-                "params": {
-                    "deviceId": "device-1",
-                    "key": "Video.Monitors",
-                },
-            },
-        ),
+        )
     ]
     assert config_client.requests == [
         (
@@ -5399,9 +5393,14 @@ def test_device_client_config_backed_display_mode_uses_exact_webex_values_before
                 "json": [
                     {
                         "op": "replace",
-                        "path": "Video.Monitors/sources/configured/value",
-                        "value": "Dual",
-                    }
+                        "path": "Video.Output.Connector[1].MonitorRole/sources/configured/value",
+                        "value": "First",
+                    },
+                    {
+                        "op": "replace",
+                        "path": "Video.Output.Connector[2].MonitorRole/sources/configured/value",
+                        "value": "Second",
+                    },
                 ],
             },
         )
@@ -5471,11 +5470,11 @@ def test_device_client_config_backed_display_mode_accepts_empty_success_body(
         StaticTokenProvider(),
     )
 
-    result = asyncio.run(device_client.set_display_mode("Codec Pro G2", "dual"))
+    result = asyncio.run(device_client.set_display_mode("Codec Pro G2", "left-video-right-video"))
 
     assert result == (
-        "Set display mode to dual on Codec Pro G2. Exact configurable display mode "
-        "values reported by Webex: Auto, Dual, Single."
+        "Set display mode to left-video-right-video on Codec Pro G2 "
+        "(connector 1: First, connector 2: Second)."
     )
 
 
@@ -5530,9 +5529,12 @@ def test_device_client_display_mode_preflight_accepts_empty_configuration_body(
         StaticTokenProvider(),
     )
 
-    result = asyncio.run(device_client.set_display_mode("Codec Pro G2", "dual"))
+    result = asyncio.run(device_client.set_display_mode("Codec Pro G2", "left-video-right-video"))
 
-    assert result == "Set display mode to dual on Codec Pro G2."
+    assert result == (
+        "Set display mode to left-video-right-video on Codec Pro G2 "
+        "(connector 1: First, connector 2: Second)."
+    )
 
 
 def test_device_client_display_mode_empty_devices_body_fails_cleanly(
@@ -5573,7 +5575,7 @@ def test_device_client_display_mode_empty_devices_body_fails_cleanly(
         RuntimeError,
         match=r"No Webex device found for target 'Codec Pro G2'\.",
     ):
-        _ = asyncio.run(device_client.set_display_mode("Codec Pro G2", "dual"))
+        _ = asyncio.run(device_client.set_display_mode("Codec Pro G2", "left-video-right-video"))
 
 
 def test_device_client_config_backed_display_mode_fails_before_mutation_when_value_not_supported(
@@ -5631,34 +5633,13 @@ def test_device_client_config_backed_display_mode_fails_before_mutation_when_val
 
     with pytest.raises(
         RuntimeError,
-        match=(
-            "Cannot set display mode to dual on Codec Pro G2 because Webex reports "
-            r"configurable display mode values: Auto, Single\."
-        ),
+        match="Unsupported display mode: unsupported-display-mode",
     ):
-        _ = asyncio.run(device_client.set_display_mode("Codec Pro G2", "dual"))
+        _ = asyncio.run(
+            device_client.set_display_mode("Codec Pro G2", "unsupported-display-mode")
+        )
 
-    assert api_client.requests == [
-        (
-            "GET",
-            "/devices",
-            {
-                "headers": {"Authorization": "Bearer bot-token"},
-                "params": {"displayName": "Codec Pro G2"},
-            },
-        ),
-        (
-            "GET",
-            "/deviceConfigurations",
-            {
-                "headers": {"Authorization": "Bearer bot-token"},
-                "params": {
-                    "deviceId": "device-1",
-                    "key": "Video.Monitors",
-                },
-            },
-        ),
-    ]
+    assert api_client.requests == []
 
 
 def test_device_client_set_layout_includes_current_layout_and_documented_candidates(
@@ -5979,3 +5960,77 @@ def test_token_manager_provider_raises_clean_error_without_fallback(
         ),
     ):
         _ = asyncio.run(provider.get_bearer_token())
+
+
+def test_device_client_set_display_mode_configures_two_monitor_roles(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    resolve_client = QueuedAsyncClient()
+    resolve_client.responses.append(
+        make_response(
+            "GET",
+            "/devices",
+            200,
+            {
+                "items": [
+                    {
+                        "id": "device-1",
+                        "displayName": "Board Pro",
+                        "workspaceId": "workspace-1",
+                        "product": "Cisco Board Pro",
+                        "type": "roomdesk",
+                        "permissions": ["xapi"],
+                        "connectionStatus": "connected",
+                    }
+                ]
+            },
+        )
+    )
+    config_client = QueuedAsyncClient()
+    config_client.responses.append(make_response("PATCH", "/deviceConfigurations", 200, []))
+    _ = build_client_queue(resolve_client, config_client)
+    monkeypatch.setattr(
+        "device_executor.device_client.httpx.AsyncClient", async_client_factory
+    )
+
+    device_client = DeviceClient(
+        AppConfig(
+            webex_mock_mode=False,
+            webex_bot_person_id="bot-person-id",
+            webex_webhook_secret="secret",
+            device_mock_mode=False,
+        ),
+        StaticTokenProvider(),
+    )
+
+    result = asyncio.run(device_client.set_display_mode("Board Pro", "left-video-right-presentation"))
+
+    assert result == (
+        "Set display mode to left-video-right-presentation on Board Pro "
+        "(connector 1: First, connector 2: PresentationOnly)."
+    )
+    assert config_client.requests == [
+        (
+            "PATCH",
+            "/deviceConfigurations",
+            {
+                "headers": {
+                    "Authorization": "Bearer bot-token",
+                    "Content-Type": "application/json-patch+json",
+                },
+                "params": {"deviceId": "device-1"},
+                "json": [
+                    {
+                        "op": "replace",
+                        "path": "Video.Output.Connector[1].MonitorRole/sources/configured/value",
+                        "value": "First",
+                    },
+                    {
+                        "op": "replace",
+                        "path": "Video.Output.Connector[2].MonitorRole/sources/configured/value",
+                        "value": "PresentationOnly",
+                    },
+                ],
+            },
+        )
+    ]

@@ -167,13 +167,14 @@ class DeviceClient:
         "normal": "Wide",
         "voice-optimized": "Focused",
     }
-    DISPLAY_MODE_CONFIG_VALUES: ClassVar[dict[str, str]] = {
-        "auto": "Auto",
-        "single": "Single",
-        "dual": "Dual",
-        "dual-presentation-only": "DualPresentationOnly",
-        "triple": "Triple",
-        "triple-presentation-only": "TriplePresentationOnly",
+    DISPLAY_MODE_ROLE_VALUES: ClassVar[dict[str, tuple[str, str]]] = {
+        "left-video-right-video": ("First", "Second"),
+        "left-video-right-presentation": ("First", "PresentationOnly"),
+        "left-presentation-right-video": ("PresentationOnly", "First"),
+        "both-presentation": ("PresentationOnly", "PresentationOnly"),
+        # Backward-compatible aliases from the earlier Video.Monitors implementation.
+        "dual": ("First", "Second"),
+        "dual-presentation-only": ("First", "PresentationOnly"),
     }
     LAYOUT_STATUS_NAMES: ClassVar[tuple[str, ...]] = (
         "Video.Layout.CurrentLayout",
@@ -954,44 +955,35 @@ class DeviceClient:
         if self.config.device_mock_mode:
             return f"Mock display mode set to {mode} on {target_device}."
 
-        config_value = self.DISPLAY_MODE_CONFIG_VALUES.get(mode)
-        if config_value is None:
+        role_values = self.DISPLAY_MODE_ROLE_VALUES.get(mode)
+        if role_values is None:
             raise RuntimeError(f"Unsupported display mode: {mode}")
+        connector_one_role, connector_two_role = role_values
 
         async with httpx.AsyncClient(
             base_url=self.config.webex_api_base, timeout=10.0
         ) as client:
             device = await self._resolve_device(client, target_device)
-            supported_values = await self._fetch_device_configuration_enum_values(
-                client,
-                self._device_configuration_target_id(device),
-                self.CONFIG_KEYS["display_mode"],
-            )
-
-        if supported_values is not None and config_value not in supported_values:
-            supported_display_values = ", ".join(supported_values)
-            raise RuntimeError(
-                f"Cannot set display mode to {mode} on {device.display_name or target_device} "
-                f"because Webex reports configurable display mode values: {supported_display_values}."
-            )
 
         _ = await self._patch_device_config(
             self._device_configuration_target_id(device),
             [
                 {
                     "op": "replace",
-                    "path": self.CONFIG_PATHS["display_mode"],
-                    "value": config_value,
-                }
+                    "path": "Video.Output.Connector[1].MonitorRole/sources/configured/value",
+                    "value": connector_one_role,
+                },
+                {
+                    "op": "replace",
+                    "path": "Video.Output.Connector[2].MonitorRole/sources/configured/value",
+                    "value": connector_two_role,
+                },
             ],
         )
-        if supported_values is not None:
-            supported_display_values = ", ".join(supported_values)
-            return (
-                f"Set display mode to {mode} on {device.display_name or target_device}. "
-                f"Exact configurable display mode values reported by Webex: {supported_display_values}."
-            )
-        return f"Set display mode to {mode} on {device.display_name or target_device}."
+        return (
+            f"Set display mode to {mode} on {device.display_name or target_device} "
+            f"(connector 1: {connector_one_role}, connector 2: {connector_two_role})."
+        )
 
     async def set_display_role(
         self, target_device: str, connector_id: int, role: str

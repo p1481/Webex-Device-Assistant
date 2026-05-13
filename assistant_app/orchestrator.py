@@ -26,6 +26,8 @@ from shared.contracts import (
     SetVolumeParams,
     DialParams,
     WebexJoinParams,
+    DisplayMode,
+    SetDisplayModeParams,
 )
 
 
@@ -60,6 +62,24 @@ class Orchestrator:
 
         if pending_action is not None:
             return await self._handle_pending_follow_up(message, pending_action)
+
+        display_mode_pending_action = self._build_display_mode_card_pending_action(message)
+        if display_mode_pending_action is not None:
+            _ = self.memory_store.set_pending_action(
+                message.session_id,
+                message.user_id,
+                display_mode_pending_action,
+            )
+            reply = self._build_display_mode_selection_reply(
+                message,
+                display_mode_pending_action,
+            )
+            _ = self.memory_store.append_assistant_turn(
+                message.session_id,
+                reply.text,
+                display_mode_pending_action.intent,
+            )
+            return reply
 
         decision = await self.provider.analyze_message(message, session)
 
@@ -253,7 +273,7 @@ class Orchestrator:
                 False,
             )
 
-        if field_name != "target_device":
+        if field_name not in {"target_device", "display_mode"}:
             reply = OutboundReply(
                 text="That selection request is no longer valid.",
                 room_id=room_id,
@@ -290,12 +310,27 @@ class Orchestrator:
             return reply, False
 
         updated_pending_action = pending_action.model_copy(deep=True)
-        updated_pending_action.target_device = selected_value.strip()
-        if updated_pending_action.action_proposal is not None:
-            updated_pending_action.action_proposal = self._with_target_device(
-                updated_pending_action.action_proposal,
-                updated_pending_action.target_device,
-            )
+        if field_name == "display_mode":
+            try:
+                updated_pending_action.display_mode = DisplayMode(selected_value.strip())
+            except ValueError:
+                reply = OutboundReply(
+                    text="That display mode selection is no longer valid.",
+                    room_id=room_id,
+                )
+                _ = self.memory_store.append_assistant_turn(
+                    session_id,
+                    reply.text,
+                    pending_action.intent,
+                )
+                return reply, False
+        else:
+            updated_pending_action.target_device = selected_value.strip()
+            if updated_pending_action.action_proposal is not None:
+                updated_pending_action.action_proposal = self._with_target_device(
+                    updated_pending_action.action_proposal,
+                    updated_pending_action.target_device,
+                )
 
         synthetic_message = InboundUserMessage(
             session_id=session_id,
@@ -453,6 +488,134 @@ class Orchestrator:
             attachments=[card],
         )
 
+    def _display_mode_choices(self) -> list[tuple[str, str, str]]:
+        return [
+            (
+                "왼쪽영상, 오른쪽영상",
+                DisplayMode.LEFT_VIDEO_RIGHT_VIDEO.value,
+                "Connector[1]: First, Connector[2]: Second",
+            ),
+            (
+                "왼쪽영상, 오른쪽프리젠테이션",
+                DisplayMode.LEFT_VIDEO_RIGHT_PRESENTATION.value,
+                "Connector[1]: First, Connector[2]: PresentationOnly",
+            ),
+            (
+                "왼쪽프리젠테이션, 오른쪽영상",
+                DisplayMode.LEFT_PRESENTATION_RIGHT_VIDEO.value,
+                "Connector[1]: PresentationOnly, Connector[2]: First",
+            ),
+            (
+                "양쪽모두 프리젠테이션",
+                DisplayMode.BOTH_PRESENTATION.value,
+                "Connector[1]: PresentationOnly, Connector[2]: PresentationOnly",
+            ),
+        ]
+
+    def _build_display_mode_card_pending_action(
+        self, message: InboundUserMessage
+    ) -> PendingActionProposal | None:
+        normalized = message.text.strip().lower()
+        compact = re.sub(r"\s+", "", normalized)
+        if not (
+            "디스플레이모드" in compact
+            or "displaymode" in compact
+            or "display mode" in normalized
+        ):
+            return None
+        if not any(keyword in compact for keyword in ("설정", "변경", "선택", "set")):
+            return None
+        target_device = self._extract_display_mode_target_device(message)
+        return PendingActionProposal(
+            intent=Intent.SET_DISPLAY_MODE,
+            summary="Select a two-monitor display role mode.",
+            target_device=target_device,
+        )
+
+    def _extract_display_mode_target_device(self, message: InboundUserMessage) -> str | None:
+        trailing_target = self._extract_trailing_target_device(message.text)
+        if trailing_target:
+            return trailing_target
+        lowered = message.text.lower()
+        markers = ["디스플레이모드", "디스플레이 모드", "display mode", "displaymode"]
+        marker_positions = [
+            lowered.find(marker) for marker in markers if lowered.find(marker) > 0
+        ]
+        if marker_positions:
+            candidate = message.text[: min(marker_positions)].strip(" ,:：-–—")
+            if candidate:
+                return candidate
+        return message.target_device
+
+    def _build_display_mode_selection_reply(
+        self,
+        message: InboundUserMessage,
+        pending_action: PendingActionProposal,
+    ) -> OutboundReply:
+        actions = [
+            {
+                "type": "Action.Submit",
+                "title": title,
+                "data": {
+                    "kind": "entity_selection",
+                    "pendingActionId": pending_action.pending_action_id,
+                    "fieldName": "display_mode",
+                    "selectedValue": value,
+                    "selectionDecision": "submit",
+                },
+            }
+            for title, value, _description in self._display_mode_choices()
+        ]
+        actions.append(
+            {
+                "type": "Action.Submit",
+                "title": "Cancel",
+                "data": {
+                    "kind": "entity_selection",
+                    "pendingActionId": pending_action.pending_action_id,
+                    "fieldName": "display_mode",
+                    "selectionDecision": "cancel",
+                },
+            }
+        )
+        target_text = (
+            f"대상 장치: {pending_action.target_device}"
+            if pending_action.target_device
+            else "대상 장치는 선택 후 물어볼게요."
+        )
+        card: dict[str, object] = {
+            "contentType": "application/vnd.microsoft.card.adaptive",
+            "content": {
+                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                "type": "AdaptiveCard",
+                "version": "1.0",
+                "body": [
+                    {
+                        "type": "TextBlock",
+                        "weight": "Bolder",
+                        "text": "디스플레이 모드 선택",
+                    },
+                    {"type": "TextBlock", "wrap": True, "text": target_text},
+                    *[
+                        {
+                            "type": "TextBlock",
+                            "wrap": True,
+                            "text": f"{title}: {description}",
+                        }
+                        for title, _value, description in self._display_mode_choices()
+                    ],
+                ],
+                "actions": actions,
+            },
+        }
+        text = "디스플레이 모드를 선택해주세요."
+        return OutboundReply(
+            text=text,
+            markdown="**디스플레이 모드 선택**\n\n" + target_text,
+            room_id=message.room_id,
+            attachments=[card],
+        )
+
     def _is_reset_message(self, text: str) -> bool:
         return text.strip().lower() in {
             "/reset",
@@ -485,6 +648,11 @@ class Orchestrator:
                 return "level"
             if pending_action.target_device is None:
                 return "target_device"
+        elif pending_action.intent == Intent.SET_DISPLAY_MODE:
+            if pending_action.display_mode is None:
+                return "display_mode"
+            if pending_action.target_device is None:
+                return "target_device"
         return None
 
     def _build_follow_up_question(self, pending_action: PendingActionProposal) -> str:
@@ -493,6 +661,7 @@ class Orchestrator:
             "meeting_identifier": "What Webex meeting ID or address should I join?",
             "address": "What address should I dial?",
             "level": "What volume level should I set (0-100)?",
+            "display_mode": "어떤 디스플레이 모드로 설정할까요?",
             "target_device": "Which device should I use?",
         }
         if next_missing_field is None:
@@ -666,6 +835,21 @@ class Orchestrator:
                 set_volume=SetVolumeParams(
                     target_device=pending_action.target_device,
                     level=pending_action.level,
+                ),
+            )
+
+        if (
+            pending_action.intent == Intent.SET_DISPLAY_MODE
+            and pending_action.display_mode is not None
+            and pending_action.target_device is not None
+        ):
+            return ActionProposal(
+                intent=Intent.SET_DISPLAY_MODE,
+                summary=pending_action.summary,
+                confidence=pending_action.confidence,
+                set_display_mode=SetDisplayModeParams(
+                    target_device=pending_action.target_device,
+                    mode=pending_action.display_mode,
                 ),
             )
 

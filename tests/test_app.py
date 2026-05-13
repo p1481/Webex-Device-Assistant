@@ -2526,7 +2526,8 @@ def test_rule_based_provider_prefers_dual_presentation_only_over_dual() -> None:
     assert decision.action_proposal.intent.value == "set_display_mode"
     assert decision.action_proposal.set_display_mode is not None
     assert (
-        decision.action_proposal.set_display_mode.mode.value == "dual-presentation-only"
+        decision.action_proposal.set_display_mode.mode.value
+        == "left-video-right-presentation"
     )
     assert decision.action_proposal.set_display_mode.target_device == "Codec Pro G2"
 

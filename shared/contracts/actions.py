@@ -156,12 +156,10 @@ class SwapMatrixParams(TargetDeviceParams):
 
 
 class DisplayMode(str, Enum):
-    AUTO = "auto"
-    SINGLE = "single"
-    DUAL = "dual"
-    DUAL_PRESENTATION_ONLY = "dual-presentation-only"
-    TRIPLE = "triple"
-    TRIPLE_PRESENTATION_ONLY = "triple-presentation-only"
+    LEFT_VIDEO_RIGHT_VIDEO = "left-video-right-video"
+    LEFT_VIDEO_RIGHT_PRESENTATION = "left-video-right-presentation"
+    LEFT_PRESENTATION_RIGHT_VIDEO = "left-presentation-right-video"
+    BOTH_PRESENTATION = "both-presentation"
 
 
 class SetDisplayModeParams(TargetDeviceParams):
@@ -353,6 +351,7 @@ class PendingActionProposal(BaseModel):
     meeting_identifier: str | None = None
     address: str | None = None
     level: int | None = Field(default=None, ge=0, le=100)
+    display_mode: DisplayMode | None = None
     action_proposal: ActionProposal | None = None
 
 

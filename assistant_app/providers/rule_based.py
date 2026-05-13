@@ -1203,34 +1203,52 @@ class RuleBasedProvider:
         return None
 
     def _extract_display_mode(self, lowered_text: str) -> DisplayMode | None:
+        compact_text = re.sub(r"\s+", "", lowered_text)
         mode_phrases: tuple[tuple[DisplayMode, tuple[str, ...]], ...] = (
             (
-                DisplayMode.DUAL_PRESENTATION_ONLY,
+                DisplayMode.LEFT_VIDEO_RIGHT_PRESENTATION,
                 (
+                    "left video right presentation",
+                    "left-video-right-presentation",
                     "dual presentation only",
                     "dual-presentation-only",
                     "dual presentation-only",
                     "dual-presentation only",
                     "dualpresentationonly",
+                    "왼쪽영상오른쪽프리젠테이션",
+                    "왼쪽영상오른쪽프레젠테이션",
                 ),
             ),
             (
-                DisplayMode.TRIPLE_PRESENTATION_ONLY,
+                DisplayMode.LEFT_PRESENTATION_RIGHT_VIDEO,
                 (
-                    "triple presentation only",
-                    "triple-presentation-only",
-                    "triple presentation-only",
-                    "triple-presentation only",
-                    "triplepresentationonly",
+                    "left presentation right video",
+                    "left-presentation-right-video",
+                    "왼쪽프리젠테이션오른쪽영상",
+                    "왼쪽프레젠테이션오른쪽영상",
                 ),
             ),
-            (DisplayMode.AUTO, ("auto",)),
-            (DisplayMode.SINGLE, ("single",)),
-            (DisplayMode.DUAL, ("dual",)),
-            (DisplayMode.TRIPLE, ("triple",)),
+            (
+                DisplayMode.BOTH_PRESENTATION,
+                (
+                    "both presentation",
+                    "both-presentation",
+                    "양쪽모두프리젠테이션",
+                    "양쪽모두프레젠테이션",
+                ),
+            ),
+            (
+                DisplayMode.LEFT_VIDEO_RIGHT_VIDEO,
+                (
+                    "left video right video",
+                    "left-video-right-video",
+                    "dual",
+                    "왼쪽영상오른쪽영상",
+                ),
+            ),
         )
         for mode, phrases in mode_phrases:
-            if any(phrase in lowered_text for phrase in phrases):
+            if any(phrase in lowered_text or phrase in compact_text for phrase in phrases):
                 return mode
         return None
 
