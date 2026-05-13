@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict
 
 from admin_page import router as admin_page_router
 from assistant_app.action_registry import build_default_action_registry
+from assistant_app.agentic_tool_runtime import AllLlmToolRuntime
 from assistant_app.admin_auth import (
     attach_admin_session_cookie,
     clear_admin_session_cookie,
@@ -229,9 +230,8 @@ def build_app() -> FastAPI:
         default_target_device=config.default_target_device
     )
     state_store.register_provider_descriptors(provider_registry.descriptors())
-    provider = provider_registry.build_analysis_provider(
-        state_store.get_provider_settings()
-    )
+    provider_settings = state_store.get_provider_settings()
+    provider = provider_registry.build_analysis_provider(provider_settings)
     policy_evaluator = PolicyEvaluator(
         default_mode=config.default_execution_mode,
         state_store=state_store,
@@ -239,7 +239,14 @@ def build_app() -> FastAPI:
     device_client = DeviceClient(config, token_provider)
     device_executor = DeviceExecutor(ExecutionHandlers(device_client))
     direct_tool_adapter = DirectToolAdapter(DirectToolSet(device_client))
-    mode_router = ModeRouter(device_executor, direct_tool_adapter)
+    all_llm_tool_runtime = AllLlmToolRuntime(
+        provider_registry.build_chat_provider(provider_settings),
+        direct_tool_adapter,
+        model=provider_settings.model or config.default_provider_model or "rule-based-default",
+    )
+    mode_router = ModeRouter(
+        device_executor, direct_tool_adapter, all_llm_tool_runtime
+    )
     approval_manager = ApprovalManager(memory_store, state_store)
     admin_service = AdminService(state_store)
     orchestrator = Orchestrator(
@@ -586,6 +593,10 @@ def build_app() -> FastAPI:
         updated = admin_service.update_provider_settings(payload)
         new_provider = provider_registry.build_analysis_provider(updated)
         orchestrator.provider = new_provider
+        all_llm_tool_runtime.provider = provider_registry.build_chat_provider(updated)
+        all_llm_tool_runtime.model = (
+            updated.model or config.default_provider_model or "rule-based-default"
+        )
         return {"provider": _serialize_provider_settings(updated)}
 
     @app.get("/admin/policies")

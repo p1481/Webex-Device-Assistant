@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from assistant_app.agentic_tool_runtime import AllLlmToolRuntime
 from device_executor.executor import DeviceExecutor
 from direct_tool_adapter.adapter import DirectToolAdapter
 from shared.contracts import (
     ActionProposal,
+    ExecutionMode,
     ExecutionRequest,
     ExecutionResult,
     Intent,
@@ -14,10 +16,14 @@ from shared.contracts import (
 
 class ModeRouter:
     def __init__(
-        self, device_executor: DeviceExecutor, direct_tool_adapter: DirectToolAdapter
+        self,
+        device_executor: DeviceExecutor,
+        direct_tool_adapter: DirectToolAdapter,
+        all_llm_tool_runtime: AllLlmToolRuntime | None = None,
     ) -> None:
         self.device_executor: DeviceExecutor = device_executor
         self.direct_tool_adapter: DirectToolAdapter = direct_tool_adapter
+        self.all_llm_tool_runtime: AllLlmToolRuntime | None = all_llm_tool_runtime
 
     async def execute(
         self,
@@ -31,8 +37,10 @@ class ModeRouter:
     async def execute_request(
         self, execution_request: ExecutionRequest
     ) -> ExecutionResult:
-        if execution_request.execution_mode.value == "separated":
+        if execution_request.execution_mode == ExecutionMode.SEPARATED:
             return await self.device_executor.execute(execution_request)
+        if self.all_llm_tool_runtime is not None:
+            return await self.all_llm_tool_runtime.execute(execution_request)
         return await self.direct_tool_adapter.execute(execution_request)
 
     def build_request(
