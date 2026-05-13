@@ -155,12 +155,14 @@ class DeviceClient:
         "microphone_mode": "Audio.Input.MicrophoneMode/sources/configured/value",
         "speakertrack_frames_mode": "Cameras.SpeakerTrack.Frames.Mode/sources/configured/value",
         "speakertrack_mode": "Cameras.SpeakerTrack.Mode/sources/configured/value",
+        "speakertrack_default_behavior": "Cameras.SpeakerTrack.DefaultBehavior/sources/configured/value",
         "display_mode": "Video.Monitors/sources/configured/value",
     }
     CONFIG_KEYS: ClassVar[dict[str, str]] = {
         "microphone_mode": "Audio.Input.MicrophoneMode",
         "speakertrack_frames_mode": "Cameras.SpeakerTrack.Frames.Mode",
         "speakertrack_mode": "Cameras.SpeakerTrack.Mode",
+        "speakertrack_default_behavior": "Cameras.SpeakerTrack.DefaultBehavior",
         "display_mode": "Video.Monitors",
     }
     MICROPHONE_MODE_CONFIG_VALUES: ClassVar[dict[str, str]] = {
@@ -212,6 +214,26 @@ class DeviceClient:
         "speaker_closeup",
         "frames",
     )
+    CAMERA_MODE_CONFIG_VALUES: ClassVar[dict[str, str]] = {
+        "best_overview": "BestOverview",
+        "speaker_closeup": "Closeup",
+        "frames": "Frames",
+    }
+    CAMERA_MODE_CONFIG_ALIASES: ClassVar[dict[str, str]] = {
+        "bestoverview": "best_overview",
+        "best overview": "best_overview",
+        "best-overview": "best_overview",
+        "best_overview": "best_overview",
+        "closeup": "speaker_closeup",
+        "close up": "speaker_closeup",
+        "speakercloseup": "speaker_closeup",
+        "speaker closeup": "speaker_closeup",
+        "speaker close-up": "speaker_closeup",
+        "speaker-closeup": "speaker_closeup",
+        "speaker_closeup": "speaker_closeup",
+        "frames": "frames",
+        "frame": "frames",
+    }
 
     def __init__(self, config: AppConfig, token_provider: WebexTokenProvider) -> None:
         self.config: AppConfig = config
@@ -714,7 +736,8 @@ class DeviceClient:
         if self.config.device_mock_mode:
             return f"Mock camera mode set to {mode} on {target_device}."
 
-        if mode not in self.CAMERA_MODE_ORDER:
+        config_value = self.CAMERA_MODE_CONFIG_VALUES.get(mode)
+        if config_value is None:
             raise RuntimeError(
                 "Unsupported camera mode request. Supported writable camera modes are: "
                 "best_overview, speaker_closeup, frames."
@@ -724,96 +747,52 @@ class DeviceClient:
             base_url=self.config.webex_api_base, timeout=10.0
         ) as client:
             device = await self._resolve_device(client, target_device)
-            status_payload = await self._fetch_status(
-                client, device.id, self.CAMERA_STATUS_NAMES
-            )
-
-        observation = self._extract_camera_mode_observation(status_payload)
-        device_name = device.display_name or target_device
-        self._validate_writable_camera_mode(device_name, mode, observation)
-
-        if mode == "best_overview":
-            operations: list[dict[str, object]] = [
-                {
-                    "op": "replace",
-                    "path": self.CONFIG_PATHS["speakertrack_mode"],
-                    "value": "Auto",
-                }
-            ]
-            if observation.frames_available:
-                operations.append(
-                    {
-                        "op": "replace",
-                        "path": self.CONFIG_PATHS["speakertrack_frames_mode"],
-                        "value": "Off",
-                    }
-                )
-            _ = await self._patch_device_config(
-                self._device_configuration_target_id(device), operations
-            )
-            _ = await self._execute_command(
-                device.id, "Cameras.SpeakerTrack.Activate", None
-            )
-            _ = await self._execute_command(
-                device.id,
-                "Cameras.SpeakerTrack.Closeup.Deactivate",
-                None,
-            )
-            return f"Set camera mode to best_overview on {device_name}."
-
-        if mode == "speaker_closeup":
-            operations: list[dict[str, object]] = [
-                {
-                    "op": "replace",
-                    "path": self.CONFIG_PATHS["speakertrack_mode"],
-                    "value": "Auto",
-                }
-            ]
-            if observation.frames_available:
-                operations.append(
-                    {
-                        "op": "replace",
-                        "path": self.CONFIG_PATHS["speakertrack_frames_mode"],
-                        "value": "Off",
-                    }
-                )
-            _ = await self._patch_device_config(
-                self._device_configuration_target_id(device), operations
-            )
-            _ = await self._execute_command(
-                device.id, "Cameras.SpeakerTrack.Activate", None
-            )
-            _ = await self._execute_command(
-                device.id,
-                "Cameras.SpeakerTrack.Closeup.Activate",
-                None,
-            )
-            return f"Set camera mode to speaker_closeup on {device_name}."
 
         _ = await self._patch_device_config(
             self._device_configuration_target_id(device),
             [
                 {
                     "op": "replace",
-                    "path": self.CONFIG_PATHS["speakertrack_mode"],
-                    "value": "Auto",
-                },
-                {
-                    "op": "replace",
-                    "path": self.CONFIG_PATHS["speakertrack_frames_mode"],
-                    "value": "Auto",
-                },
+                    "path": self.CONFIG_PATHS["speakertrack_default_behavior"],
+                    "value": config_value,
+                }
             ],
         )
-        _ = await self._execute_command(
-            device.id, "Cameras.SpeakerTrack.Activate", None
+        device_name = device.display_name or target_device
+        return f"Set camera mode to {mode} on {device_name} (DefaultBehavior: {config_value})."
+
+    async def list_supported_camera_modes(self, target_device: str) -> tuple[str, ...]:
+        if self.config.device_mock_mode:
+            return self.CAMERA_MODE_ORDER
+
+        async with httpx.AsyncClient(
+            base_url=self.config.webex_api_base, timeout=10.0
+        ) as client:
+            device = await self._resolve_device(client, target_device)
+            values = await self._fetch_device_configuration_enum_values(
+                client,
+                self._device_configuration_target_id(device),
+                self.CONFIG_KEYS["speakertrack_default_behavior"],
+            )
+        if values is None:
+            return self.CAMERA_MODE_ORDER
+        return self._normalize_supported_camera_mode_values(values)
+
+    def _normalize_supported_camera_mode_values(
+        self, values: tuple[str, ...]
+    ) -> tuple[str, ...]:
+        normalized_modes: list[str] = []
+        for value in values:
+            normalized_key = " ".join(value.strip().casefold().replace("_", " ").split())
+            mode = self.CAMERA_MODE_CONFIG_ALIASES.get(normalized_key)
+            if mode is None:
+                compact_key = normalized_key.replace(" ", "")
+                mode = self.CAMERA_MODE_CONFIG_ALIASES.get(compact_key)
+            if mode is not None and mode not in normalized_modes:
+                normalized_modes.append(mode)
+        return tuple(
+            mode for mode in self.CAMERA_MODE_ORDER if mode in normalized_modes
         )
-        _ = await self._execute_command(
-            device.id,
-            "Cameras.SpeakerTrack.Frames.Activate",
-            None,
-        )
-        return f"Set camera mode to frames on {device_name}."
 
     async def set_layout(self, target_device: str, layout_name: str) -> str:
         normalized_layout_name = self._normalize_layout_name(layout_name)

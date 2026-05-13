@@ -352,6 +352,7 @@ class PendingActionProposal(BaseModel):
     address: str | None = None
     level: int | None = Field(default=None, ge=0, le=100)
     display_mode: DisplayMode | None = None
+    camera_mode: WritableCameraMode | None = None
     action_proposal: ActionProposal | None = None
 
 

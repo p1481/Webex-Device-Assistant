@@ -28,6 +28,8 @@ from shared.contracts import (
     WebexJoinParams,
     DisplayMode,
     SetDisplayModeParams,
+    WritableCameraMode,
+    SetCameraModeParams,
 )
 
 
@@ -41,6 +43,7 @@ class Orchestrator:
         approval_manager: ApprovalManager,
         device_lister: Callable[[], Awaitable[list[OrganizationDeviceRecord]]]
         | None = None,
+        camera_mode_lister: Callable[[str], Awaitable[tuple[str, ...]]] | None = None,
     ) -> None:
         self.provider: LLMProvider = provider
         self.memory_store: InMemorySessionStore = memory_store
@@ -50,6 +53,9 @@ class Orchestrator:
         self.device_lister: (
             Callable[[], Awaitable[list[OrganizationDeviceRecord]]] | None
         ) = device_lister
+        self.camera_mode_lister: Callable[[str], Awaitable[tuple[str, ...]]] | None = (
+            camera_mode_lister
+        )
 
     async def handle_message(self, message: InboundUserMessage) -> OutboundReply:
         session = self.memory_store.append_user_turn(message.session_id, message.text)
@@ -78,6 +84,24 @@ class Orchestrator:
                 message.session_id,
                 reply.text,
                 display_mode_pending_action.intent,
+            )
+            return reply
+
+        camera_mode_pending_action = self._build_camera_mode_card_pending_action(message)
+        if camera_mode_pending_action is not None:
+            _ = self.memory_store.set_pending_action(
+                message.session_id,
+                message.user_id,
+                camera_mode_pending_action,
+            )
+            reply = await self._build_camera_mode_selection_reply(
+                message,
+                camera_mode_pending_action,
+            )
+            _ = self.memory_store.append_assistant_turn(
+                message.session_id,
+                reply.text,
+                camera_mode_pending_action.intent,
             )
             return reply
 
@@ -273,7 +297,7 @@ class Orchestrator:
                 False,
             )
 
-        if field_name not in {"target_device", "display_mode"}:
+        if field_name not in {"target_device", "display_mode", "camera_mode"}:
             reply = OutboundReply(
                 text="That selection request is no longer valid.",
                 room_id=room_id,
@@ -316,6 +340,22 @@ class Orchestrator:
             except ValueError:
                 reply = OutboundReply(
                     text="That display mode selection is no longer valid.",
+                    room_id=room_id,
+                )
+                _ = self.memory_store.append_assistant_turn(
+                    session_id,
+                    reply.text,
+                    pending_action.intent,
+                )
+                return reply, False
+        elif field_name == "camera_mode":
+            try:
+                updated_pending_action.camera_mode = WritableCameraMode(
+                    selected_value.strip()
+                )
+            except ValueError:
+                reply = OutboundReply(
+                    text="That camera mode selection is no longer valid.",
                     room_id=room_id,
                 )
                 _ = self.memory_store.append_assistant_turn(
@@ -616,6 +656,148 @@ class Orchestrator:
             attachments=[card],
         )
 
+    def _camera_mode_title(self, mode: str) -> str:
+        titles = {
+            "best_overview": "Best Overview",
+            "speaker_closeup": "Speaker Closeup",
+            "frames": "Frames",
+        }
+        return titles.get(mode, mode.replace("_", " ").title())
+
+    def _build_camera_mode_card_pending_action(
+        self, message: InboundUserMessage
+    ) -> PendingActionProposal | None:
+        normalized = message.text.strip().lower()
+        compact = re.sub(r"\s+", "", normalized)
+        if not (
+            "카메라모드" in compact
+            or "cameramode" in compact
+            or "camera mode" in normalized
+        ):
+            return None
+        if not any(keyword in compact for keyword in ("변경", "설정", "선택", "set")):
+            return None
+        if self._extract_explicit_camera_mode(normalized) is not None:
+            return None
+        target_device = self._extract_camera_mode_target_device(message)
+        return PendingActionProposal(
+            intent=Intent.SET_CAMERA_MODE,
+            summary="Select a supported camera mode.",
+            target_device=target_device,
+        )
+
+    def _extract_explicit_camera_mode(self, normalized_text: str) -> WritableCameraMode | None:
+        compact = re.sub(r"[\s_-]+", "", normalized_text.casefold())
+        mode_phrases: tuple[tuple[WritableCameraMode, tuple[str, ...]], ...] = (
+            (
+                WritableCameraMode.BEST_OVERVIEW,
+                ("best overview", "best_overview", "best-overview", "bestoverview"),
+            ),
+            (
+                WritableCameraMode.SPEAKER_CLOSEUP,
+                (
+                    "speaker closeup",
+                    "speaker_closeup",
+                    "speaker-closeup",
+                    "speakercloseup",
+                    "closeup",
+                    "close up",
+                ),
+            ),
+            (WritableCameraMode.FRAMES, ("frames", "frame")),
+        )
+        for mode, phrases in mode_phrases:
+            for phrase in phrases:
+                if phrase in normalized_text or re.sub(r"[\s_-]+", "", phrase) in compact:
+                    return mode
+        return None
+
+    def _extract_camera_mode_target_device(self, message: InboundUserMessage) -> str | None:
+        trailing_target = self._extract_trailing_target_device(message.text)
+        if trailing_target:
+            return trailing_target
+        lowered = message.text.lower()
+        markers = ["카메라모드", "카메라 모드", "camera mode", "cameramode"]
+        marker_positions = [
+            lowered.find(marker) for marker in markers if lowered.find(marker) > 0
+        ]
+        if marker_positions:
+            candidate = message.text[: min(marker_positions)].strip(" ,:：-–—")
+            if candidate:
+                return candidate
+        return message.target_device
+
+    async def _build_camera_mode_selection_reply(
+        self,
+        message: InboundUserMessage,
+        pending_action: PendingActionProposal,
+    ) -> OutboundReply:
+        supported_modes: tuple[str, ...] = tuple(mode.value for mode in WritableCameraMode)
+        if self.camera_mode_lister is not None and pending_action.target_device:
+            supported_modes = await self.camera_mode_lister(pending_action.target_device)
+        if not supported_modes:
+            supported_modes = tuple(mode.value for mode in WritableCameraMode)
+
+        actions = [
+            {
+                "type": "Action.Submit",
+                "title": self._camera_mode_title(mode),
+                "data": {
+                    "kind": "entity_selection",
+                    "pendingActionId": pending_action.pending_action_id,
+                    "fieldName": "camera_mode",
+                    "selectedValue": mode,
+                    "selectionDecision": "submit",
+                },
+            }
+            for mode in supported_modes
+        ]
+        actions.append(
+            {
+                "type": "Action.Submit",
+                "title": "Cancel",
+                "data": {
+                    "kind": "entity_selection",
+                    "pendingActionId": pending_action.pending_action_id,
+                    "fieldName": "camera_mode",
+                    "selectionDecision": "cancel",
+                },
+            }
+        )
+        target_text = (
+            f"대상 장치: {pending_action.target_device}"
+            if pending_action.target_device
+            else "대상 장치는 선택 후 물어볼게요."
+        )
+        card: dict[str, object] = {
+            "contentType": "application/vnd.microsoft.card.adaptive",
+            "content": {
+                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                "type": "AdaptiveCard",
+                "version": "1.0",
+                "body": [
+                    {
+                        "type": "TextBlock",
+                        "weight": "Bolder",
+                        "text": "카메라 모드 선택",
+                    },
+                    {"type": "TextBlock", "wrap": True, "text": target_text},
+                    {
+                        "type": "TextBlock",
+                        "wrap": True,
+                        "text": "xConfiguration Cameras SpeakerTrack DefaultBehavior 지원 모드",
+                    },
+                ],
+                "actions": actions,
+            },
+        }
+        return OutboundReply(
+            text="카메라 모드를 선택해주세요.",
+            markdown="**카메라 모드 선택**\n\n" + target_text,
+            room_id=message.room_id,
+            attachments=[card],
+        )
+
     def _is_reset_message(self, text: str) -> bool:
         return text.strip().lower() in {
             "/reset",
@@ -653,6 +835,11 @@ class Orchestrator:
                 return "display_mode"
             if pending_action.target_device is None:
                 return "target_device"
+        elif pending_action.intent == Intent.SET_CAMERA_MODE:
+            if pending_action.camera_mode is None:
+                return "camera_mode"
+            if pending_action.target_device is None:
+                return "target_device"
         return None
 
     def _build_follow_up_question(self, pending_action: PendingActionProposal) -> str:
@@ -662,6 +849,7 @@ class Orchestrator:
             "address": "What address should I dial?",
             "level": "What volume level should I set (0-100)?",
             "display_mode": "어떤 디스플레이 모드로 설정할까요?",
+            "camera_mode": "어떤 카메라 모드로 설정할까요?",
             "target_device": "Which device should I use?",
         }
         if next_missing_field is None:
@@ -850,6 +1038,21 @@ class Orchestrator:
                 set_display_mode=SetDisplayModeParams(
                     target_device=pending_action.target_device,
                     mode=pending_action.display_mode,
+                ),
+            )
+
+        if (
+            pending_action.intent == Intent.SET_CAMERA_MODE
+            and pending_action.camera_mode is not None
+            and pending_action.target_device is not None
+        ):
+            return ActionProposal(
+                intent=Intent.SET_CAMERA_MODE,
+                summary=pending_action.summary,
+                confidence=pending_action.confidence,
+                set_camera_mode=SetCameraModeParams(
+                    target_device=pending_action.target_device,
+                    mode=pending_action.camera_mode,
                 ),
             )
 

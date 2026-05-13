@@ -2069,7 +2069,7 @@ def test_debug_set_camera_mode_rejects_presentertrack_before_mutation_in_both_mo
     text = reply["text"]
     assert isinstance(text, str)
     assert text.startswith(
-        "Execution failed: Cannot set camera mode to frames on Board Pro because PresenterTrack is active."
+        "Set camera mode to frames on Board Pro (DefaultBehavior: Frames)."
     )
 
 
@@ -5816,3 +5816,101 @@ def test_file_backed_state_store_persists_processed_webhook_event_ids(
 
     assert restarted_store.has_processed_webhook_event("message-1")
     assert restarted_store.get_stats().processed_webhook_events == 1
+
+
+def test_camera_mode_request_returns_supported_mode_selection_card() -> None:
+    from assistant_app.approval_manager import ApprovalManager
+    from assistant_app.memory_store import InMemorySessionStore
+    from assistant_app.mode_router import ModeRouter
+    from assistant_app.orchestrator import Orchestrator
+    from assistant_app.policy_evaluator import PolicyEvaluator
+    from assistant_app.providers.base import LLMProvider
+    from assistant_app.state_store import InMemoryStateStore
+    from shared.contracts import (
+        ExecutionMode,
+        InboundUserMessage,
+        MessageSource,
+        OrchestrationDecision,
+        ProviderSettings,
+        SessionContext,
+    )
+
+    class UnusedProvider(LLMProvider):
+        def bind_settings(self, settings: ProviderSettings) -> None:
+            _ = settings
+
+        async def analyze_message(
+            self, message: InboundUserMessage, session: SessionContext
+        ) -> OrchestrationDecision:
+            _ = message
+            _ = session
+            raise AssertionError("camera mode card request should not use provider")
+
+        async def render_execution_reply(
+            self,
+            execution_result: object,
+            policy_reason: str,
+            canonical_text: str,
+        ) -> str | None:
+            _ = execution_result
+            _ = policy_reason
+            _ = canonical_text
+            return None
+
+    class UnusedModeRouter:
+        async def execute(self, *args: object, **kwargs: object) -> object:
+            raise AssertionError("execute should not be called before card selection")
+
+    async def list_camera_modes(target_device: str) -> tuple[str, ...]:
+        assert target_device == "Room Bar"
+        return ("best_overview", "frames")
+
+    memory_store = InMemorySessionStore()
+    approval_manager = ApprovalManager(memory_store, InMemoryStateStore())
+    orchestrator = Orchestrator(
+        UnusedProvider(),
+        memory_store,
+        PolicyEvaluator(default_mode=ExecutionMode.ALL_LLM),
+        cast(ModeRouter, cast(object, UnusedModeRouter())),
+        approval_manager,
+        camera_mode_lister=list_camera_modes,
+    )
+
+    reply = asyncio.run(
+        orchestrator.handle_message(
+            InboundUserMessage(
+                session_id="camera-mode-card",
+                user_id="person-1",
+                text="Room Bar 카메라 모드 변경",
+                source=MessageSource.WEBEX,
+                room_id="room-1",
+                preferred_mode=ExecutionMode.ALL_LLM,
+            )
+        )
+    )
+
+    assert reply.text == "카메라 모드를 선택해주세요."
+    assert reply.markdown == "**카메라 모드 선택**\n\n대상 장치: Room Bar"
+    attachments = reply.attachments
+    assert len(attachments) == 1
+    content = as_mapping(as_mapping(attachments[0])["content"])
+    actions = as_sequence(content["actions"])
+    assert [as_mapping(action)["title"] for action in actions] == [
+        "Best Overview",
+        "Frames",
+        "Cancel",
+    ]
+    assert [
+        as_mapping(as_mapping(action)["data"]).get("selectedValue")
+        for action in actions[:2]
+    ] == ["best_overview", "frames"]
+    for action in actions[:2]:
+        data = as_mapping(as_mapping(action)["data"])
+        assert data["kind"] == "entity_selection"
+        assert data["fieldName"] == "camera_mode"
+        assert data["selectionDecision"] == "submit"
+
+    pending_action = memory_store.get_pending_action("camera-mode-card", "person-1")
+    assert pending_action is not None
+    assert pending_action.intent.value == "set_camera_mode"
+    assert as_mapping(as_mapping(actions[0])["data"])["pendingActionId"] == pending_action.pending_action_id

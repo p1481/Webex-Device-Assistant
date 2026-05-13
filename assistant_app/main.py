@@ -256,6 +256,7 @@ def build_app() -> FastAPI:
         mode_router,
         approval_manager,
         device_lister=device_client.list_devices,
+        camera_mode_lister=device_client.list_supported_camera_modes,
     )
     webex_gateway = WebexGateway(
         config,
