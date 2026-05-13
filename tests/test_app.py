@@ -308,7 +308,7 @@ def test_set_camera_mode_creates_approval_reply() -> None:
     response = client.post(
         "/debug/messages",
         json={
-            "text": "set camera mode to off on Board Pro",
+            "text": "set camera mode to frames on Board Pro",
             "session_id": "camera-mode-approval-case",
         },
     )
@@ -1029,7 +1029,7 @@ def test_debug_set_camera_mode_success_is_not_rendered_as_failure(
     response = scoped_client.post(
         "/debug/messages",
         json={
-            "text": "set camera mode to off on Board Pro",
+            "text": "set camera mode to frames on Board Pro",
             "session_id": f"camera-mode-case-{preferred_mode}",
             "preferred_mode": preferred_mode,
         },
@@ -1042,7 +1042,7 @@ def test_debug_set_camera_mode_success_is_not_rendered_as_failure(
     text = reply["text"]
     assert isinstance(text, str)
     assert "camera mode" in text.lower()
-    assert "off" in text.lower()
+    assert "frames" in text.lower()
     assert "Execution failed" not in text
 
 
@@ -2056,7 +2056,7 @@ def test_debug_set_camera_mode_rejects_presentertrack_before_mutation_in_both_mo
         response = scoped_client.post(
             "/debug/messages",
             json={
-                "text": "set camera mode to off on Board Pro",
+                "text": "set camera mode to frames on Board Pro",
                 "session_id": f"camera-mode-reject-{preferred_mode}",
                 "preferred_mode": preferred_mode,
             },
@@ -2069,7 +2069,7 @@ def test_debug_set_camera_mode_rejects_presentertrack_before_mutation_in_both_mo
     text = reply["text"]
     assert isinstance(text, str)
     assert text.startswith(
-        "Set camera mode to Off on Board Pro (SpeakerTrack Mode: Off)."
+        "Set camera mode to Frames on Board Pro (Cameras.SpeakerTrack.Set Behavior: Frames)."
     )
 
 
@@ -2278,11 +2278,11 @@ def test_ollama_parser_accepts_camera_mode_payload() -> None:
     provider = OllamaProvider(default_target_device="")
 
     decision = provider._parse_decision(
-        '{"reply_text": null, "action_proposal": {"intent": "set_camera_mode", "summary": "Change the camera mode.", "confidence": 0.94, "set_camera_mode": {"target_device": "Board Pro", "mode": "Off"}}}',
+        '{"reply_text": null, "action_proposal": {"intent": "set_camera_mode", "summary": "Change the camera mode.", "confidence": 0.94, "set_camera_mode": {"target_device": "Board Pro", "mode": "GroupAndSpeaker"}}}',
         InboundUserMessage(
             session_id="ollama-camera-mode",
             user_id="debug-user",
-            text="set camera mode to off on Board Pro",
+            text="set camera mode to group and speaker on Board Pro",
             source=MessageSource.DEBUG,
         ),
     )
@@ -2292,12 +2292,12 @@ def test_ollama_parser_accepts_camera_mode_payload() -> None:
     assert decision.action_proposal.intent.value == "set_camera_mode"
     assert decision.action_proposal.set_camera_mode is not None
     assert decision.action_proposal.set_camera_mode.target_device == "Board Pro"
-    assert decision.action_proposal.set_camera_mode.mode.value == "Off"
+    assert decision.action_proposal.set_camera_mode.mode.value == "GroupAndSpeaker"
 
 
 @pytest.mark.parametrize(
     "unsupported_mode",
-    ["group_and_speaker", "presenter_track", "selfview"],
+    ["auto", "off", "presenter_track", "selfview"],
 )
 def test_ollama_parser_rejects_unsupported_camera_mode_payload(
     unsupported_mode: str,
@@ -2639,7 +2639,7 @@ def test_rule_based_provider_understands_set_camera_mode_command() -> None:
             InboundUserMessage(
                 session_id="camera-mode-rule-based-set",
                 user_id="debug-user",
-                text="set camera mode to off on Board Pro",
+                text="set camera mode to group and speaker on Board Pro",
                 source=MessageSource.DEBUG,
             ),
             SessionContext(session_id="camera-mode-rule-based-set", turns=[]),
@@ -2650,14 +2650,14 @@ def test_rule_based_provider_understands_set_camera_mode_command() -> None:
     assert decision.action_proposal.intent.value == "set_camera_mode"
     assert decision.action_proposal.set_camera_mode is not None
     assert decision.action_proposal.set_camera_mode.target_device == "Board Pro"
-    assert decision.action_proposal.set_camera_mode.mode.value == "Off"
+    assert decision.action_proposal.set_camera_mode.mode.value == "GroupAndSpeaker"
 
 
 @pytest.mark.parametrize(
     "text",
     [
-        "set camera mode to group and speaker on Board Pro",
-        "set camera mode to frames on Board Pro",
+        "set camera mode to auto on Board Pro",
+        "set camera mode to off on Board Pro",
         "set camera mode to presentertrack on Board Pro",
         "set camera mode to selfview on Board Pro",
     ],
@@ -5863,7 +5863,7 @@ def test_camera_mode_request_returns_supported_mode_selection_card() -> None:
 
     async def list_camera_modes(target_device: str) -> tuple[str, ...]:
         assert target_device == "Room Bar"
-        return ("Auto", "Off")
+        return ("Manual", "Dynamic", "BestOverview", "Closeup", "Frames", "GroupAndSpeaker")
 
     memory_store = InMemorySessionStore()
     approval_manager = ApprovalManager(memory_store, InMemoryStateStore())
@@ -5896,15 +5896,19 @@ def test_camera_mode_request_returns_supported_mode_selection_card() -> None:
     content = as_mapping(as_mapping(attachments[0])["content"])
     actions = as_sequence(content["actions"])
     assert [as_mapping(action)["title"] for action in actions] == [
-        "Auto",
-        "Off",
+        "Manual",
+        "Dynamic",
+        "BestOverview",
+        "Closeup",
+        "Frames",
+        "GroupAndSpeaker",
         "Cancel",
     ]
     assert [
         as_mapping(as_mapping(action)["data"]).get("selectedValue")
-        for action in actions[:2]
-    ] == ["Auto", "Off"]
-    for action in actions[:2]:
+        for action in actions[:6]
+    ] == ["Manual", "Dynamic", "BestOverview", "Closeup", "Frames", "GroupAndSpeaker"]
+    for action in actions[:6]:
         data = as_mapping(as_mapping(action)["data"])
         assert data["kind"] == "entity_selection"
         assert data["fieldName"] == "camera_mode"

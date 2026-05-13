@@ -406,8 +406,9 @@ class RuleBasedProvider:
                 )
             return OrchestrationDecision(
                 reply_text=(
-                    "I currently support these camera modes based on the device-reported "
-                    "SpeakerTrack Mode values: Auto and Off."
+                    "I currently support these camera modes based on the RoomOS "
+                    "Cameras SpeakerTrack Set command Behavior values: Manual, "
+                    "Dynamic, BestOverview, Closeup, Frames, and GroupAndSpeaker."
                 )
             )
 
@@ -1024,23 +1025,26 @@ class RuleBasedProvider:
 
     def _extract_camera_mode(self, lowered_text: str) -> WritableCameraMode | None:
         mode_phrases: dict[WritableCameraMode, set[str]] = {
-            WritableCameraMode.AUTO: {
-                "auto",
-                "enable",
-                "enabled",
-                "켜",
-                "켜기",
-                "활성",
-                "활성화",
+            WritableCameraMode.MANUAL: {"manual", "수동"},
+            WritableCameraMode.DYNAMIC: {"dynamic", "동적"},
+            WritableCameraMode.BEST_OVERVIEW: {
+                "best overview",
+                "best_overview",
+                "bestoverview",
+                "overview",
             },
-            WritableCameraMode.OFF: {
-                "off",
-                "disable",
-                "disabled",
-                "끄기",
-                "꺼",
-                "비활성",
-                "비활성화",
+            WritableCameraMode.CLOSEUP: {
+                "closeup",
+                "close up",
+                "speaker closeup",
+                "speaker close up",
+            },
+            WritableCameraMode.FRAMES: {"frames", "frame"},
+            WritableCameraMode.GROUP_AND_SPEAKER: {
+                "group and speaker",
+                "group_and_speaker",
+                "groupandspeaker",
+                "group speaker",
             },
         }
         for mode, phrases in mode_phrases.items():

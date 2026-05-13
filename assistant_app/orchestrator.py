@@ -685,13 +685,25 @@ class Orchestrator:
     def _extract_explicit_camera_mode(self, normalized_text: str) -> WritableCameraMode | None:
         compact = re.sub(r"[\s_-]+", "", normalized_text.casefold())
         mode_phrases: tuple[tuple[WritableCameraMode, tuple[str, ...]], ...] = (
+            (WritableCameraMode.MANUAL, ("manual", "수동")),
+            (WritableCameraMode.DYNAMIC, ("dynamic", "동적")),
             (
-                WritableCameraMode.AUTO,
-                ("auto", "enable", "enabled", "켜", "켜기", "활성", "활성화"),
+                WritableCameraMode.BEST_OVERVIEW,
+                ("best overview", "best_overview", "bestoverview", "overview"),
             ),
             (
-                WritableCameraMode.OFF,
-                ("off", "disable", "disabled", "끄기", "꺼", "비활성", "비활성화"),
+                WritableCameraMode.CLOSEUP,
+                ("closeup", "close up", "speaker closeup", "speaker close up"),
+            ),
+            (WritableCameraMode.FRAMES, ("frames", "frame")),
+            (
+                WritableCameraMode.GROUP_AND_SPEAKER,
+                (
+                    "group and speaker",
+                    "group_and_speaker",
+                    "groupandspeaker",
+                    "group speaker",
+                ),
             ),
         )
         for mode, phrases in mode_phrases:
@@ -773,7 +785,7 @@ class Orchestrator:
                     {
                         "type": "TextBlock",
                         "wrap": True,
-                        "text": "xConfiguration Cameras SpeakerTrack Mode 지원 모드",
+                        "text": "xCommand Cameras SpeakerTrack Set 지원 Behavior",
                     },
                 ],
                 "actions": actions,

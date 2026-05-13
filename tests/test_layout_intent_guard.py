@@ -5,7 +5,7 @@ from device_executor.device_client import DeviceClient
 from shared.contracts import InboundUserMessage, Intent
 
 
-def test_ollama_provider_does_not_rewrite_frames_layout_as_speakertrack_mode() -> None:
+def test_ollama_provider_rewrites_frames_layout_as_speakertrack_camera_mode() -> None:
     provider = OllamaProvider(default_target_device="Room Bar")
     message = InboundUserMessage(
         session_id="layout-guard",
@@ -32,9 +32,9 @@ def test_ollama_provider_does_not_rewrite_frames_layout_as_speakertrack_mode() -
 
     assert decision is not None
     assert decision.action_proposal is not None
-    assert decision.action_proposal.intent == Intent.SET_LAYOUT
-    assert decision.action_proposal.set_layout is not None
-    assert decision.action_proposal.set_layout.layout_name == "Frames"
+    assert decision.action_proposal.intent == Intent.SET_CAMERA_MODE
+    assert decision.action_proposal.set_camera_mode is not None
+    assert decision.action_proposal.set_camera_mode.mode.value == "Frames"
 
 
 def test_ollama_provider_recovers_korean_room_bar_target_when_model_omits_payload_target() -> None:

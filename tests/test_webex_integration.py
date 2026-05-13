@@ -1926,7 +1926,7 @@ def test_device_client_get_camera_mode_uses_official_status_surfaces(
     ]
 
 
-def test_device_client_set_camera_mode_off_uses_speakertrack_mode_patch(
+def test_device_client_set_camera_mode_group_and_speaker_uses_speakertrack_set_command(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     resolve_client = QueuedAsyncClient()
@@ -1938,9 +1938,11 @@ def test_device_client_set_camera_mode_off_uses_speakertrack_mode_patch(
             {"items": [{"id": "device-1", "displayName": "Board Pro"}]},
         )
     )
-    patch_client = QueuedAsyncClient()
-    patch_client.responses.append(make_response("PATCH", "/deviceConfigurations", 200, []))
-    _ = build_client_queue(resolve_client, patch_client)
+    command_client = QueuedAsyncClient()
+    command_client.responses.append(
+        make_response("POST", "/xapi/command/Cameras.SpeakerTrack.Set", 200, {"result": "OK"})
+    )
+    _ = build_client_queue(resolve_client, command_client)
     monkeypatch.setattr(
         "device_executor.device_client.httpx.AsyncClient", async_client_factory
     )
@@ -1955,32 +1957,28 @@ def test_device_client_set_camera_mode_off_uses_speakertrack_mode_patch(
         StaticTokenProvider(),
     )
 
-    result = asyncio.run(device_client.set_camera_mode("Board Pro", "off"))
+    result = asyncio.run(device_client.set_camera_mode("Board Pro", "GroupAndSpeaker"))
 
-    assert result == "Set camera mode to Off on Board Pro (SpeakerTrack Mode: Off)."
-    assert patch_client.requests == [
+    assert result == (
+        "Set camera mode to GroupAndSpeaker on Board Pro "
+        "(Cameras.SpeakerTrack.Set Behavior: GroupAndSpeaker)."
+    )
+    assert command_client.requests == [
         (
-            "PATCH",
-            "/deviceConfigurations",
+            "POST",
+            "/xapi/command/Cameras.SpeakerTrack.Set",
             {
-                "headers": {
-                    "Authorization": "Bearer bot-token",
-                    "Content-Type": "application/json-patch+json",
+                "headers": {"Authorization": "Bearer bot-token"},
+                "json": {
+                    "deviceId": "device-1",
+                    "arguments": {"Behavior": "GroupAndSpeaker"},
                 },
-                "params": {"deviceId": "device-1"},
-                "json": [
-                    {
-                        "op": "replace",
-                        "path": "Cameras.SpeakerTrack.Mode/sources/configured/value",
-                        "value": "Off",
-                    }
-                ],
             },
         )
     ]
 
 
-def test_device_client_set_camera_mode_auto_uses_speakertrack_mode_patch(
+def test_device_client_set_camera_mode_frames_uses_speakertrack_set_command(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     resolve_client = QueuedAsyncClient()
@@ -1992,9 +1990,11 @@ def test_device_client_set_camera_mode_auto_uses_speakertrack_mode_patch(
             {"items": [{"id": "device-1", "displayName": "Board Pro"}]},
         )
     )
-    patch_client = QueuedAsyncClient()
-    patch_client.responses.append(make_response("PATCH", "/deviceConfigurations", 200, []))
-    _ = build_client_queue(resolve_client, patch_client)
+    command_client = QueuedAsyncClient()
+    command_client.responses.append(
+        make_response("POST", "/xapi/command/Cameras.SpeakerTrack.Set", 200, {"result": "OK"})
+    )
+    _ = build_client_queue(resolve_client, command_client)
     monkeypatch.setattr(
         "device_executor.device_client.httpx.AsyncClient", async_client_factory
     )
@@ -2009,18 +2009,16 @@ def test_device_client_set_camera_mode_auto_uses_speakertrack_mode_patch(
         StaticTokenProvider(),
     )
 
-    result = asyncio.run(device_client.set_camera_mode("Board Pro", "Auto"))
+    result = asyncio.run(device_client.set_camera_mode("Board Pro", "frames"))
 
     assert result == (
-        "Set camera mode to Auto on Board Pro (SpeakerTrack Mode: Auto)."
+        "Set camera mode to Frames on Board Pro "
+        "(Cameras.SpeakerTrack.Set Behavior: Frames)."
     )
-    assert patch_client.requests[0][2]["json"] == [
-        {
-            "op": "replace",
-            "path": "Cameras.SpeakerTrack.Mode/sources/configured/value",
-            "value": "Auto",
-        }
-    ]
+    assert command_client.requests[0][2]["json"] == {
+        "deviceId": "device-1",
+        "arguments": {"Behavior": "Frames"},
+    }
 
 
 def test_device_client_set_camera_mode_rejects_unsupported_mode_before_mutation(
@@ -2043,7 +2041,7 @@ def test_device_client_set_camera_mode_rejects_unsupported_mode_before_mutation(
 
     with pytest.raises(
         RuntimeError,
-        match="Unsupported camera mode request. Supported camera modes are: Auto, Off.",
+        match="Unsupported camera mode request. Supported camera modes are: Manual, Dynamic, BestOverview, Closeup, Frames, GroupAndSpeaker.",
     ):
         _ = asyncio.run(device_client.set_camera_mode("Board Pro", "NotSupportedMode"))
 
@@ -5847,7 +5845,7 @@ def test_device_client_set_display_mode_configures_two_monitor_roles(
     ]
 
 
-def test_device_client_lists_supported_camera_modes_from_speakertrack_mode(
+def test_device_client_lists_supported_camera_modes_from_speakertrack_set_command(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     api_client = QueuedAsyncClient()
@@ -5857,21 +5855,6 @@ def test_device_client_lists_supported_camera_modes_from_speakertrack_mode(
             "/devices",
             200,
             {"items": [{"id": "device-1", "displayName": "Room Bar Pro"}]},
-        )
-    )
-    api_client.responses.append(
-        make_response(
-            "GET",
-            "/deviceConfigurations",
-            200,
-            {
-                "items": [
-                    {
-                        "key": "Cameras.SpeakerTrack.Mode",
-                        "valueSpace": {"enum": ["Auto", "Off"]},
-                    }
-                ]
-            },
         )
     )
     _ = build_client_queue(api_client)
@@ -5890,15 +5873,19 @@ def test_device_client_lists_supported_camera_modes_from_speakertrack_mode(
 
     result = asyncio.run(device_client.list_supported_camera_modes("Room Bar Pro"))
 
-    assert result == ("Auto", "Off")
+    assert result == (
+        "Manual",
+        "Dynamic",
+        "BestOverview",
+        "Closeup",
+        "Frames",
+        "GroupAndSpeaker",
+    )
     assert api_client.requests[-1] == (
         "GET",
-        "/deviceConfigurations",
+        "/devices",
         {
             "headers": {"Authorization": "Bearer bot-token"},
-            "params": {
-                "deviceId": "device-1",
-                "key": "Cameras.SpeakerTrack.Mode",
-            },
+            "params": {"displayName": "Room Bar Pro"},
         },
     )
