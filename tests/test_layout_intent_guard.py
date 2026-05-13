@@ -1,0 +1,54 @@
+import json
+
+from assistant_app.providers.ollama import OllamaProvider
+from device_executor.device_client import DeviceClient
+from shared.contracts import InboundUserMessage, Intent, WritableCameraMode
+
+
+def test_ollama_provider_treats_frames_as_camera_mode_not_video_layout() -> None:
+    provider = OllamaProvider(default_target_device="Room Bar")
+    message = InboundUserMessage(
+        session_id="layout-guard",
+        user_id="user-1",
+        text="Frames",
+        target_device="Room Bar",
+    )
+    content = json.dumps(
+        {
+            "reply_text": None,
+            "action_proposal": {
+                "intent": "set_layout",
+                "summary": "Set Frames layout.",
+                "confidence": 0.9,
+                "set_layout": {
+                    "target_device": "Room Bar",
+                    "layout_name": "Frames",
+                },
+            },
+        }
+    )
+
+    decision = provider._parse_decision(content, message)
+
+    assert decision is not None
+    proposal = decision.action_proposal
+    assert proposal is not None
+    assert proposal.intent == Intent.SET_CAMERA_MODE
+    assert proposal.set_camera_mode is not None
+    assert proposal.set_camera_mode.target_device == "Room Bar"
+    assert proposal.set_camera_mode.mode == WritableCameraMode.FRAMES
+    assert proposal.set_layout is None
+
+
+def test_device_client_rejects_frames_as_video_layout_candidate() -> None:
+    try:
+        DeviceClient._normalize_layout_name("Frames")
+    except ValueError as exc:
+        assert "Frames is a camera mode, not a video layout" in str(exc)
+    else:
+        raise AssertionError("Frames must not be accepted as Video.Layout.SetLayout input")
+
+
+def test_device_client_normalizes_supported_video_layout_candidates() -> None:
+    assert DeviceClient._normalize_layout_name("prominent") == "Prominent"
+    assert DeviceClient._normalize_layout_name("speaker only") == "SpeakerOnly"

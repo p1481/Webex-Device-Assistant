@@ -182,6 +182,26 @@ class DeviceClient:
         "Single",
         "SpeakerOnly",
     )
+    LAYOUT_ALIASES: ClassVar[dict[str, str]] = {
+        "equal": "Equal",
+        "overlay": "Overlay",
+        "prominent": "Prominent",
+        "single": "Single",
+        "speakeronly": "SpeakerOnly",
+        "speaker only": "SpeakerOnly",
+        "speaker-only": "SpeakerOnly",
+    }
+    CAMERA_MODE_LAYOUT_MISNAMES: ClassVar[dict[str, str]] = {
+        "frames": "frames",
+        "frame": "frames",
+        "best overview": "best_overview",
+        "best-overview": "best_overview",
+        "best_overview": "best_overview",
+        "speaker closeup": "speaker_closeup",
+        "speaker close-up": "speaker_closeup",
+        "speaker-closeup": "speaker_closeup",
+        "speaker_closeup": "speaker_closeup",
+    }
     CAMERA_MODE_ORDER: ClassVar[tuple[str, ...]] = (
         "best_overview",
         "speaker_closeup",
@@ -791,8 +811,9 @@ class DeviceClient:
         return f"Set camera mode to frames on {device_name}."
 
     async def set_layout(self, target_device: str, layout_name: str) -> str:
+        normalized_layout_name = self._normalize_layout_name(layout_name)
         if self.config.device_mock_mode:
-            return f"Mock layout set to {layout_name} on {target_device}."
+            return f"Mock layout set to {normalized_layout_name} on {target_device}."
 
         async with httpx.AsyncClient(
             base_url=self.config.webex_api_base, timeout=10.0
@@ -802,10 +823,10 @@ class DeviceClient:
         _ = await self._execute_command(
             device.id,
             "Video.Layout.SetLayout",
-            {"LayoutName": layout_name},
+            {"LayoutName": normalized_layout_name},
         )
         return (
-            f"Set layout to {layout_name} on {device.display_name or target_device}."
+            f"Set layout to {normalized_layout_name} on {device.display_name or target_device}."
             f"{self._build_layout_guidance(current_layout)}"
         )
 
@@ -2200,6 +2221,24 @@ class DeviceClient:
         return (
             " Exact configurable microphone mode values reported by Webex: "
             f"{self._format_exact_values(configurable_values)}."
+        )
+
+    @classmethod
+    def _normalize_layout_name(cls, layout_name: str) -> str:
+        normalized = " ".join(layout_name.strip().replace("_", " ").split())
+        alias_key = normalized.lower()
+        camera_mode = cls.CAMERA_MODE_LAYOUT_MISNAMES.get(alias_key)
+        if camera_mode is not None:
+            raise ValueError(
+                f"{normalized} is a camera mode, not a video layout. "
+                f"Use set_camera_mode={camera_mode} instead of Video.Layout.SetLayout."
+            )
+        canonical = cls.LAYOUT_ALIASES.get(alias_key)
+        if canonical is not None:
+            return canonical
+        candidates = ", ".join(cls.DOCUMENTED_LAYOUT_CANDIDATES)
+        raise ValueError(
+            f"Unsupported video layout {layout_name!r}. Supported layout candidates: {candidates}."
         )
 
     def _build_layout_guidance(self, current_layout: str | None) -> str:

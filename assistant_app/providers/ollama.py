@@ -60,6 +60,18 @@ from shared.contracts import (
 
 
 class OllamaProvider:
+    CAMERA_MODE_LAYOUT_ALIASES = {
+        "frames": WritableCameraMode.FRAMES,
+        "frame": WritableCameraMode.FRAMES,
+        "best overview": WritableCameraMode.BEST_OVERVIEW,
+        "best-overview": WritableCameraMode.BEST_OVERVIEW,
+        "best_overview": WritableCameraMode.BEST_OVERVIEW,
+        "speaker closeup": WritableCameraMode.SPEAKER_CLOSEUP,
+        "speaker close-up": WritableCameraMode.SPEAKER_CLOSEUP,
+        "speaker-closeup": WritableCameraMode.SPEAKER_CLOSEUP,
+        "speaker_closeup": WritableCameraMode.SPEAKER_CLOSEUP,
+    }
+
     def __init__(self, default_target_device: str) -> None:
         self.default_target_device = default_target_device
         self.settings = ProviderSettings(
@@ -219,6 +231,9 @@ class OllamaProvider:
             "Only propose supported intents. For admin login, return action_proposal intent=chat and summary='Start admin login approval.'. "
             "If the latest message names a device, carry that device name into the proposal. "
             "For camera position changes, always include camera_id on the action payload and use only small discrete integer step deltas such as pan +/-1000, tilt +/-1000, or zoom +/-700. "
+            "If the user asks for supported video layouts, answer with Video.Layout.SetLayout candidates only: Equal, Overlay, Prominent, Single, SpeakerOnly. "
+            "Do not describe Best Overview, Speaker Closeup, or Frames as video layouts; those are camera modes. "
+            "If the user requests Frames, Best Overview, or Speaker Closeup, propose set_camera_mode, not set_layout. "
             "If unsure, return plain text instead of inventing actions."
         )
         messages: list[dict[str, str]] = [{"role": "system", "content": system_prompt}]
@@ -739,6 +754,19 @@ class OllamaProvider:
             layout_name = raw_set_layout.get("layout_name")
             if not isinstance(layout_name, str) or not layout_name.strip():
                 return None
+            camera_mode = self._layout_name_as_camera_mode(layout_name)
+            if camera_mode is not None:
+                return ActionProposal(
+                    intent=Intent.SET_CAMERA_MODE,
+                    summary=raw_summary,
+                    confidence=normalized_confidence,
+                    set_camera_mode=SetCameraModeParams(
+                        target_device=self._normalize_target_device(
+                            raw_set_layout.get("target_device"), message
+                        ),
+                        mode=camera_mode,
+                    ),
+                )
             return ActionProposal(
                 intent=intent,
                 summary=raw_summary,
@@ -1196,6 +1224,10 @@ class OllamaProvider:
             "triplepresentationonly": DisplayMode.TRIPLE_PRESENTATION_ONLY,
         }
         return aliases.get(normalized)
+
+    def _layout_name_as_camera_mode(self, layout_name: str) -> WritableCameraMode | None:
+        normalized = " ".join(layout_name.strip().lower().replace("_", " ").split())
+        return self.CAMERA_MODE_LAYOUT_ALIASES.get(normalized)
 
     def _normalize_target_device(
         self, raw_target_device: object, message: InboundUserMessage
