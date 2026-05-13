@@ -1,0 +1,13 @@
+{
+  "include": [
+    "assistant_app",
+    "device_executor",
+    "direct_tool_adapter",
+    "shared",
+    "tests"
+  ],
+  "exclude": [
+    ".venv",
+    "**/__pycache__"
+  ]
+}

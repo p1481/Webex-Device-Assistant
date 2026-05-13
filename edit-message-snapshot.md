@@ -1,0 +1,85 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - alert
+    - banner [ref=e3]:
+      - navigation [ref=e4]:
+        - generic [ref=e5]:
+          - link "Webex for Developers, Home" [ref=e7] [cursor=pointer]:
+            - /url: /
+          - text: 婢
+          - button "嬨" [ref=e10] [cursor=pointer]
+          - button "" [ref=e11] [cursor=pointer]
+    - main [ref=e12]:
+      - generic [ref=e15]:
+        - generic [ref=e17]:
+          - generic [ref=e18]:
+            - link "Home" [ref=e19] [cursor=pointer]:
+              - /url: /
+            - text: /
+          - generic [ref=e20]:
+            - link "Messages" [ref=e21] [cursor=pointer]:
+              - /url: /messaging/docs/api/v1/messages
+            - text: /
+          - generic [ref=e22]: Edit a Message
+        - generic [ref=e24]:
+          - generic [ref=e26]:
+            - generic [ref=e27]: Webex Messaging
+            - generic [ref=e28]
+            - navigation "Side Navigation" [ref=e33]
+          - generic [ref=e196]:
+            - generic
+            - generic [ref=e200]
+    - contentinfo [ref=e641]:
+      - generic [ref=e642]:
+        - generic [ref=e644]:
+          - generic [ref=e645]:
+            - paragraph [ref=e646]
+            - paragraph [ref=e648]
+            - link "Developer Community" [ref=e650] [cursor=pointer]:
+              - /url: https://community.cisco.com/t5/webex-for-developers/bd-p/disc-webex-developers
+            - paragraph [ref=e651]
+            - paragraph [ref=e653]
+          - generic [ref=e655]:
+            - paragraph [ref=e656]
+            - paragraph [ref=e658]
+            - paragraph [ref=e660]
+          - generic [ref=e662]:
+            - paragraph [ref=e663]
+            - paragraph [ref=e665]
+            - paragraph [ref=e667]
+            - paragraph [ref=e669]
+          - generic [ref=e671]:
+            - paragraph [ref=e672]
+            - paragraph [ref=e674]
+            - paragraph [ref=e676]
+            - paragraph [ref=e678]
+        - generic [ref=e680]:
+          - generic [ref=e681]:
+            - generic [ref=e682]: 
+            - generic [ref=e683]: © 2026 Cisco and/or its affiliates. All rights reserved.
+          - generic [ref=e684]:
+            - link "GitHub" [ref=e685] [cursor=pointer]:
+              - /url: https://github.com/webex
+            - link "Facebook" [ref=e687] [cursor=pointer]:
+              - /url: https://www.facebook.com/CiscoCollab/
+            - link "Twitter" [ref=e689] [cursor=pointer]:
+              - /url: https://twitter.com/webexdevs
+            - link "YouTube" [ref=e691] [cursor=pointer]:
+              - /url: https://www.youtube.com/playlist?list=PL2k86RlAekM_bIUrvVw4Haq_0xxTez9zU
+            - link "LinkedIn" [ref=e693] [cursor=pointer]:
+              - /url: https://www.linkedin.com/company/webex/
+  - region "Cookie banner" [active] [ref=e696]:
+    - dialog "Privacy" [ref=e697]:
+      - generic [ref=e699]:
+        - generic [ref=e702]:
+          - text: Cookies allow us to optimise your use of our website. We also use third-party cookies for advertising and analytics. Please read our
+          - link "Privacy Statement" [ref=e703] [cursor=pointer]:
+            - /url: https://www.cisco.com/c/en/us/about/legal/privacy-full.html
+          - text: and
+          - link "Cookie Notice" [ref=e704] [cursor=pointer]:
+            - /url: https://www.cisco.com/c/en/us/about/legal/privacy-full.html#cookies
+          - text: for more information.
+        - generic [ref=e706]:
+          - button "Manage cookie settings, Opens the preference center dialog" [ref=e707] [cursor=pointer]: Manage cookie settings
+          - button "Reject" [ref=e708] [cursor=pointer]
+          - button "Accept" [ref=e709] [cursor=pointer]

@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Webex Device Assistant Admin</title>
+    <link rel="stylesheet" href="/admin-page/static/admin.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <aside class="hero-panel">
+        <div class="hero-panel__glow"></div>
+        <div class="hero-panel__content">
+          <p class="eyebrow">Operations Console</p>
+          <h1>Webex Device Assistant Admin</h1>
+          <p class="hero-copy">
+            A truthful process-local control surface for runtime settings, policies,
+            approvals, audit activity, and device targeting.
+          </p>
+          <div class="identity-card">
+            <span class="identity-card__label">Default admin user</span>
+            <strong id="default-admin-user">youngcle@cisco.com</strong>
+            <span class="identity-card__status">Current backend default</span>
+          </div>
+          <dl class="hero-stats" id="hero-stats">
+            <div>
+              <dt>Pending approvals</dt>
+              <dd id="hero-pending-approvals">--</dd>
+            </div>
+            <div>
+              <dt>Webhook events</dt>
+              <dd id="hero-webhook-events">--</dd>
+            </div>
+            <div>
+              <dt>Audit records</dt>
+              <dd id="hero-audit-total">--</dd>
+            </div>
+          </dl>
+        </div>
+      </aside>
+
+      <main class="dashboard">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Admin Page</p>
+            <h2>Runtime and startup visibility</h2>
+          </div>
+          <div class="topbar__actions">
+            <a class="button button--ghost" href="/admin-page/docs">View manuals</a>
+            <a class="button button--ghost" href="/admin-page/docs-ko">한국어 안내</a>
+            <button class="button button--ghost" id="refresh-all" type="button">
+              Refresh data
+            </button>
+            <span class="status-pill" id="page-status">Loading…</span>
+          </div>
+        </header>
+
+        <section class="panel panel--auth">
+          <div class="panel__header">
+            <div>
+              <p class="eyebrow">Admin auth</p>
+              <h3>Approve this browser session</h3>
+            </div>
+            <span class="status-pill status-pill--idle" id="auth-status">Signed out</span>
+          </div>
+
+          <div class="auth-panel__grid">
+            <form class="stack-form" id="auth-form">
+              <label class="field-card field-card--full">
+                <span class="field-card__label-row">
+                  <span>Allowed admin email</span>
+                  <span class="field-state field-state--live">approval</span>
+                </span>
+                <input
+                  id="auth-email"
+                  name="email"
+                  type="email"
+                  autocomplete="email"
+                  placeholder="admin@example.com"
+                  required
+                />
+                <small>
+                  Start login with an allowed admin email. A Webex approval card is sent,
+                  then this page polls until the browser session cookie is granted.
+                </small>
+              </label>
+
+              <div class="auth-panel__actions">
+                <button class="button" id="start-login" type="submit">Start login</button>
+                <button class="button button--ghost" id="poll-auth-status" type="button">
+                  Check approval
+                </button>
+                <button class="button button--ghost" id="logout" type="button">
+                  Logout
+                </button>
+              </div>
+
+              <p id="auth-message" class="inline-message" aria-live="polite"></p>
+            </form>
+
+            <article class="identity-card auth-session-card">
+              <span class="identity-card__label">Browser session</span>
+              <strong id="auth-session-email">Not signed in</strong>
+              <span class="identity-card__status" id="auth-session-status">
+                Enter an allowed admin email to request approval.
+              </span>
+              <small class="mono auth-session-card__meta" id="auth-session-id">
+                No auth session started.
+              </small>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel auth-guard" id="auth-guard">
+          <div class="panel__header">
+            <div>
+              <p class="eyebrow">Protected data</p>
+              <h3>Sign in before loading live admin state</h3>
+            </div>
+            <span class="status-pill status-pill--idle" id="auth-guard-status">Locked</span>
+          </div>
+          <p class="panel__summary" id="auth-guard-copy">
+            Sign in and approve the Webex card to load live settings, providers,
+            policies, devices, approvals, audit activity, and process-local stats.
+          </p>
+        </section>
+
+        <div class="dashboard-stack" id="protected-dashboard" hidden>
+        <section class="metrics-grid" aria-label="Process-local stats">
+          <article class="metric-card">
+            <span>Approvals total</span>
+            <strong id="stat-approvals-total">--</strong>
+            <small>Current in-memory count</small>
+          </article>
+          <article class="metric-card">
+            <span>Approved</span>
+            <strong id="stat-approvals-approved">--</strong>
+            <small>Resolved as approved</small>
+          </article>
+          <article class="metric-card">
+            <span>Rejected</span>
+            <strong id="stat-approvals-rejected">--</strong>
+            <small>Resolved as rejected</small>
+          </article>
+          <article class="metric-card">
+            <span>Sessions total</span>
+            <strong id="stat-sessions-total">--</strong>
+            <small>Observed since process start</small>
+          </article>
+        </section>
+
+        <section class="panel panel--settings">
+          <div class="panel__header">
+            <div>
+              <p class="eyebrow">Operational settings</p>
+              <h3>Live controls and restart-only values</h3>
+            </div>
+            <p class="panel__summary">
+              Save runtime settings through <code>/admin/settings</code>. Startup-only
+              values remain visible but not editable.
+            </p>
+          </div>
+
+          <form class="form-grid" id="settings-form">
+            <section class="settings-group">
+              <div class="section-heading">
+                <h4>Connection secrets</h4>
+                <p>Truthful backend status for secrets and webhook wiring.</p>
+              </div>
+              <div class="field-grid" id="secret-fields"></div>
+            </section>
+
+            <section class="settings-group">
+              <div class="section-heading">
+                <h4>Conversation defaults</h4>
+                <p>Runtime-editable values used by the current process.</p>
+              </div>
+              <div class="field-grid two-column">
+                <label class="field-card">
+                  <span class="field-card__label-row">
+                    <span>Default space ID</span>
+                    <span class="field-state field-state--live">live</span>
+                  </span>
+                  <input id="default-space-id" name="default_space_id" type="text" />
+                </label>
+                <label class="field-card">
+                  <span class="field-card__label-row">
+                    <span>Default space title</span>
+                    <span class="field-state field-state--live">live</span>
+                  </span>
+                  <input
+                    id="default-space-title"
+                    name="default_space_title"
+                    type="text"
+                  />
+                </label>
+                <label class="field-card">
+                  <span class="field-card__label-row">
+                    <span>Default user</span>
+                    <span class="field-state field-state--live">live</span>
+                  </span>
+                  <input
+                    id="default-user-email"
+                    name="default_user_email"
+                    type="email"
+                    required
+                  />
+                </label>
+                <label class="field-card">
+                  <span class="field-card__label-row">
+                    <span>Execution mode</span>
+                    <span class="field-state field-state--live">live</span>
+                  </span>
+                  <select id="default-execution-mode" name="default_execution_mode"></select>
+                </label>
+              </div>
+            </section>
+
+            <section class="settings-group">
+              <div class="section-heading">
+                <h4>Allowed email lists</h4>
+                <p>One email per line. These runtime allowlists update immediately.</p>
+              </div>
+              <div class="field-grid two-column">
+                <label class="field-card">
+                  <span class="field-card__label-row">
+                    <span>Allowed Webex user emails</span>
+                    <span class="field-state field-state--live">live</span>
+                  </span>
+                  <textarea
+                    id="allowed-webex-user-emails"
+                    name="allowed_webex_user_emails"
+                    spellcheck="false"
+                  ></textarea>
+                  <small>One email per line for runtime end-user access.</small>
+                </label>
+                <label class="field-card">
+                  <span class="field-card__label-row">
+                    <span>Allowed admin emails</span>
+                    <span class="field-state field-state--live">live</span>
+                  </span>
+                  <textarea
+                    id="allowed-admin-emails"
+                    name="allowed_admin_emails"
+                    spellcheck="false"
+                  ></textarea>
+                  <small>One email per line for browser admin approval flow.</small>
+                </label>
+              </div>
+            </section>
+
+            <section class="settings-group">
+              <div class="section-heading">
+                <h4>Provider and target device</h4>
+                <p>Use the org device list instead of a free-text target field.</p>
+              </div>
+              <div class="field-grid two-column">
+                <label class="field-card">
+                  <span class="field-card__label-row">
+                    <span>Selected provider</span>
+                    <span class="field-state field-state--live">live</span>
+                  </span>
+                  <select id="selected-provider" name="selected_provider"></select>
+                </label>
+                <label class="field-card">
+                  <span class="field-card__label-row">
+                    <span>Selected model</span>
+                    <span class="field-state field-state--live">live</span>
+                  </span>
+                  <input id="selected-provider-model" name="selected_provider_model" type="text" />
+                </label>
+                <label class="field-card field-card--full">
+                  <span class="field-card__label-row">
+                    <span>Selected device</span>
+                    <span class="field-state field-state--live">live</span>
+                  </span>
+                  <select id="selected-device" name="selected_device_id"></select>
+                  <small id="selected-device-caption">Choose a device returned by /admin/devices.</small>
+                </label>
+              </div>
+            </section>
+
+            <footer class="form-footer">
+              <p id="settings-save-message" class="inline-message" aria-live="polite"></p>
+              <button class="button" id="save-settings" type="submit">Save runtime settings</button>
+            </footer>
+          </form>
+        </section>
+
+        <section class="dual-grid">
+          <article class="panel">
+            <div class="panel__header">
+              <div>
+                <p class="eyebrow">Provider runtime</p>
+                <h3>Active provider settings</h3>
+              </div>
+              <p class="panel__summary">Updates go through <code>/admin/providers</code>.</p>
+            </div>
+
+            <form id="provider-form" class="stack-form">
+              <label class="field-card">
+                <span class="field-card__label-row">
+                  <span>Provider runtime binding</span>
+                  <span class="field-state field-state--live">live*</span>
+                </span>
+                <select id="provider-kind" name="provider"></select>
+                <small><code>rule_based</code> can be applied immediately, and <code>ollama</code> can be applied live when the configured base URL is reachable and the selected model exists.</small>
+              </label>
+              <label class="field-card">
+                <span class="field-card__label-row">
+                  <span>Model</span>
+                  <span class="field-state field-state--live">live*</span>
+                </span>
+                <input id="provider-model" name="model" type="text" />
+              </label>
+              <label class="field-card">
+                <span class="field-card__label-row">
+                  <span>Base URL</span>
+                  <span class="field-state field-state--live">live*</span>
+                </span>
+                <input id="provider-base-url" name="base_url" type="url" />
+              </label>
+              <label class="field-card">
+                <span class="field-card__label-row">
+                  <span>API key</span>
+                  <span class="field-state field-state--live">live*</span>
+                </span>
+                <input id="provider-api-key" name="api_key" type="password" autocomplete="off" />
+              </label>
+              <div class="field-grid two-column compact-grid">
+                <label class="field-card">
+                  <span class="field-card__label-row">
+                    <span>Temperature</span>
+                    <span class="field-state field-state--live">live*</span>
+                  </span>
+                  <input id="provider-temperature" name="temperature" type="number" step="0.1" />
+                </label>
+                <label class="field-card">
+                  <span class="field-card__label-row">
+                    <span>Max tokens</span>
+                    <span class="field-state field-state--live">live*</span>
+                  </span>
+                  <input id="provider-max-tokens" name="max_tokens" type="number" step="1" min="1" />
+                </label>
+              </div>
+              <label class="toggle-card">
+                <input id="provider-enabled" name="enabled" type="checkbox" />
+                <span>
+                  <strong>Provider enabled</strong>
+                  <small>Reflects the current provider settings payload.</small>
+                </span>
+              </label>
+              <div class="provider-capabilities" id="provider-descriptor-cards"></div>
+              <footer class="form-footer">
+                <p id="provider-save-message" class="inline-message" aria-live="polite"></p>
+                <button class="button" type="submit">Apply provider settings</button>
+              </footer>
+            </form>
+          </article>
+
+          <article class="panel">
+            <div class="panel__header">
+              <div>
+                <p class="eyebrow">Startup status</p>
+                <h3>Restart-required and read-only facts</h3>
+              </div>
+              <p class="panel__summary">Visible operational context from the startup payload.</p>
+            </div>
+            <div id="startup-status-grid" class="field-grid"></div>
+            <div class="callout">
+              <strong>Why two sections?</strong>
+              <p>
+                Runtime settings reflect what this process can mutate now. Startup status shows
+                boot-time configuration that may require a restart to change.
+              </p>
+            </div>
+          </article>
+        </section>
+
+        <section class="dual-grid">
+          <article class="panel">
+            <div class="panel__header">
+              <div>
+                <p class="eyebrow">Action registry</p>
+                <h3>Available assistant actions</h3>
+              </div>
+              <p class="panel__summary">Registry data from <code>/admin/actions</code>.</p>
+            </div>
+            <div class="table-shell">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Intent</th>
+                    <th>Label</th>
+                    <th>Modes</th>
+                    <th>Approval default</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="actions-table-body"></tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel__header">
+              <div>
+                <p class="eyebrow">Execution policies</p>
+                <h3>Per-intent policy controls</h3>
+              </div>
+              <p class="panel__summary">Update individual policies through <code>/admin/policies/&lt;intent&gt;</code>.</p>
+            </div>
+            <div id="policy-forms" class="policy-stack"></div>
+          </article>
+        </section>
+
+        <section class="dual-grid dual-grid--wide-right">
+          <article class="panel">
+            <div class="panel__header">
+              <div>
+                <p class="eyebrow">Org devices</p>
+                <h3>Selectable device inventory</h3>
+              </div>
+              <p class="panel__summary">Loaded from the backend device list and reused in the selector above.</p>
+            </div>
+            <div class="table-shell table-shell--tall">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Product</th>
+                    <th>Place</th>
+                    <th>Workspace</th>
+                    <th>Online</th>
+                  </tr>
+                </thead>
+                <tbody id="devices-table-body"></tbody>
+              </table>
+            </div>
+          </article>
+
+          <div class="stack-layout">
+            <article class="panel">
+              <div class="panel__header">
+                <div>
+                  <p class="eyebrow">Approvals</p>
+                  <h3>Current approval queue</h3>
+                </div>
+                <p class="panel__summary">Read-only visibility into approval state.</p>
+              </div>
+              <div class="table-shell table-shell--medium">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Status</th>
+                      <th>Title</th>
+                      <th>Requested by</th>
+                      <th>Created</th>
+                    </tr>
+                  </thead>
+                  <tbody id="approvals-table-body"></tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="panel">
+              <div class="panel__header">
+                <div>
+                  <p class="eyebrow">Audit</p>
+                  <h3>Recent process activity</h3>
+                </div>
+                <p class="panel__summary">Read-only records from <code>/admin/audit</code>.</p>
+              </div>
+              <div class="table-shell table-shell--medium">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Event</th>
+                      <th>Outcome</th>
+                      <th>Intent</th>
+                      <th>Created</th>
+                    </tr>
+                  </thead>
+                  <tbody id="audit-table-body"></tbody>
+                </table>
+              </div>
+            </article>
+          </div>
+        </section>
+        </div>
+      </main>
+    </div>
+
+    <template id="empty-row-template">
+      <tr>
+        <td colspan="5" class="empty-state">No data yet.</td>
+      </tr>
+    </template>
+    <script src="/admin-page/static/admin.js" defer></script>
+  </body>
+</html>

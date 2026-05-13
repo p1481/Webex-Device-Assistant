@@ -1,0 +1,21 @@
+[Unit]
+Description=Webex Device Assistant FastAPI Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=p1481
+Group=p1481
+WorkingDirectory=/home/p1481/youngcle_code/06. Device Assistant
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/bash -lc 'set -a && source "/home/p1481/youngcle_code/06. Device Assistant/.deploy/webex-device-assistant.env" && exec .venv/bin/python -m uvicorn assistant_app.main:app --host 127.0.0.1 --port 8000'
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=webex-device-assistant
+
+[Install]
+WantedBy=multi-user.target

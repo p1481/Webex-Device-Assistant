@@ -1,0 +1,369 @@
+- generic [ref=e2]:
+  - alert
+  - banner [ref=e3]:
+    - navigation [ref=e4]:
+      - generic [ref=e5]:
+        - link "Webex for Developers, Home" [ref=e7] [cursor=pointer]:
+          - /url: /
+        - text: 婢
+        - button "嬨" [ref=e10] [cursor=pointer]
+        - button "" [ref=e11] [cursor=pointer]
+  - main [ref=e12]:
+    - generic [ref=e15]:
+      - generic [ref=e17]:
+        - generic [ref=e18]:
+          - link "Home" [ref=e19] [cursor=pointer]:
+            - /url: /
+          - text: /
+        - generic [ref=e20]:
+          - link "Messages" [ref=e21] [cursor=pointer]:
+            - /url: /messaging/docs/api/v1/messages
+          - text: /
+        - generic [ref=e22]: Delete a Message
+      - generic [ref=e24]:
+        - generic [ref=e26]:
+          - generic [ref=e27]: Webex Messaging
+          - generic [ref=e28]:
+            - textbox "Search by title" [ref=e29]
+            - generic [ref=e31]: 婢
+          - navigation "Side Navigation" [ref=e33]:
+            - tree "Navigation tree" [ref=e34]:
+              - treeitem "Overview" [level=1] [ref=e35]:
+                - link "Overview" [ref=e36] [cursor=pointer]:
+                  - /url: /messaging/docs/messaging
+                  - generic "Overview" [ref=e37]
+              - treeitem "Guides" [level=1] [ref=e38]:
+                - button "Expand Guides" [ref=e40] [cursor=pointer]:
+                  - generic [ref=e42]: 
+                - generic "Guides" [ref=e43]
+              - treeitem "REST API Basics" [level=1] [ref=e44]:
+                - link "REST API Basics" [ref=e45] [cursor=pointer]:
+                  - /url: /messaging/docs/basics
+                  - generic "REST API Basics" [ref=e46]
+              - generic [ref=e47]: API REFERENCE
+              - treeitem "All APIs" [expanded] [level=1] [ref=e48]:
+                - button "Collapse All APIs" [ref=e50] [cursor=pointer]:
+                  - generic [ref=e52]: 
+                - generic "All APIs" [ref=e53]
+              - group "All APIs submenu" [ref=e54]:
+                - treeitem "Attachment Actions" [level=2] [ref=e55]:
+                  - button "Expand Attachment Actions" [ref=e57] [cursor=pointer]:
+                    - generic [ref=e59]: 
+                  - link "Attachment Actions" [ref=e60] [cursor=pointer]:
+                    - /url: /messaging/docs/api/v1/attachment-actions
+                    - generic "Attachment Actions" [ref=e61]
+                - treeitem "ECM folder linking" [level=2] [ref=e62]:
+                  - button "Expand ECM folder linking" [ref=e64] [cursor=pointer]:
+                    - generic [ref=e66]: 
+                  - link "ECM folder linking" [ref=e67] [cursor=pointer]:
+                    - /url: /messaging/docs/api/v1/ecm-folder-linking
+                    - generic "ECM folder linking" [ref=e68]
+                - treeitem "Events" [level=2] [ref=e69]:
+                  - button "Expand Events" [ref=e71] [cursor=pointer]:
+                    - generic [ref=e73]: 
+                  - link "Events" [ref=e74] [cursor=pointer]:
+                    - /url: /messaging/docs/api/v1/events
+                    - generic "Events" [ref=e75]
+                - treeitem "HDS" [level=2] [ref=e76]:
+                  - button "Expand HDS" [ref=e78] [cursor=pointer]:
+                    - generic [ref=e80]: 
+                  - link "HDS" [ref=e81] [cursor=pointer]:
+                    - /url: /messaging/docs/api/v1/hds
+                    - generic "HDS" [ref=e82]
+                - treeitem "Memberships" [level=2] [ref=e83]:
+                  - button "Expand Memberships" [ref=e85] [cursor=pointer]:
+                    - generic [ref=e87]: 
+                  - link "Memberships" [ref=e88] [cursor=pointer]:
+                    - /url: /messaging/docs/api/v1/memberships
+                    - generic "Memberships" [ref=e89]
+                - treeitem "Messages" [expanded] [level=2] [ref=e90]:
+                  - button "Collapse Messages" [ref=e92] [cursor=pointer]:
+                    - generic [ref=e94]: 
+                  - link "Messages" [ref=e95] [cursor=pointer]:
+                    - /url: /messaging/docs/api/v1/messages
+                    - generic "Messages" [ref=e96]
+                - group "Messages submenu" [ref=e97]:
+                  - treeitem "Create a Message" [level=3] [ref=e98]:
+                    - link "Create a Message" [ref=e99] [cursor=pointer]:
+                      - /url: /messaging/docs/api/v1/messages/create-a-message
+                      - generic "Create a Message" [ref=e100]
+                    - generic "POST request" [ref=e101]: Post
+                  - treeitem "Delete a Message" [active] [level=3] [selected] [ref=e102]:
+                    - link "Delete a Message" [ref=e103] [cursor=pointer]:
+                      - /url: /messaging/docs/api/v1/messages/delete-a-message
+                      - generic "Delete a Message" [ref=e104]
+                    - generic "DELETE request" [ref=e105]: Delete
+                  - treeitem "Edit a Message" [level=3] [ref=e106]:
+                    - link "Edit a Message" [ref=e107] [cursor=pointer]:
+                      - /url: /messaging/docs/api/v1/messages/edit-a-message
+                      - generic "Edit a Message" [ref=e108]
+                    - generic "PUT request" [ref=e109]: Put
+                  - treeitem "Get Message Details" [level=3] [ref=e110]:
+                    - link "Get Message Details" [ref=e111] [cursor=pointer]:
+                      - /url: /messaging/docs/api/v1/messages/get-message-details
+                      - generic "Get Message Details" [ref=e112]
+                    - generic "GET request" [ref=e113]: Get
+                  - treeitem "List Direct Messages" [level=3] [ref=e114]:
+                    - link "List Direct Messages" [ref=e115] [cursor=pointer]:
+                      - /url: /messaging/docs/api/v1/messages/list-direct-messages
+                      - generic "List Direct Messages" [ref=e116]
+                    - generic "GET request" [ref=e117]: Get
+                  - treeitem "List Messages" [level=3] [ref=e118]:
+                    - link "List Messages" [ref=e119] [cursor=pointer]:
+                      - /url: /messaging/docs/api/v1/messages/list-messages
+                      - generic "List Messages" [ref=e120]
+                    - generic "GET request" [ref=e121]: Get
+                - treeitem "People" [level=2] [ref=e122]:
+                  - button "Expand People" [ref=e124] [cursor=pointer]:
+                    - generic [ref=e126]: 
+                  - link "People" [ref=e127] [cursor=pointer]:
+                    - /url: /messaging/docs/api/v1/people
+                    - generic "People" [ref=e128]
+                - treeitem "Room Tabs" [level=2] [ref=e129]:
+                  - button "Expand Room Tabs" [ref=e131] [cursor=pointer]:
+                    - generic [ref=e133]: 
+                  - link "Room Tabs" [ref=e134] [cursor=pointer]:
+                    - /url: /messaging/docs/api/v1/room-tabs
+                    - generic "Room Tabs" [ref=e135]
+                - treeitem "Rooms" [level=2] [ref=e136]:
+                  - button "Expand Rooms" [ref=e138] [cursor=pointer]:
+                    - generic [ref=e140]: 
+                  - link "Rooms" [ref=e141] [cursor=pointer]:
+                    - /url: /messaging/docs/api/v1/rooms
+                    - generic "Rooms" [ref=e142]
+                - treeitem "Team Memberships" [level=2] [ref=e143]:
+                  - button "Expand Team Memberships" [ref=e145] [cursor=pointer]:
+                    - generic [ref=e147]: 
+                  - link "Team Memberships" [ref=e148] [cursor=pointer]:
+                    - /url: /messaging/docs/api/v1/team-memberships
+                    - generic "Team Memberships" [ref=e149]
+                - treeitem "Teams" [level=2] [ref=e150]:
+                  - button "Expand Teams" [ref=e152] [cursor=pointer]:
+                    - generic [ref=e154]: 
+                  - link "Teams" [ref=e155] [cursor=pointer]:
+                    - /url: /messaging/docs/api/v1/teams
+                    - generic "Teams" [ref=e156]
+                - treeitem "Webhooks" [level=2] [ref=e157]:
+                  - button "Expand Webhooks" [ref=e159] [cursor=pointer]:
+                    - generic [ref=e161]: 
+                  - link "Webhooks" [ref=e162] [cursor=pointer]:
+                    - /url: /messaging/docs/api/v1/webhooks
+                    - generic "Webhooks" [ref=e163]
+              - treeitem "Changelog" [level=1] [ref=e164]:
+                - link "Changelog" [ref=e165] [cursor=pointer]:
+                  - /url: /messaging/docs/api/changelog/webex-messaging
+                  - generic "Changelog" [ref=e166]
+              - treeitem "SDK" [level=1] [ref=e167]:
+                - button "Expand SDK" [ref=e169] [cursor=pointer]:
+                  - generic [ref=e171]: 
+                - generic "SDK" [ref=e172]
+              - treeitem "AI Assistant for Developers" [level=1] [ref=e173]:
+                - link "AI Assistant for Developers" [ref=e174] [cursor=pointer]:
+                  - /url: /messaging/docs/webex-aI-assistant-for-developers
+                  - generic "AI Assistant for Developers" [ref=e175]
+              - treeitem "Troubleshoot the API" [level=1] [ref=e176]:
+                - link "Troubleshoot the API" [ref=e177] [cursor=pointer]:
+                  - /url: /messaging/docs/api/guides/troubleshooting
+                  - generic "Troubleshoot the API" [ref=e178]
+              - treeitem "Widgets" [level=1] [ref=e179]:
+                - link "Widgets" [ref=e180] [cursor=pointer]:
+                  - /url: /messaging/docs/widgets
+                  - generic "Widgets" [ref=e181]
+              - treeitem "Tutorials" [level=1] [ref=e182]:
+                - link "Tutorials" [ref=e183] [cursor=pointer]:
+                  - /url: /messaging/docs/tutorials
+                  - generic "Tutorials" [ref=e184]
+              - treeitem "Suite Sandbox" [level=1] [ref=e185]:
+                - link "Suite Sandbox" [ref=e186] [cursor=pointer]:
+                  - /url: /messaging/docs/developer-sandbox-guide
+                  - generic "Suite Sandbox" [ref=e187]
+              - treeitem "Beta Program" [level=1] [ref=e188]:
+                - link "Beta Program" [ref=e189] [cursor=pointer]:
+                  - /url: /messaging/docs/webex-developer-beta-program
+                  - generic "Beta Program" [ref=e190]
+              - treeitem "Webex Status API" [level=1] [ref=e191]:
+                - link "Webex Status API" [ref=e192] [cursor=pointer]:
+                  - /url: /messaging/docs/webex-status-api
+                  - generic "Webex Status API" [ref=e193]
+        - generic [ref=e196]:
+          - generic:
+            - generic: Version 1
+          - generic [ref=e200]:
+            - generic [ref=e202]:
+              - generic [ref=e203]:
+                - generic [ref=e205]: Messages
+                - heading "Delete a Message" [level=1] [ref=e206]
+                - generic [ref=e207]:
+                  - generic [ref=e208]: "Operation Id:"
+                  - text: Delete_a_Message
+                - generic [ref=e209]:
+                  - generic [ref=e210]: "Description:"
+                  - generic [ref=e211]:
+                    - paragraph [ref=e212]: Delete a message, by message ID.
+                    - paragraph [ref=e213]:
+                      - text: Specify the message ID in the
+                      - code [ref=e214]: messageId
+                      - text: parameter in the URI.
+              - generic [ref=e215]:
+                - generic [ref=e216]:
+                  - generic [ref=e217]: DELETE
+                  - generic [ref=e218]:
+                    - text: /messages/
+                    - strong [ref=e219]: "{messageId}"
+                - generic [ref=e220]:
+                  - heading "Request Parameters" [level=2] [ref=e221]
+                  - generic [ref=e222]:
+                    - heading "Path" [level=4] [ref=e223]
+                    - generic [ref=e224]:
+                      - generic [ref=e225]:
+                        - text: messageId
+                        - superscript [ref=e226]: required
+                        - generic [ref=e227]: "|"
+                        - text: string
+                      - generic [ref=e228]:
+                        - paragraph [ref=e230]: The unique identifier for the message.
+                        - paragraph [ref=e232]: example = "Y2lzY29zcGFyazovL3VzL01FU1NBR0UvOTJkYjNiZTAtNDNiZC0xMWU2LThhZTktZGQ1YjNkZmM1NjVk"
+                - generic [ref=e233]:
+                  - heading "Responses" [level=2] [ref=e234]
+                  - generic [ref=e235]:
+                    - generic [ref=e236]: "Status: 204"
+                    - generic [ref=e237]: No Content
+                  - generic [ref=e238]:
+                    - generic [ref=e239]: "Status: 400"
+                    - generic [ref=e240]: "Bad Request: The request was invalid or cannot be otherwise served. An accompanying error message will explain further."
+                  - generic [ref=e241]:
+                    - generic [ref=e242]: "Status: 401"
+                    - generic [ref=e243]: "Unauthorized: Authentication credentials were missing or incorrect."
+                  - generic [ref=e244]:
+                    - generic [ref=e245]: "Status: 403"
+                    - generic [ref=e246]: "Forbidden: The request is understood, but it has been refused or access is not allowed."
+                  - generic [ref=e247]:
+                    - generic [ref=e248]: "Status: 404"
+                    - generic [ref=e249]: "Not Found: The URI requested is invalid or the resource requested, such as a user, does not exist. Also returned when the requested format is not supported by the requested method."
+                  - generic [ref=e250]:
+                    - generic [ref=e251]: "Status: 405"
+                    - generic [ref=e252]: "Method Not Allowed: The request was made to a resource using an HTTP request method that is not supported."
+                  - generic [ref=e253]:
+                    - generic [ref=e254]: "Status: 409"
+                    - generic [ref=e255]: "Conflict: The request could not be processed because it conflicts with some established rule of the system. For example, a person may not be added to a room more than once."
+                  - generic [ref=e256]:
+                    - generic [ref=e257]: "Status: 410"
+                    - generic [ref=e258]: "Gone: The requested resource is no longer available."
+                  - generic [ref=e259]:
+                    - generic [ref=e260]: "Status: 415"
+                    - generic [ref=e261]: "Unsupported Media Type: The request was made to a resource without specifying a media type or used a media type that is not supported."
+                  - generic [ref=e262]:
+                    - generic [ref=e263]: "Status: 423"
+                    - generic [ref=e264]: "Locked: The requested resource is temporarily unavailable. A Retry-After header may be present that specifies how many seconds you need to wait before attempting the request again."
+                  - generic [ref=e265]:
+                    - generic [ref=e266]: "Status: 428"
+                    - generic [ref=e267]: "Precondition Required: File(s) cannot be scanned for malware and need to be force downloaded."
+                  - generic [ref=e268]:
+                    - generic [ref=e269]: "Status: 429"
+                    - generic [ref=e270]: "Too Many Requests: Too many requests have been sent in a given amount of time and the request has been rate limited. A Retry-After header should be present that specifies how many seconds you need to wait before a successful request can be made."
+                  - generic [ref=e271]:
+                    - generic [ref=e272]: "Status: 500"
+                    - generic [ref=e273]: "Internal Server Error: Something went wrong on the server. If the issue persists, feel free to contact the [Webex Developer Support team](/explore/support)."
+                  - generic [ref=e274]:
+                    - generic [ref=e275]: "Status: 502"
+                    - generic [ref=e276]: "Bad Gateway: The server received an invalid response from an upstream server while processing the request. Try again later."
+                  - generic [ref=e277]:
+                    - generic [ref=e278]: "Status: 503"
+                    - generic [ref=e279]: "Service Unavailable: Server is overloaded with requests. Try again later."
+                  - generic [ref=e280]:
+                    - generic [ref=e281]: "Status: 504"
+                    - generic [ref=e282]: "Gateway Timeout: An upstream server failed to respond on time. If your query uses max parameter, please try to reduce it."
+            - generic:
+              - generic [ref=e284] [cursor=pointer]:
+                - button [ref=e286]:
+                  - img [ref=e287]
+                - button [ref=e290]:
+                  - img [ref=e291]
+              - generic [ref=e295]:
+                - button "Configuration" [ref=e297] [cursor=pointer]:
+                  - button [ref=e298]:
+                    - img [ref=e299]
+                  - text: Configuration
+                - main [ref=e301]:
+                  - generic [ref=e302]:
+                    - generic [ref=e303]:
+                      - button "Parameters" [ref=e304] [cursor=pointer]
+                      - button "Code Snippets" [ref=e305] [cursor=pointer]
+                    - generic [ref=e309]:
+                      - generic [ref=e310]:
+                        - generic [ref=e312]
+                        - generic [ref=e319]
+                        - heading "Query Params Enable query parameters" [level=3] [ref=e327]
+                        - heading "Headers Headers" [level=3] [ref=e331]
+                      - button "Run" [ref=e336] [cursor=pointer]
+  - contentinfo [ref=e337]:
+    - generic [ref=e338]:
+      - generic [ref=e340]:
+        - generic [ref=e341]:
+          - paragraph [ref=e342]:
+            - heading "Connect" [level=2] [ref=e343]
+          - paragraph [ref=e344]:
+            - link "Support" [ref=e345] [cursor=pointer]:
+              - /url: /support
+          - link "Developer Community" [ref=e346] [cursor=pointer]:
+            - /url: https://community.cisco.com/t5/webex-for-developers/bd-p/disc-webex-developers
+          - paragraph [ref=e347]:
+            - link "Developer Events" [ref=e348] [cursor=pointer]:
+              - /url: /blog/categories/events
+          - paragraph [ref=e349]:
+            - link "Contact Sales" [ref=e350] [cursor=pointer]:
+              - /url: https://www.webex.com/contact-sales.html?TrackID=1017639&hbxref=&goid=us_contact_sales
+        - generic [ref=e351]:
+          - paragraph [ref=e352]:
+            - heading "Handy Links" [level=2] [ref=e353]
+          - paragraph [ref=e354]:
+            - link "Webex Ambassadors" [ref=e355] [cursor=pointer]:
+              - /url: https://www.essentials.webex.com/programs/ambassadors
+          - paragraph [ref=e356]:
+            - link "Webex App Hub" [ref=e357] [cursor=pointer]:
+              - /url: https://www.essentials.webex.com/programs/ambassadors
+        - generic [ref=e358]:
+          - paragraph [ref=e359]:
+            - heading "Resources" [level=2] [ref=e360]
+          - paragraph [ref=e361]:
+            - link "Open Source Bot Starter Kits" [ref=e362] [cursor=pointer]:
+              - /url: https://ciscowebexteamsambassadors.github.io/StarterKits/
+          - paragraph [ref=e363]:
+            - link "Download Webex" [ref=e364] [cursor=pointer]:
+              - /url: https://ciscowebexteamsambassadors.github.io/StarterKits/
+          - paragraph [ref=e365]:
+            - link "DevNet Learning Labs" [ref=e366] [cursor=pointer]:
+              - /url: https://www.webex.com
+        - generic [ref=e367]:
+          - paragraph [ref=e368]:
+            - link "Terms of Service" [ref=e369] [cursor=pointer]:
+              - /url: /terms-of-service
+          - paragraph [ref=e370]:
+            - link "Privacy Policy" [ref=e371] [cursor=pointer]:
+              - /url: https://www.cisco.com/c/en/us/about/legal/privacy.html
+          - paragraph [ref=e372]:
+            - link "Cookie Policy" [ref=e373] [cursor=pointer]:
+              - /url: https://www.cisco.com/c/en/us/about/legal/privacy.html#cookies
+          - paragraph [ref=e374]:
+            - link "Trademarks" [ref=e375] [cursor=pointer]:
+              - /url: https://www.cisco.com/c/en/us/about/legal/trademarks.html
+      - generic [ref=e376]:
+        - generic [ref=e377]:
+          - generic [ref=e378]: 
+          - generic [ref=e379]: © 2026 Cisco and/or its affiliates. All rights reserved.
+        - generic [ref=e380]:
+          - link "GitHub" [ref=e381] [cursor=pointer]:
+            - /url: https://github.com/webex
+            - generic [ref=e382]: 
+          - link "Facebook" [ref=e383] [cursor=pointer]:
+            - /url: https://www.facebook.com/CiscoCollab/
+            - generic [ref=e384]: 
+          - link "Twitter" [ref=e385] [cursor=pointer]:
+            - /url: https://twitter.com/webexdevs
+            - generic [ref=e386]: ﰢ
+          - link "YouTube" [ref=e387] [cursor=pointer]:
+            - /url: https://www.youtube.com/playlist?list=PL2k86RlAekM_bIUrvVw4Haq_0xxTez9zU
+            - generic [ref=e388]: ﴍ
+          - link "LinkedIn" [ref=e389] [cursor=pointer]:
+            - /url: https://www.linkedin.com/company/webex/
+            - generic [ref=e390]: 

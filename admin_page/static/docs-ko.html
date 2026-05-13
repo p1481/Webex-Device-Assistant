@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Webex Device Assistant 한국어 가이드</title>
+    <link rel="stylesheet" href="/admin-page/static/admin.css" />
+  </head>
+  <body>
+    <div class="page-shell page-shell--docs">
+      <aside class="hero-panel">
+        <div class="hero-panel__glow"></div>
+        <div class="hero-panel__content">
+          <div>
+            <p class="eyebrow">한국어 문서</p>
+            <h1>Webex Device Assistant 한국어 가이드</h1>
+            <p class="hero-copy">
+              현재 구현된 FastAPI 앱의 아키텍처, 실행 모드, Webex 흐름, 관리자
+              표면, 사용 방법을 짧게 요약한 브라우저용 동반 문서입니다.
+            </p>
+          </div>
+
+          <div class="identity-card">
+            <span class="identity-card__label">권위 있는 원문</span>
+            <strong>Repo-root markdown manual</strong>
+            <span class="identity-card__status">MANUAL_KO.md</span>
+          </div>
+
+          <dl class="hero-stats">
+            <div>
+              <dt>실행 모드</dt>
+              <dd>2</dd>
+            </div>
+            <div>
+              <dt>기본 실행</dt>
+              <dd>Mock-first</dd>
+            </div>
+            <div>
+              <dt>실기기 경로</dt>
+              <dd>Cloud xAPI</dd>
+            </div>
+          </dl>
+        </div>
+      </aside>
+
+      <main class="dashboard">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Docs KO</p>
+            <h2>구조와 사용 흐름 빠르게 보기</h2>
+          </div>
+          <div class="topbar__actions">
+            <a class="button button--ghost" href="/admin-page">관리자 페이지</a>
+            <a class="button button--ghost" href="/admin-page/docs">English docs</a>
+            <a class="button" href="/admin-page/manuals/MANUAL_KO.md">전체 한국어 매뉴얼</a>
+          </div>
+        </header>
+
+        <section class="panel">
+          <div class="panel__header">
+            <div>
+              <p class="eyebrow">Quick links</p>
+              <h3>주요 문서와 화면</h3>
+            </div>
+            <p class="panel__summary">
+              이 페이지는 짧은 요약입니다. 자세한 설명은 전체 markdown 매뉴얼을
+              확인하세요.
+            </p>
+          </div>
+
+          <div class="docs-link-row">
+            <a class="button" href="/admin-page/manuals/MANUAL_KO.md">MANUAL_KO.md</a>
+            <a class="button button--ghost" href="/admin-page/webex-test">Webex Test</a>
+            <a class="button button--ghost" href="/admin-page/manuals/USER_MANUAL.md">USER_MANUAL.md</a>
+          </div>
+        </section>
+
+        <section class="docs-grid" aria-label="한국어 요약 카드">
+          <article class="panel doc-card">
+            <div class="section-heading">
+              <p class="eyebrow">Architecture</p>
+              <h3>현재 상위 구조</h3>
+              <p>
+                Assistant App이 항상 중심이며, 실행만 두 백엔드 중 하나로
+                위임됩니다.
+              </p>
+            </div>
+
+            <pre class="code-block"><code>사용자 / 관리자 / Webex
+        │
+        ▼
+  assistant_app/
+    ├─ orchestrator
+    ├─ policy_evaluator
+    ├─ webex_gateway
+    └─ approval_manager
+        ├─ separated → device_executor/
+        └─ all_llm   → direct_tool_adapter/
+                        ▼
+             Webex cloud xAPI</code></pre>
+
+            <ul class="docs-list">
+              <li><code>admin_page/</code> 는 얇은 정적 브라우저 표면입니다.</li>
+              <li>실제 장치 경로는 로컬 RoomOS가 아니라 Webex cloud xAPI 입니다.</li>
+              <li>정책과 승인 판단은 <code>assistant_app</code> 에 남아 있습니다.</li>
+            </ul>
+          </article>
+
+          <article class="panel doc-card">
+            <div class="section-heading">
+              <p class="eyebrow">Flows</p>
+              <h3>메시지와 승인 흐름</h3>
+              <p>
+                로컬 디버그, 실제 Webex 메시지, 카드 클릭 모두 현재 구현에 맞게
+                분리되어 있습니다.
+              </p>
+            </div>
+
+            <ul class="docs-list">
+              <li><code>/debug/messages</code> 는 가장 빠른 로컬 진입점입니다.</li>
+              <li><code>/webhooks/webex/messages</code> 는 raw 서명 검증 후 실제 메시지를 fetch 합니다.</li>
+              <li>승인/선택 카드는 <code>/webhooks/webex/attachment-actions</code> 와 fetch-by-id semantics 를 사용합니다.</li>
+              <li><code>/admin-page</code> 자체는 열려 있지만 보호 데이터는 관리자 세션 후에만 로드됩니다.</li>
+            </ul>
+          </article>
+
+          <article class="panel doc-card">
+            <div class="section-heading">
+              <p class="eyebrow">Use</p>
+              <h3>지금 바로 쓰는 방법</h3>
+              <p>
+                기본 개발 경험은 mock-first 이므로 외부 자격 증명 없이도 먼저
+                시작할 수 있습니다.
+              </p>
+            </div>
+
+            <pre class="code-block"><code>python3 -m venv .venv
+.venv/bin/python -m pip install -e ".[dev]"
+.venv/bin/python -m uvicorn assistant_app.main:app --reload</code></pre>
+
+            <ul class="docs-list">
+              <li><code>/admin-page/webex-test</code> 에서 Webex 런타임과 디버그 호출을 확인할 수 있습니다.</li>
+              <li><code>/debug/webex/simulate-message</code> 는 <code>WEBEX_MOCK_MODE=true</code> 일 때만 동작합니다.</li>
+              <li>읽기 기능은 바로 실행되고 대부분의 변경 기능은 기본적으로 승인 필요입니다.</li>
+            </ul>
+          </article>
+        </section>
+
+        <section class="panel">
+          <div class="callout">
+            <strong>현재 범위와 한계</strong>
+            <p>
+              현재 런타임 분석 제공자로 실사용 가능한 것은 <code>rule_based</code>
+              와 <code>ollama</code> 입니다. booking CRUD, 로컬 RoomOS 전송,
+              재시작 안전한 세션 메모리는 아직 범위 밖입니다.
+            </p>
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Webex Test · Device Assistant</title>
+    <link rel="stylesheet" href="/admin-page/static/admin.css" />
+  </head>
+  <body>
+    <div class="page-shell page-shell--docs">
+      <aside class="hero-panel">
+        <div class="hero-panel__glow"></div>
+        <div class="hero-panel__content">
+          <div>
+            <p class="eyebrow">Webex Test</p>
+            <h1>Webex runtime probe and webhook simulator</h1>
+            <p class="hero-copy">
+              A focused, mock-first surface to inspect Webex configuration,
+              simulate inbound Webex messages, and trigger orchestration
+              without exposing bot tokens or webhook secrets to the browser.
+            </p>
+          </div>
+
+          <div class="identity-card">
+            <span class="identity-card__label">Mock-mode safe</span>
+            <strong>WEBEX_MOCK_MODE</strong>
+            <span class="identity-card__status" id="hero-mock-mode-status">
+              Loading runtime…
+            </span>
+          </div>
+
+          <dl class="hero-stats">
+            <div>
+              <dt>Webex mock</dt>
+              <dd id="hero-webex-mock">--</dd>
+            </div>
+            <div>
+              <dt>Device mock</dt>
+              <dd id="hero-device-mock">--</dd>
+            </div>
+            <div>
+              <dt>Bot token</dt>
+              <dd id="hero-bot-token">--</dd>
+            </div>
+          </dl>
+        </div>
+      </aside>
+
+      <main class="dashboard">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Webex Test page</p>
+            <h2>Inspect Webex runtime · simulate inbound webhook</h2>
+          </div>
+          <div class="topbar__actions">
+            <a class="button button--ghost" href="/admin-page">Open admin page</a>
+            <a class="button button--ghost" href="/admin-page/docs">View manuals</a>
+            <a class="button button--ghost" href="/admin-page/docs-ko">한국어 안내</a>
+            <button class="button button--ghost" id="refresh-runtime" type="button">
+              Refresh runtime
+            </button>
+            <span class="status-pill" id="page-status">Loading…</span>
+          </div>
+        </header>
+
+        <section class="panel" aria-labelledby="runtime-heading">
+          <div class="panel__header">
+            <div>
+              <p class="eyebrow">Runtime visibility</p>
+              <h3 id="runtime-heading">Webex configuration presence</h3>
+            </div>
+            <p class="panel__summary">
+              From <code>/debug/webex/runtime</code>. Secrets are reported as
+              boolean presence flags only.
+            </p>
+          </div>
+          <div id="runtime-grid" class="field-grid"></div>
+        </section>
+
+        <section class="panel" aria-labelledby="simulate-heading">
+          <div class="panel__header">
+            <div>
+              <p class="eyebrow">Webhook simulation</p>
+              <h3 id="simulate-heading">Simulate an inbound Webex message</h3>
+            </div>
+            <p class="panel__summary">
+              Posts a mock <code>messages.created</code> envelope server-side
+              through <code>/debug/webex/simulate-message</code>. Requires
+              <code>WEBEX_MOCK_MODE=true</code>.
+            </p>
+          </div>
+
+          <form class="stack-form" id="simulate-form">
+            <label class="field-card field-card--full">
+              <span class="field-card__label-row">
+                <span>Webex message text</span>
+                <span class="field-state field-state--live">live</span>
+              </span>
+              <textarea
+                id="sim-text"
+                name="text"
+                rows="3"
+                spellcheck="false"
+                required
+              >show device status</textarea>
+              <small>
+                Used as <code>mockText</code> on the simulated webhook envelope
+                and routed through the real orchestrator path.
+              </small>
+            </label>
+
+            <div class="field-grid two-column">
+              <label class="field-card">
+                <span class="field-card__label-row">
+                  <span>Room ID</span>
+                  <span class="field-state field-state--live">live</span>
+                </span>
+                <input id="sim-room" name="room_id" type="text" value="mock-room" required />
+              </label>
+              <label class="field-card">
+                <span class="field-card__label-row">
+                  <span>Person ID</span>
+                  <span class="field-state field-state--live">live</span>
+                </span>
+                <input id="sim-person" name="person_id" type="text" value="mock-person" required />
+              </label>
+              <label class="field-card field-card--full">
+                <span class="field-card__label-row">
+                  <span>Person email</span>
+                  <span class="field-state field-state--live">live</span>
+                </span>
+                <input
+                  id="sim-email"
+                  name="person_email"
+                  type="email"
+                  value="user@example.com"
+                />
+                <small>
+                  Must satisfy <code>allowed_webex_user_emails</code> when set.
+                </small>
+              </label>
+            </div>
+
+            <footer class="form-footer">
+              <p id="sim-message" class="inline-message" aria-live="polite"></p>
+              <button class="button" id="simulate-submit" type="submit">
+                Simulate inbound webhook
+              </button>
+            </footer>
+          </form>
+        </section>
+
+        <section class="panel" aria-labelledby="debug-heading">
+          <div class="panel__header">
+            <div>
+              <p class="eyebrow">Direct orchestration</p>
+              <h3 id="debug-heading">Send a debug message</h3>
+            </div>
+            <p class="panel__summary">
+              Bypasses Webex transport. Posts to <code>/debug/messages</code>
+              and shows the assistant reply inline.
+            </p>
+          </div>
+
+          <form class="stack-form" id="debug-form">
+            <label class="field-card field-card--full">
+              <span class="field-card__label-row">
+                <span>Message text</span>
+                <span class="field-state field-state--live">live</span>
+              </span>
+              <textarea
+                id="debug-text"
+                name="text"
+                rows="3"
+                spellcheck="false"
+                required
+              >get status of Board Pro</textarea>
+            </label>
+            <div class="field-grid two-column">
+              <label class="field-card">
+                <span class="field-card__label-row">
+                  <span>Session ID</span>
+                  <span class="field-state field-state--live">live</span>
+                </span>
+                <input id="debug-session" name="session_id" type="text" value="webex-test-session" required />
+              </label>
+              <label class="field-card">
+                <span class="field-card__label-row">
+                  <span>Preferred mode</span>
+                  <span class="field-state field-state--live">live</span>
+                </span>
+                <select id="debug-mode" name="preferred_mode">
+                  <option value="">(use default)</option>
+                  <option value="separated">separated</option>
+                  <option value="all_llm">all_llm</option>
+                </select>
+              </label>
+            </div>
+            <footer class="form-footer">
+              <p id="debug-message" class="inline-message" aria-live="polite"></p>
+              <button class="button" id="debug-submit" type="submit">
+                Send debug message
+              </button>
+            </footer>
+          </form>
+        </section>
+
+        <section class="panel" aria-labelledby="output-heading">
+          <div class="panel__header">
+            <div>
+              <p class="eyebrow">Last response</p>
+              <h3 id="output-heading">Server output</h3>
+            </div>
+            <p class="panel__summary">
+              Raw JSON from the most recent simulate / debug call.
+            </p>
+          </div>
+          <pre id="output-pre" class="mono empty-state" aria-live="polite">No output yet.</pre>
+        </section>
+      </main>
+    </div>
+
+    <script src="/admin-page/static/webex-test.js" defer></script>
+  </body>
+</html>

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Webex Device Assistant Manuals</title>
+    <link rel="stylesheet" href="/admin-page/static/admin.css" />
+  </head>
+  <body>
+    <div class="page-shell page-shell--docs">
+      <aside class="hero-panel">
+        <div class="hero-panel__glow"></div>
+        <div class="hero-panel__content">
+          <div>
+            <p class="eyebrow">Documentation</p>
+            <h1>Webex Device Assistant Manuals</h1>
+            <p class="hero-copy">
+              A thin companion page for the top-level manuals. It keeps the admin surface
+              static while making the current architecture, install path, and user workflow
+              easy to reach in the browser.
+            </p>
+          </div>
+
+            <div class="identity-card">
+              <span class="identity-card__label">Authoritative source</span>
+              <strong>Repo-root markdown manuals</strong>
+              <span class="identity-card__status"
+              >ARCHITECTURE.md · INSTALL.md · USER_MANUAL.md · MANUAL_KO.md</span
+              >
+            </div>
+
+          <dl class="hero-stats">
+            <div>
+              <dt>Manuals</dt>
+              <dd>4</dd>
+            </div>
+            <div>
+              <dt>Execution modes</dt>
+              <dd>2</dd>
+            </div>
+            <div>
+              <dt>Default run</dt>
+              <dd>Mock-first</dd>
+            </div>
+          </dl>
+        </div>
+      </aside>
+
+      <main class="dashboard">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Admin Page Docs</p>
+            <h2>Architecture, install, and user guidance</h2>
+          </div>
+          <div class="topbar__actions">
+            <a class="button button--ghost" href="/admin-page">Open admin page</a>
+            <a class="button button--ghost" href="/admin-page/docs-ko">Korean guide</a>
+          </div>
+        </header>
+
+        <section class="panel">
+          <div class="panel__header">
+            <div>
+              <p class="eyebrow">Manual index</p>
+              <h3>Open the full markdown manuals</h3>
+            </div>
+            <p class="panel__summary">
+              These summaries stay intentionally short. Use the manual links for the full,
+              current text from the repository root.
+            </p>
+          </div>
+
+          <div class="docs-link-row">
+            <a class="button" href="/admin-page/manuals/ARCHITECTURE.md"
+              >Architecture manual</a
+            >
+            <a class="button" href="/admin-page/manuals/INSTALL.md">Install manual</a>
+            <a class="button" href="/admin-page/manuals/USER_MANUAL.md">User manual</a>
+            <a class="button button--ghost" href="/admin-page/manuals/MANUAL_KO.md">Korean guide</a>
+          </div>
+        </section>
+
+        <section class="docs-grid" aria-label="Manual summaries">
+          <article class="panel doc-card">
+            <div class="section-heading">
+              <p class="eyebrow">ARCHITECTURE.md</p>
+              <h3>Architecture</h3>
+              <p>
+                The app stays LLM-first in both execution modes while keeping orchestration,
+                execution, transport, and the thin admin surface clearly separated.
+              </p>
+            </div>
+
+            <ul class="docs-list">
+              <li><code>assistant_app/</code> owns orchestration, provider wiring, and Webex ingress.</li>
+              <li>
+                <code>device_executor/</code> owns separated-mode execution and
+                <code>direct_tool_adapter/</code> owns all-LLM execution bindings.
+              </li>
+              <li>
+                <code>admin_page/</code> remains a thin browser surface backed by
+                <code>/admin/*</code> APIs, not a separate backend service.
+              </li>
+            </ul>
+
+            <div class="doc-card__footer">
+              <a class="button button--ghost" href="/admin-page/manuals/ARCHITECTURE.md"
+                >Read full architecture manual</a
+              >
+            </div>
+          </article>
+
+          <article class="panel doc-card">
+            <div class="section-heading">
+              <p class="eyebrow">INSTALL.md</p>
+              <h3>Install</h3>
+              <p>
+                Local setup is intentionally mock-first so the FastAPI app can run before real
+                Webex credentials, token-manager wiring, or device access are available.
+              </p>
+            </div>
+
+            <pre class="code-block"><code>python3 -m venv .venv
+.venv/bin/python -m pip install -e ".[dev]"
+.venv/bin/python -m uvicorn assistant_app.main:app --reload</code></pre>
+
+            <ul class="docs-list">
+              <li>Requires Python 3.12 or newer.</li>
+              <li><code>WEBEX_MOCK_MODE</code> and <code>DEVICE_MOCK_MODE</code> default to <code>true</code>.</li>
+              <li>Real device access depends on the token manager sidecar and Webex cloud xAPI APIs.</li>
+            </ul>
+
+            <div class="doc-card__footer">
+              <a class="button button--ghost" href="/admin-page/manuals/INSTALL.md"
+                >Read full install manual</a
+              >
+            </div>
+          </article>
+
+          <article class="panel doc-card">
+            <div class="section-heading">
+              <p class="eyebrow">USER_MANUAL.md</p>
+              <h3>User Manual</h3>
+              <p>
+                Natural-language requests work through local debug routes today and through Webex
+                messages in real mode, with approval cards handling most mutating actions.
+              </p>
+            </div>
+
+            <ul class="docs-list">
+              <li>Use <code>POST /debug/messages</code> for local testing and Webex messages for real ingress.</li>
+              <li>Read-only actions can run immediately; most mutating actions create approval requests by default.</li>
+              <li>
+                The current admin page shows settings, provider data, policies, devices,
+                approvals, audit records, and process-local stats.
+              </li>
+            </ul>
+
+            <div class="doc-card__footer">
+              <a class="button button--ghost" href="/admin-page/manuals/USER_MANUAL.md"
+                >Read full user manual</a
+              >
+            </div>
+          </article>
+
+          <article class="panel doc-card">
+            <div class="section-heading">
+              <p class="eyebrow">MANUAL_KO.md</p>
+              <h3>Korean guide</h3>
+              <p>
+                A Korean companion manual for the currently implemented architecture,
+                execution modes, Webex flows, admin surfaces, local usage, and limits.
+              </p>
+            </div>
+
+            <ul class="docs-list">
+              <li>Covers the current mock-first scope and the real Webex cloud xAPI path.</li>
+              <li>Includes simple text diagrams for debug, Webex, approval, and admin flows.</li>
+              <li>Stays concise in the browser and links back to the full repo-root markdown.</li>
+            </ul>
+
+            <div class="doc-card__footer">
+              <a class="button button--ghost" href="/admin-page/docs-ko">Open Korean browser guide</a>
+              <a class="button button--ghost" href="/admin-page/manuals/MANUAL_KO.md">Read full Korean manual</a>
+            </div>
+          </article>
+        </section>
+
+        <section class="panel">
+          <div class="callout">
+            <strong>Why this page stays minimal</strong>
+            <p>
+              The manuals remain the source of truth. This page only surfaces the current top-level
+              guides inside the existing admin-page aesthetic and links back to the full markdown.
+            </p>
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

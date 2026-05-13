@@ -1,0 +1,193 @@
+from __future__ import annotations
+
+from shared.contracts import (
+    ApprovalState,
+    CommandPolicy,
+    ExecutionMode,
+    Intent,
+    RiskLevel,
+)
+
+
+DEFAULT_COMMAND_POLICIES: dict[Intent, CommandPolicy] = {
+    Intent.GET_STATUS: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
+        risk_level=RiskLevel.READ_ONLY,
+        approval_state=ApprovalState.NOT_REQUIRED,
+        reason="Read-only device status can run in either mode for the MVP.",
+    ),
+    Intent.GET_ENVIRONMENT_INFO: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
+        risk_level=RiskLevel.READ_ONLY,
+        approval_state=ApprovalState.NOT_REQUIRED,
+        reason="Read-only environment sensor queries can run in either mode for the MVP.",
+    ),
+    Intent.GET_CAMERA_MODE: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
+        risk_level=RiskLevel.READ_ONLY,
+        approval_state=ApprovalState.NOT_REQUIRED,
+        reason="Read-only camera mode queries can run in either mode for the MVP.",
+    ),
+    Intent.GET_ROOM_BOOKING: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
+        risk_level=RiskLevel.READ_ONLY,
+        approval_state=ApprovalState.NOT_REQUIRED,
+        reason="Read-only room booking and OBTP queries can run in either mode for the MVP.",
+    ),
+    Intent.LIST_DEVICES: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
+        risk_level=RiskLevel.READ_ONLY,
+        approval_state=ApprovalState.NOT_REQUIRED,
+        reason="Read-only device inventory can run in either mode for the MVP.",
+    ),
+    Intent.WEBEX_JOIN: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
+        risk_level=RiskLevel.LOW,
+        approval_state=ApprovalState.REQUIRED,
+        reason="Meeting joins are mutating actions and should require explicit approval.",
+    ),
+    Intent.JOIN_OBTP: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
+        risk_level=RiskLevel.LOW,
+        approval_state=ApprovalState.REQUIRED,
+        reason="Scheduled meeting joins are mutating actions and should require explicit approval.",
+    ),
+    Intent.DIAL: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
+        risk_level=RiskLevel.LOW,
+        approval_state=ApprovalState.REQUIRED,
+        reason="Outbound calls are mutating actions and should require explicit approval.",
+    ),
+    Intent.HANG_UP: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
+        risk_level=RiskLevel.LOW,
+        approval_state=ApprovalState.REQUIRED,
+        reason="Call control changes device state and should require explicit approval.",
+    ),
+    Intent.SEND_DTMF: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
+        risk_level=RiskLevel.LOW,
+        approval_state=ApprovalState.REQUIRED,
+        reason="DTMF input should require explicit approval before it is sent.",
+    ),
+    Intent.SET_MICROPHONE_MUTE: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
+        risk_level=RiskLevel.LOW,
+        approval_state=ApprovalState.REQUIRED,
+        reason="Audio input changes should require explicit approval by default.",
+    ),
+    Intent.SET_MICROPHONE_MODE: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
+        risk_level=RiskLevel.LOW,
+        approval_state=ApprovalState.REQUIRED,
+        reason="Microphone processing changes should require explicit approval by default.",
+    ),
+    Intent.SET_VOLUME: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
+        risk_level=RiskLevel.LOW,
+        approval_state=ApprovalState.REQUIRED,
+        reason="Mutating device settings should require an explicit approval flow.",
+    ),
+    Intent.SET_VIDEO_MUTE: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
+        risk_level=RiskLevel.LOW,
+        approval_state=ApprovalState.REQUIRED,
+        reason="Camera mute changes should require explicit approval by default.",
+    ),
+    Intent.SET_SELFVIEW: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
+        risk_level=RiskLevel.LOW,
+        approval_state=ApprovalState.REQUIRED,
+        reason="Selfview changes should require explicit approval by default.",
+    ),
+    Intent.SET_CAMERA_MODE: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
+        risk_level=RiskLevel.LOW,
+        approval_state=ApprovalState.REQUIRED,
+        reason="Camera mode changes should require explicit approval by default.",
+    ),
+    Intent.SET_LAYOUT: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
+        risk_level=RiskLevel.LOW,
+        approval_state=ApprovalState.REQUIRED,
+        reason="Layout changes should require explicit approval by default.",
+    ),
+    Intent.SET_PRESENTATION: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
+        risk_level=RiskLevel.LOW,
+        approval_state=ApprovalState.REQUIRED,
+        reason="Presentation control should require explicit approval by default.",
+    ),
+    Intent.SWITCH_INPUT_SOURCE: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
+        risk_level=RiskLevel.LOW,
+        approval_state=ApprovalState.REQUIRED,
+        reason="Input source changes should require explicit approval by default.",
+    ),
+    Intent.ASSIGN_MATRIX: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
+        risk_level=RiskLevel.LOW,
+        approval_state=ApprovalState.REQUIRED,
+        reason="Video matrix assignments should require explicit approval by default.",
+    ),
+    Intent.UNASSIGN_MATRIX: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
+        risk_level=RiskLevel.LOW,
+        approval_state=ApprovalState.REQUIRED,
+        reason="Video matrix unassignments should require explicit approval by default.",
+    ),
+    Intent.SWAP_MATRIX: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
+        risk_level=RiskLevel.LOW,
+        approval_state=ApprovalState.REQUIRED,
+        reason="Video matrix swaps should require explicit approval by default.",
+    ),
+    Intent.SET_DISPLAY_MODE: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
+        risk_level=RiskLevel.LOW,
+        approval_state=ApprovalState.REQUIRED,
+        reason="Display layout changes should require explicit approval by default.",
+    ),
+    Intent.SET_DISPLAY_ROLE: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
+        risk_level=RiskLevel.LOW,
+        approval_state=ApprovalState.REQUIRED,
+        reason="Display role changes should require explicit approval by default.",
+    ),
+    Intent.ACTIVATE_CAMERA_PRESET: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
+        risk_level=RiskLevel.LOW,
+        approval_state=ApprovalState.REQUIRED,
+        reason="Camera preset moves should require explicit approval by default.",
+    ),
+    Intent.ADJUST_CAMERA_POSITION: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
+        risk_level=RiskLevel.LOW,
+        approval_state=ApprovalState.REQUIRED,
+        reason="Manual camera position changes should require explicit approval by default.",
+    ),
+    Intent.SET_SPEAKERTRACK: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
+        risk_level=RiskLevel.LOW,
+        approval_state=ApprovalState.REQUIRED,
+        reason="SpeakerTrack changes should require explicit approval by default.",
+    ),
+    Intent.SET_STANDBY: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
+        risk_level=RiskLevel.LOW,
+        approval_state=ApprovalState.REQUIRED,
+        reason="Standby changes should require explicit approval by default.",
+    ),
+    Intent.REBOOT: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED],
+        risk_level=RiskLevel.HIGH,
+        approval_state=ApprovalState.REQUIRED,
+        reason="High-risk device actions stay in separated mode with approval.",
+    ),
+    Intent.FACTORY_RESET: CommandPolicy(
+        allowed_modes=[ExecutionMode.SEPARATED],
+        risk_level=RiskLevel.HIGH,
+        approval_state=ApprovalState.REQUIRED,
+        reason="Factory reset is destructive and must remain separated + approved.",
+    ),
+}
