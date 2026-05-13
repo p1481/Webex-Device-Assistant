@@ -2,10 +2,10 @@ import json
 
 from assistant_app.providers.ollama import OllamaProvider
 from device_executor.device_client import DeviceClient
-from shared.contracts import InboundUserMessage, Intent, WritableCameraMode
+from shared.contracts import InboundUserMessage, Intent
 
 
-def test_ollama_provider_treats_frames_as_camera_mode_not_video_layout() -> None:
+def test_ollama_provider_does_not_rewrite_frames_layout_as_speakertrack_mode() -> None:
     provider = OllamaProvider(default_target_device="Room Bar")
     message = InboundUserMessage(
         session_id="layout-guard",
@@ -31,13 +31,10 @@ def test_ollama_provider_treats_frames_as_camera_mode_not_video_layout() -> None
     decision = provider._parse_decision(content, message)
 
     assert decision is not None
-    proposal = decision.action_proposal
-    assert proposal is not None
-    assert proposal.intent == Intent.SET_CAMERA_MODE
-    assert proposal.set_camera_mode is not None
-    assert proposal.set_camera_mode.target_device == "Room Bar"
-    assert proposal.set_camera_mode.mode == WritableCameraMode.FRAMES
-    assert proposal.set_layout is None
+    assert decision.action_proposal is not None
+    assert decision.action_proposal.intent == Intent.SET_LAYOUT
+    assert decision.action_proposal.set_layout is not None
+    assert decision.action_proposal.set_layout.layout_name == "Frames"
 
 
 def test_ollama_provider_recovers_korean_room_bar_target_when_model_omits_payload_target() -> None:

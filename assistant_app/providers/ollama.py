@@ -62,21 +62,11 @@ from shared.contracts import (
 class OllamaProvider:
     CAMERA_MODE_LAYOUT_ALIASES = {
         "auto": WritableCameraMode.AUTO,
-        "frames": WritableCameraMode.FRAMES,
-        "frame": WritableCameraMode.FRAMES,
-        "best overview": WritableCameraMode.BEST_OVERVIEW,
-        "best-overview": WritableCameraMode.BEST_OVERVIEW,
-        "best_overview": WritableCameraMode.BEST_OVERVIEW,
-        "bestoverview": WritableCameraMode.BEST_OVERVIEW,
-        "speaker closeup": WritableCameraMode.CLOSEUP,
-        "speaker close-up": WritableCameraMode.CLOSEUP,
-        "speaker-closeup": WritableCameraMode.CLOSEUP,
-        "speaker_closeup": WritableCameraMode.CLOSEUP,
-        "speakercloseup": WritableCameraMode.CLOSEUP,
-        "closeup": WritableCameraMode.CLOSEUP,
-        "current": WritableCameraMode.CURRENT,
-        "dynamic": WritableCameraMode.DYNAMIC,
-        "manual": WritableCameraMode.MANUAL,
+        "enable": WritableCameraMode.AUTO,
+        "enabled": WritableCameraMode.AUTO,
+        "off": WritableCameraMode.OFF,
+        "disable": WritableCameraMode.OFF,
+        "disabled": WritableCameraMode.OFF,
     }
 
     def __init__(self, default_target_device: str) -> None:
@@ -220,7 +210,7 @@ class OllamaProvider:
             '"set_volume": {"target_device": string, "level": number}|null, '
             '"set_video_mute": {"target_device": string, "muted": boolean}|null, '
             '"set_selfview": {"target_device": string, "enabled": boolean}|null, '
-            '"set_camera_mode": {"target_device": string, "mode": "Auto"|"BestOverview"|"Closeup"|"Current"|"Dynamic"|"Frames"|"Manual"}|null, '
+            '"set_camera_mode": {"target_device": string, "mode": "Auto"|"Off"}|null, '
             '"set_layout": {"target_device": string, "layout_name": string}|null, '
             '"set_presentation": {"target_device": string, "enabled": boolean}|null, '
             '"switch_input_source": {"target_device": string, "source_id": string}|null, '
@@ -239,8 +229,8 @@ class OllamaProvider:
             "If the latest message names a device, carry that device name into the proposal. "
             "For camera position changes, always include camera_id on the action payload and use only small discrete integer step deltas such as pan +/-1000, tilt +/-1000, or zoom +/-700. "
             "If the user asks for supported video layouts, answer with Video.Layout.SetLayout candidates only: Equal, Overlay, Prominent, Single, SpeakerOnly. "
-            "Do not describe Best Overview, Speaker Closeup, or Frames as video layouts; those are camera modes. "
-            "If the user requests Frames, Best Overview, or Speaker Closeup, propose set_camera_mode, not set_layout. "
+            "Do not describe speaker tracking Auto/Off as video layouts; those are camera modes. "
+            "If the user requests speaker tracking Auto/On/Off, propose set_camera_mode, not set_layout. "
             "If unsure, return plain text instead of inventing actions."
         )
         messages: list[dict[str, str]] = [{"role": "system", "content": system_prompt}]
@@ -1275,15 +1265,11 @@ class OllamaProvider:
         normalized = " ".join(raw_mode.strip().casefold().replace("_", " ").split())
         direct_map = {
             "auto": WritableCameraMode.AUTO,
-            "bestoverview": WritableCameraMode.BEST_OVERVIEW,
-            "best overview": WritableCameraMode.BEST_OVERVIEW,
-            "closeup": WritableCameraMode.CLOSEUP,
-            "speaker closeup": WritableCameraMode.CLOSEUP,
-            "current": WritableCameraMode.CURRENT,
-            "dynamic": WritableCameraMode.DYNAMIC,
-            "frames": WritableCameraMode.FRAMES,
-            "frame": WritableCameraMode.FRAMES,
-            "manual": WritableCameraMode.MANUAL,
+            "enable": WritableCameraMode.AUTO,
+            "enabled": WritableCameraMode.AUTO,
+            "off": WritableCameraMode.OFF,
+            "disable": WritableCameraMode.OFF,
+            "disabled": WritableCameraMode.OFF,
         }
         mode = direct_map.get(normalized)
         if mode is not None:

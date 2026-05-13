@@ -209,42 +209,26 @@ class DeviceClient:
         "speaker-closeup": "speaker_closeup",
         "speaker_closeup": "speaker_closeup",
     }
-    CAMERA_MODE_ORDER: ClassVar[tuple[str, ...]] = (
-        "Auto",
-        "BestOverview",
-        "Closeup",
-        "Current",
-        "Dynamic",
-        "Frames",
-        "Manual",
-    )
+    CAMERA_MODE_ORDER: ClassVar[tuple[str, ...]] = ("Auto", "Off")
     CAMERA_MODE_CONFIG_VALUES: ClassVar[dict[str, str]] = {
         "Auto": "Auto",
-        "BestOverview": "BestOverview",
-        "Closeup": "Closeup",
-        "Current": "Current",
-        "Dynamic": "Dynamic",
-        "Frames": "Frames",
-        "Manual": "Manual",
+        "Off": "Off",
     }
     CAMERA_MODE_CONFIG_ALIASES: ClassVar[dict[str, str]] = {
         "auto": "Auto",
-        "bestoverview": "BestOverview",
-        "best overview": "BestOverview",
-        "best-overview": "BestOverview",
-        "best_overview": "BestOverview",
-        "closeup": "Closeup",
-        "close up": "Closeup",
-        "speakercloseup": "Closeup",
-        "speaker closeup": "Closeup",
-        "speaker close-up": "Closeup",
-        "speaker-closeup": "Closeup",
-        "speaker_closeup": "Closeup",
-        "current": "Current",
-        "dynamic": "Dynamic",
-        "frames": "Frames",
-        "frame": "Frames",
-        "manual": "Manual",
+        "enable": "Auto",
+        "enabled": "Auto",
+        "켜": "Auto",
+        "켜기": "Auto",
+        "활성": "Auto",
+        "활성화": "Auto",
+        "off": "Off",
+        "disable": "Off",
+        "disabled": "Off",
+        "끄기": "Off",
+        "꺼": "Off",
+        "비활성": "Off",
+        "비활성화": "Off",
     }
 
     def __init__(self, config: AppConfig, token_provider: WebexTokenProvider) -> None:
@@ -763,7 +747,7 @@ class DeviceClient:
         if config_value is None:
             raise RuntimeError(
                 "Unsupported camera mode request. Supported camera modes are: "
-                "Auto, BestOverview, Closeup, Current, Dynamic, Frames, Manual."
+                "Auto, Off."
             )
 
         async with httpx.AsyncClient(
@@ -776,13 +760,13 @@ class DeviceClient:
             [
                 {
                     "op": "replace",
-                    "path": self.CONFIG_PATHS["speakertrack_default_behavior"],
+                    "path": self.CONFIG_PATHS["speakertrack_mode"],
                     "value": config_value,
                 }
             ],
         )
         device_name = device.display_name or target_device
-        return f"Set camera mode to {normalized_mode} on {device_name} (DefaultBehavior: {config_value})."
+        return f"Set camera mode to {normalized_mode} on {device_name} (SpeakerTrack Mode: {config_value})."
 
     async def list_supported_camera_modes(self, target_device: str) -> tuple[str, ...]:
         if self.config.device_mock_mode:
@@ -795,7 +779,7 @@ class DeviceClient:
             values = await self._fetch_device_configuration_enum_values(
                 client,
                 self._device_configuration_target_id(device),
-                self.CONFIG_KEYS["speakertrack_default_behavior"],
+                self.CONFIG_KEYS["speakertrack_mode"],
             )
         if values is None:
             return self.CAMERA_MODE_ORDER

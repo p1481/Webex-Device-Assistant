@@ -657,11 +657,7 @@ class Orchestrator:
         )
 
     def _camera_mode_title(self, mode: str) -> str:
-        aliases = {
-            "best_overview": "BestOverview",
-            "speaker_closeup": "Closeup",
-            "frames": "Frames",
-        }
+        aliases = {}
         return aliases.get(mode, mode)
 
     def _build_camera_mode_card_pending_action(
@@ -691,35 +687,11 @@ class Orchestrator:
         mode_phrases: tuple[tuple[WritableCameraMode, tuple[str, ...]], ...] = (
             (
                 WritableCameraMode.AUTO,
-                ("auto",),
+                ("auto", "enable", "enabled", "켜", "켜기", "활성", "활성화"),
             ),
             (
-                WritableCameraMode.BEST_OVERVIEW,
-                ("best overview", "best_overview", "best-overview", "bestoverview"),
-            ),
-            (
-                WritableCameraMode.CLOSEUP,
-                (
-                    "closeup",
-                    "close up",
-                    "speaker closeup",
-                    "speaker_closeup",
-                    "speaker-closeup",
-                    "speakercloseup",
-                ),
-            ),
-            (
-                WritableCameraMode.CURRENT,
-                ("current",),
-            ),
-            (
-                WritableCameraMode.DYNAMIC,
-                ("dynamic",),
-            ),
-            (WritableCameraMode.FRAMES, ("frames", "frame")),
-            (
-                WritableCameraMode.MANUAL,
-                ("manual",),
+                WritableCameraMode.OFF,
+                ("off", "disable", "disabled", "끄기", "꺼", "비활성", "비활성화"),
             ),
         )
         for mode, phrases in mode_phrases:
@@ -801,7 +773,7 @@ class Orchestrator:
                     {
                         "type": "TextBlock",
                         "wrap": True,
-                        "text": "xConfiguration Cameras SpeakerTrack DefaultBehavior 지원 모드",
+                        "text": "xConfiguration Cameras SpeakerTrack Mode 지원 모드",
                     },
                 ],
                 "actions": actions,
