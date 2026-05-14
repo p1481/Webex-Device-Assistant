@@ -2,7 +2,7 @@
 
 > Current reference for the running FastAPI service, admin page, Webex cloud xAPI integration, LLM provider wiring, configuration, and supported user workflows.
 
-## 1. High-level purpose
+## 1. Purpose
 
 Webex Device Assistant is a FastAPI application that converts natural-language requests into safe Cisco Webex RoomOS device actions.
 
@@ -13,7 +13,15 @@ It supports two main entry paths:
 
 The app keeps decision-making, policy/approval, and device execution separated so that read-only questions can run immediately while mutating device actions can be reviewed through approval cards or admin controls.
 
-## 2. Architecture overview
+### Core architecture constraints
+
+- Read-only questions should run immediately when policy allows.
+- Mutating device actions should remain reviewable through approval cards or admin controls.
+- **Separated mode** remains the safest default architecture.
+- **All-LLM mode** still operates on canonical validated requests and the same device action path.
+- The execution-mode difference is execution ownership, not user experience.
+
+## 2. Architecture Diagram
 
 ```text
 User / Webex message / Debug API
@@ -45,9 +53,9 @@ Admin browser UI
         +--> /admin-page/manuals/* markdown files
 ```
 
-## 3. Runtime services and modules
+## 3. Modules and Runtime Services
 
-### FastAPI service
+### 3.1 FastAPI service
 
 - **Entrypoint:** `assistant_app.main:app`
 - **Typical dev command:**
@@ -59,7 +67,7 @@ Admin browser UI
 - **Health check:** `GET /healthz`
 - **Admin UI:** `GET /admin-page`
 
-### Assistant app layer
+### 3.2 Assistant app layer
 
 - `assistant_app/main.py`
   - Creates the FastAPI app.
@@ -81,7 +89,7 @@ Admin browser UI
 - `assistant_app/agentic_tool_runtime.py`
   - In all-LLM mode, requires the provider to call exactly one allowed `execute_device_action` tool before direct execution.
 
-### Device execution layer
+### 3.3 Device execution layer
 
 - `device_executor/executor.py`
   - Separated-mode executor wrapper.
@@ -95,7 +103,7 @@ Admin browser UI
 - `direct_tool_adapter/adapter.py`
   - all-LLM execution adapter; still uses canonical validated requests and the same `DeviceClient` action path.
 
-### Shared contracts
+### 3.4 Shared contracts
 
 - `shared/contracts/actions.py`
   - Intents, action payloads, camera/display enums, and action proposal schema.
@@ -106,7 +114,7 @@ Admin browser UI
 - `shared/contracts/conversation.py`
   - Chat/provider request and response contracts.
 
-### Admin page
+### 3.5 Admin page
 
 - `admin_page/api.py`
   - Serves static admin pages under `/admin-page`.
@@ -118,11 +126,11 @@ Admin browser UI
 - `admin_page/static/docs-ko.html`
   - Korean guide page.
 - `admin_page/static/architecture-guide.html`
-  - Browser-friendly architecture/operation guide generated from this document.
+  - Browser-friendly architecture and operations guide generated from this document.
 
-## 4. Main HTTP API surface
+## 4. API Surface
 
-### Health and debug
+### 4.1 Health and debug
 
 - `GET /healthz`
   - Returns service status plus default execution/mock-mode indicators.
@@ -145,14 +153,14 @@ curl -sS -X POST http://127.0.0.1:8000/debug/messages \
 - `POST /debug/approvals/{request_id}`
   - Approves/rejects approval requests during local testing.
 
-### Webex webhooks
+### 4.2 Webex webhooks
 
 - `POST /webhooks/webex/messages`
   - Handles real Webex message-created webhooks.
 - `POST /webhooks/webex/attachment-actions`
   - Handles adaptive-card button selections, including approvals and card-mode choices.
 
-### Admin APIs
+### 4.3 Admin APIs
 
 - `POST /admin/auth/start`
   - Starts admin authentication/session flow.
@@ -179,7 +187,7 @@ curl -sS -X POST http://127.0.0.1:8000/debug/messages \
 - `GET /admin/stats`
   - Returns process-local counters and runtime stats.
 
-### Admin-page static routes
+### 4.4 Admin-page static routes
 
 - `GET /admin-page`
   - Main dashboard.
@@ -198,7 +206,7 @@ curl -sS -X POST http://127.0.0.1:8000/debug/messages \
 
 Configuration is read from environment variables in `assistant_app/config.py`.
 
-### Core runtime
+### 5.1 Core runtime
 
 - `ADMIN_STATE_PATH`
   - Optional path for persisted admin state.
@@ -208,7 +216,7 @@ Configuration is read from environment variables in `assistant_app/config.py`.
 - `DEFAULT_TARGET_DEVICE`
   - Device name used when the user does not specify a target.
 
-### Provider / LLM
+### 5.2 Provider / LLM
 
 - `DEFAULT_PROVIDER`
   - `rule-based` or `ollama` are implemented for runtime analysis.
@@ -218,7 +226,7 @@ Configuration is read from environment variables in `assistant_app/config.py`.
 - `DEFAULT_PROVIDER_BASE_URL`
   - Provider base URL. For Ollama this defaults to the local Ollama base URL.
 
-### Webex ingress
+### 5.3 Webex ingress
 
 - `WEBEX_MOCK_MODE`
   - `true` by default.
@@ -244,7 +252,7 @@ Configuration is read from environment variables in `assistant_app/config.py`.
 - `WEBEX_WEBHOOK_FILTER`
   - Optional Webex webhook filter.
 
-### Device execution
+### 5.4 Device execution
 
 - `DEVICE_MOCK_MODE`
   - `true` by default.
@@ -255,9 +263,16 @@ Configuration is read from environment variables in `assistant_app/config.py`.
 - `WEBEX_TOKEN_MANAGER_API_KEY`
   - API key for token manager sidecar.
 
-## 6. LLM integration
+Real device mode uses these Webex cloud APIs:
 
-### Provider modes
+- `GET /v1/devices`
+- `GET /v1/xapi/status`
+- `POST /v1/xapi/command/{commandKey}`
+- `PATCH /v1/deviceConfigurations`
+
+## 6. LLM Integration
+
+### 6.1 Provider modes
 
 The runtime has two practical analysis providers:
 
@@ -271,7 +286,7 @@ The runtime has two practical analysis providers:
    - Generates structured action proposals.
    - Normalizes model output into strict shared contracts.
 
-### Execution modes
+### 6.2 Execution modes
 
 1. **Separated mode**
    - LLM/provider proposes an action.
@@ -285,9 +300,9 @@ The runtime has two practical analysis providers:
    - Tool arguments are validated against request id, intent, and target device.
    - Direct adapter executes the same canonical device action.
 
-## 7. Supported features and usage
+## 7. Supported Features
 
-### Read-only features
+### 7.1 Read-only features
 
 - **Get status**
   - Example: `Room Bar 상태 알려줘`
@@ -305,7 +320,7 @@ The runtime has two practical analysis providers:
   - Example: `장비 목록 보여줘`
   - Lists Webex organization devices or mock devices.
 
-### Meeting and call control
+### 7.2 Meeting and call control
 
 - **Webex join**
   - Example: `Room Bar에서 123456789 미팅 조인해줘`
@@ -318,7 +333,7 @@ The runtime has two practical analysis providers:
 - **Send DTMF**
   - Example: `Room Bar에서 DTMF 1234 보내줘`
 
-### Audio/video controls
+### 7.3 Audio and video controls
 
 - **Microphone mute/unmute**
   - Example: `Room Bar 마이크 음소거`
@@ -331,7 +346,7 @@ The runtime has two practical analysis providers:
 - **Selfview**
   - Example: `Room Bar 셀프뷰 켜줘`
 
-### Camera controls
+### 7.4 Camera controls
 
 - **Camera mode**
   - Uses RoomOS command `Cameras.SpeakerTrack.Set`.
@@ -361,7 +376,7 @@ The runtime has two practical analysis providers:
 - **SpeakerTrack on/off**
   - Example: `Room Bar SpeakerTrack 켜줘`
 
-### Layout, presentation, and routing
+### 7.5 Layout, presentation, and routing
 
 - **Set video layout**
   - Example: `Room Bar 레이아웃 Grid로 변경`
@@ -372,7 +387,7 @@ The runtime has two practical analysis providers:
 - **Video matrix assign/unassign/swap**
   - Example: `Room Bar matrix output 1에 source 2 assign`
 
-### Display mode
+### 7.6 Display mode
 
 Display mode uses `Configuration.Video.Output.Connector[n].MonitorRole` configuration patches.
 
@@ -391,7 +406,7 @@ Supported card choices:
   - Connector 1: `PresentationOnly`
   - Connector 2: `PresentationOnly`
 
-### Device power/maintenance
+### 7.7 Device power and maintenance
 
 - **Standby on/off**
   - Example: `Room Bar 대기모드로 전환`
@@ -401,7 +416,7 @@ Supported card choices:
   - Example: `Room Bar factory reset`
   - Requires explicit acknowledgement in the action contract.
 
-## 8. Approval and policy behavior
+## 8. Approval and Policy Behavior
 
 Each action has a policy entry:
 
@@ -417,7 +432,7 @@ Default behavior:
 
 Admin users can review and adjust policies in `/admin-page` or through `/admin/policies` APIs.
 
-## 9. Admin page usage
+## 9. Admin Page
 
 Open:
 
@@ -445,7 +460,9 @@ Docs:
 - `/admin-page/architecture-guide`
 - `/admin-page/manuals/ARCHITECTURE.md`
 
-## 10. Local development commands
+## 10. Development Commands
+
+Create and run locally:
 
 ```bash
 cd "/home/p1481/youngcle_code/06. Device Assistant"
@@ -471,10 +488,14 @@ curl -sS -X POST http://127.0.0.1:8000/debug/messages \
   --data '{"text":"Room Bar 카메라 모드 변경","preferred_mode":"all-llm","session_id":"smoke"}'
 ```
 
-## 11. Operational notes
+## 11. Operational Notes and Warnings
 
 - Mock mode is intentionally the default so the app starts without live Webex credentials.
 - Real device execution requires `DEVICE_MOCK_MODE=false` and token-manager configuration.
 - Real Webex ingress requires `WEBEX_MOCK_MODE=false` and Webex bot/webhook configuration.
 - Mutating device actions should remain approval-gated unless a trusted operator intentionally changes policy.
 - Webex cloud xAPI responses and RoomOS capability support can vary by device model and software version.
+
+## 12. Concise Summary
+
+Webex Device Assistant is a FastAPI-based orchestration service that accepts debug or Webex inputs, turns them into canonical action requests, enforces policy and approval, and executes device operations through either separated mode or all-LLM mode against Webex cloud xAPI. The safest default is separated mode with approval for mutating actions, while the admin page and debug endpoints provide the primary operator surface for configuration, inspection, and local testing.

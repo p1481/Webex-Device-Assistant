@@ -1,31 +1,37 @@
 # Install Manual
 
-## Requirements
+A practical setup guide for running Webex Device Assistant locally, as a Linux service, and with real Webex/device integrations.
+
+## 1. Requirements
+
+Required:
 
 - Python 3.12 or newer
-- Linux, macOS, or another environment that can run FastAPI and `uvicorn`
+- Linux, macOS, or any environment that can run FastAPI and `uvicorn`
 
-Optional for real integrations:
+Optional, depending on integration mode:
 
 - Webex bot credentials for real messaging
 - Token manager sidecar for real device access
-- Ollama if you want to use the `ollama` analysis provider
+- Ollama when using the `ollama` analysis provider
 
-## Local install
+## 2. Install locally
 
-Create the virtual environment and install the package in editable mode:
+Create a virtual environment and install the package in editable development mode:
 
 ```bash
 python3 -m venv .venv
 .venv/bin/python -m pip install -e ".[dev]"
 ```
 
-## Default local run
+## 3. Run locally in mock mode
 
 The default configuration is mock-first:
 
 - `WEBEX_MOCK_MODE=true`
 - `DEVICE_MOCK_MODE=true`
+
+This lets the app start without Webex credentials or real device access.
 
 Start the app:
 
@@ -39,24 +45,44 @@ Check health:
 curl http://127.0.0.1:8000/healthz
 ```
 
-## Optional durable control-plane state
+Run tests:
 
-If you want approval records, audit records, runtime admin overrides, provider settings, and policy overrides to survive restart, set `ADMIN_STATE_PATH`:
+```bash
+.venv/bin/python -m pytest
+```
+
+## 4. Persist admin/control-plane state
+
+Set `ADMIN_STATE_PATH` when you want these records to survive restart:
+
+- approval records
+- audit records
+- runtime admin overrides
+- provider settings
+- policy overrides
+
+Example:
 
 ```bash
 ADMIN_STATE_PATH=.local/admin-state.json .venv/bin/python -m uvicorn assistant_app.main:app --reload
 ```
 
-This file does not persist session memory, processed webhook dedupe, admin session flags, org device cache, or process stats.
+`ADMIN_STATE_PATH` does **not** persist:
 
-## Durable Linux service for the deployed host
+- session memory
+- processed webhook dedupe
+- admin session flags
+- organization device cache
+- process stats
 
-This repository now includes a checked-in systemd unit for the app:
+## 5. Install as a Linux systemd service
+
+The repo includes deployment files for the host:
 
 - `.deploy/webex-device-assistant.service`
 - `.deploy/webex-device-assistant.env`
 
-Install or refresh the service on the host:
+Install or refresh the service:
 
 ```bash
 sudo install -m 0644 \
@@ -74,19 +100,15 @@ sudo systemctl status webex-device-assistant.service --no-pager
 sudo journalctl -u webex-device-assistant.service -n 100 --no-pager
 ```
 
-The checked-in unit binds the FastAPI app to `127.0.0.1:8000` and sources runtime settings from `.deploy/webex-device-assistant.env`. This matches the deployed nginx proxy that forwards `/admin-page/*`, `/admin/*`, `/healthz`, and Webex webhook paths to that upstream.
+The checked-in unit:
 
-## Verification
+- binds FastAPI to `127.0.0.1:8000`
+- reads runtime settings from `.deploy/webex-device-assistant.env`
+- matches the deployed nginx proxy that forwards `/admin-page/*`, `/admin/*`, `/healthz`, and Webex webhook paths to that upstream
 
-Run tests:
+## 6. Mock-mode smoke checks
 
-```bash
-.venv/bin/python -m pytest
-```
-
-## Mock-mode smoke checks
-
-Read-only status request:
+### 6.1 Read device status
 
 ```bash
 curl -X POST http://127.0.0.1:8000/debug/messages \
@@ -94,7 +116,7 @@ curl -X POST http://127.0.0.1:8000/debug/messages \
   -d '{"text":"get status of RoomKit-7F","preferred_mode":"separated"}'
 ```
 
-List devices:
+### 6.2 List devices
 
 ```bash
 curl -X POST http://127.0.0.1:8000/debug/messages \
@@ -102,7 +124,7 @@ curl -X POST http://127.0.0.1:8000/debug/messages \
   -d '{"text":"list devices"}'
 ```
 
-Create an approval request:
+### 6.3 Create an approval request
 
 ```bash
 curl -X POST http://127.0.0.1:8000/debug/messages \
@@ -110,15 +132,15 @@ curl -X POST http://127.0.0.1:8000/debug/messages \
   -d '{"text":"set volume to 35 on Board Pro","session_id":"demo-approval"}'
 ```
 
-Resolve that approval in debug mode:
+### 6.4 Resolve the approval in debug mode
 
 ```bash
 curl -X POST 'http://127.0.0.1:8000/debug/approvals/<request-id>?approved=true'
 ```
 
-## Real Webex messaging setup
+## 7. Configure real Webex messaging
 
-Set these to turn off Webex mock mode:
+Set these values to turn off Webex mock mode:
 
 - `WEBEX_MOCK_MODE=false`
 - `WEBEX_BOT_TOKEN`
@@ -135,15 +157,15 @@ WEBEX_WEBHOOK_SECRET=... \
 .venv/bin/python -m uvicorn assistant_app.main:app --reload
 ```
 
-Notes:
+Startup behavior:
 
-- The app validates the configured bot person id against `GET /v1/people/me` at startup.
+- The app validates the configured bot person id against `GET /v1/people/me`.
 - A startup identity mismatch raises an error and blocks startup.
-- Other startup Webex identity failures are logged and startup continues.
+- Other startup Webex identity failures are logged, and startup continues.
 
-## Optional Webex webhook reconciliation on startup
+## 8. Reconcile Webex webhooks on startup
 
-If you want the app to reconcile its message webhooks on startup, also set:
+To let the app reconcile its message webhooks on startup, also set:
 
 - `WEBEX_WEBHOOK_RECONCILE_ON_STARTUP=true`
 - `WEBEX_WEBHOOK_TARGET_URL=https://.../webhooks/webex/messages`
@@ -165,11 +187,11 @@ Current desired message webhook set:
 - `roomType=direct`
 - `roomType=group&mentionedPeople=me`
 
-The target URL must be HTTPS when provided.
+Important: `WEBEX_WEBHOOK_TARGET_URL` must be HTTPS when provided.
 
-## Real approval card setup in Webex
+## 9. Configure real Webex approval cards
 
-The app can send approval cards in real Webex mode, but you also need to register a separate Webex webhook for attachment actions.
+The app can send approval cards in real Webex mode. Card clicks require a separate Webex webhook for attachment actions.
 
 Register a Webex `attachmentActions.created` webhook that targets:
 
@@ -177,14 +199,14 @@ Register a Webex `attachmentActions.created` webhook that targets:
 POST /webhooks/webex/attachment-actions
 ```
 
-Current behavior after a card click:
+After a card click, the app:
 
-- the app fetches attachment-action details by id
-- resolves the stored approval
-- executes the attached action request when the decision is approve
-- sends a follow-up reply to the room
+1. fetches attachment-action details by id
+2. resolves the stored approval
+3. executes the attached action request when the decision is approve
+4. sends a follow-up reply to the room
 
-## Real device access setup
+## 10. Configure real device access
 
 Set this to turn off device mock mode:
 
@@ -210,9 +232,9 @@ Notes:
 - The app fetches a bearer token from `GET /api/tokens/current` on the token manager.
 - This is separate from the direct bot-token path used for messaging APIs.
 
-## Optional Ollama setup
+## 11. Configure Ollama analysis
 
-If you want the analysis provider to use Ollama, make sure Ollama is reachable and the model exists.
+Use Ollama when you want local LLM-backed intent analysis.
 
 Relevant settings:
 
@@ -231,7 +253,7 @@ DEFAULT_PROVIDER_BASE_URL=http://127.0.0.1:11434/api \
 
 The admin API can also switch to `ollama` live if the base URL is reachable and the model is installed.
 
-## Useful admin endpoints
+## 12. Useful admin endpoints
 
 ```bash
 curl http://127.0.0.1:8000/admin/settings
@@ -245,7 +267,39 @@ curl http://127.0.0.1:8000/admin/stats
 curl http://127.0.0.1:8000/admin-page/healthz
 ```
 
-## Current install and runtime limits
+## 13. Troubleshooting checklist
+
+### App does not start
+
+Check:
+
+- Python version
+- virtualenv activation/install state
+- `WEBEX_MOCK_MODE`
+- Webex bot identity variables when `WEBEX_MOCK_MODE=false`
+
+### Webex messages do not arrive
+
+Check:
+
+- `WEBEX_WEBHOOK_TARGET_URL`
+- `WEBEX_BOT_TOKEN`
+- `WEBEX_BOT_PERSON_ID`
+- `WEBEX_WEBHOOK_SECRET`
+- webhook registration state
+- HTTPS reachability from Webex
+
+### Device control fails
+
+Check:
+
+- `DEVICE_MOCK_MODE`
+- `WEBEX_TOKEN_MANAGER_BASE_URL`
+- `WEBEX_TOKEN_MANAGER_API_KEY`
+- target device display name
+- whether the device supports the requested xAPI command/configuration
+
+## 14. Current install/runtime limits
 
 - Mock mode is the easiest supported starting point.
 - Real Webex approval handling needs both message webhooks and attachment-action webhooks.

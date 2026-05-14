@@ -2,9 +2,9 @@
 
 Natural-language assistant for controlling Cisco Webex RoomOS devices through Webex cloud xAPI, with policy/approval guardrails and an admin browser UI.
 
-## What this project does
+## Overview
 
-Webex Device Assistant receives a user message such as:
+Webex Device Assistant accepts natural-language requests such as:
 
 ```text
 Room Bar 카메라 모드 Frames로 변경
@@ -12,7 +12,7 @@ Room Bar 상태 알려줘
 Room Bar 다음 회의 참가해줘
 ```
 
-It then:
+For each request, the app:
 
 1. Parses the request with a rule-based provider or a local Ollama LLM provider.
 2. Converts the request into a canonical action contract.
@@ -20,7 +20,7 @@ It then:
 4. Executes the action through Webex cloud xAPI or returns a read-only status response.
 5. Surfaces settings, policies, devices, approvals, audit records, and documentation in the admin page.
 
-## Current architecture
+## Architecture at a glance
 
 ```text
 User / Debug API / Webex webhook
@@ -39,13 +39,13 @@ Admin UI: /admin-page
 Docs: /admin-page/docs, /admin-page/architecture-guide
 ```
 
-For the detailed current-state document, see:
+Detailed current-state references:
 
 - [`ARCHITECTURE.md`](ARCHITECTURE.md)
 - Browser HTML: `/admin-page/architecture-guide`
 - Documentation index: `/admin-page/docs`
 
-## Main features
+## Supported capabilities
 
 ### Read-only
 
@@ -73,7 +73,7 @@ For the detailed current-state document, see:
 
 ### Camera and display controls
 
-- Camera mode via RoomOS command:
+Camera mode uses the RoomOS command:
 
 ```text
 Cameras.SpeakerTrack.Set
@@ -88,6 +88,8 @@ Supported `Behavior` values:
 - `Frames`
 - `GroupAndSpeaker`
 
+Other supported controls:
+
 - Camera preset activation
 - Camera pan/tilt/zoom step adjustments
 - SpeakerTrack on/off
@@ -95,7 +97,8 @@ Supported `Behavior` values:
 - Presentation start/stop
 - Input-source switching
 - Video matrix assign/unassign/swap
-- Display mode via:
+
+Display mode uses:
 
 ```text
 Configuration.Video.Output.Connector[n].MonitorRole
@@ -136,6 +139,8 @@ LLM-assisted execution mode.
 
 ## Quick start
 
+### 1. Create the environment and run the app
+
 ```bash
 cd "/home/p1481/youngcle_code/06. Device Assistant"
 python3 -m venv .venv
@@ -143,19 +148,19 @@ python3 -m venv .venv
 .venv/bin/python -m uvicorn assistant_app.main:app --reload
 ```
 
-Open:
+### 2. Open the admin page
 
 ```text
 http://127.0.0.1:8000/admin-page
 ```
 
-Health check:
+### 3. Check service health
 
 ```bash
 curl -sS http://127.0.0.1:8000/healthz
 ```
 
-Local debug message:
+### 4. Send a local debug message
 
 ```bash
 curl -sS -X POST http://127.0.0.1:8000/debug/messages \
@@ -163,7 +168,7 @@ curl -sS -X POST http://127.0.0.1:8000/debug/messages \
   --data '{"text":"Room Bar 상태 알려줘","preferred_mode":"separated","session_id":"local-test"}'
 ```
 
-Camera-mode card smoke test:
+### 5. Run the camera-mode card smoke test
 
 ```bash
 curl -sS -X POST http://127.0.0.1:8000/debug/messages \
@@ -202,6 +207,8 @@ The app reads environment variables in `assistant_app/config.py`.
 - `DEVICE_MOCK_MODE`: defaults to `true`.
 - `WEBEX_TOKEN_MANAGER_BASE_URL`: token manager sidecar URL.
 - `WEBEX_TOKEN_MANAGER_API_KEY`: token manager sidecar key.
+
+### Real Webex/device operation
 
 Real Webex/device operation normally requires:
 

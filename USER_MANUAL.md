@@ -1,22 +1,25 @@
 # User Manual
 
 ## Purpose
-This guide explains how to install, run, test, and operate the Webex Device Assistant App in daily use.
+
+This guide explains how to install, run, test, and operate the Webex Device Assistant App in day-to-day operations.
 
 The app lets users manage supported Webex devices through natural-language requests such as status queries, volume control, meeting join actions, camera mode changes, and more.
 
 ---
 
-## What the app can do today
+## Capabilities
 
-### Read operations
+### What the app can do today
+
+#### Read operations
 - get device status
 - get environment info
 - get camera mode
 - get room booking and OBTP availability
 - list organization devices
 
-### Control operations
+#### Control operations
 - Webex join
 - join OBTP for the next joinable scheduled meeting
 - dial
@@ -44,7 +47,7 @@ Read-only actions usually run immediately. Most mutating actions are approval-ga
 
 ---
 
-## Installation
+## Quick start
 
 ### Requirements
 - Python 3.12 or newer recommended
@@ -56,11 +59,7 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -e ".[dev]"
 ```
 
----
-
-## Running the app
-
-### Start locally
+### Run locally
 ```bash
 .venv/bin/python -m uvicorn assistant_app.main:app --reload
 ```
@@ -72,9 +71,20 @@ python3 -m venv .venv
 
 By default, the repository runs in mock-first mode, so you can validate the flow without real Webex or device credentials.
 
+### Recommended first-use path
+1. start the app
+2. call `list devices`
+3. test `get status of <device>`
+4. test `show booking info on <device>`
+5. test a mutating action like `set volume to 20 on <device>` and observe approval behavior
+6. open the admin page
+7. only then enable real Webex and real device mode if needed
+
 ---
 
-## Fastest way to use it, debug API
+## Debug API
+
+### Fastest way to use and validate the app
 The easiest development and validation entry point is `POST /debug/messages`.
 
 ### Get device status
@@ -128,17 +138,24 @@ curl -X POST http://127.0.0.1:8000/debug/messages \
   -d '{"text":"set camera mode to frames on Board Pro","session_id":"camera-mode-demo"}'
 ```
 
----
+### Reset session context
+To clear stored conversation context and pending follow-up state for a session:
 
-## Execution modes
+```bash
+curl -X POST http://127.0.0.1:8000/debug/messages \
+  -H 'Content-Type: application/json' \
+  -d '{"text":"/reset","session_id":"demo-reset"}'
+```
+
+### Execution modes
 The app supports two execution modes.
 
-### `separated`
+#### `separated`
 - execution is handled by `device_executor`
 - clearer separation of control-plane and execution responsibilities
 - easier to explain in controlled operations
 
-### `all-llm`
+#### `all-llm`
 - execution is handled by `direct_tool_adapter`
 - current implementation is still deterministic tool dispatch
 - useful as an architectural stepping stone toward richer tool-calling flows
@@ -156,7 +173,7 @@ Supported values:
 
 ---
 
-## Common natural-language examples
+## Natural-language examples
 
 ### Read requests
 ```text
@@ -208,15 +225,16 @@ factory reset Board Pro
 ---
 
 ## Follow-up questions
+
 The app does not always guess missing values. For some requests it asks follow-up questions and resumes the pending action.
 
-Typical supported follow-up fields today:
+### Typical supported follow-up fields today
 - missing target device
 - missing dial address
 - missing Webex meeting identifier
 - missing volume level
 
-Example:
+### Example flow
 1. send `set volume to 30`
 2. the app asks which device to use
 3. reply with `Board Pro`
@@ -226,10 +244,11 @@ In Webex, missing `target_device` can be handled through an Adaptive Card device
 
 ---
 
-## Approval flow
+## Approvals
 
 ### Why approvals happen
 Most mutating actions are policy-controlled and approval-gated by default.
+
 Typical examples:
 - volume changes
 - microphone mute changes
@@ -267,16 +286,7 @@ In Webex mode, the same pattern is used through Adaptive Cards:
 4. the server fetches the attachment-action details from Webex
 5. if approved, the action executes and a follow-up reply is posted
 
----
-
-## Reset session context
-To clear stored conversation context and pending follow-up state for a session:
-
-```bash
-curl -X POST http://127.0.0.1:8000/debug/messages \
-  -H 'Content-Type: application/json' \
-  -d '{"text":"/reset","session_id":"demo-reset"}'
-```
+Approval and admin-login delivery use Webex card attachments plus `attachmentActions` fetch-by-id semantics.
 
 ---
 
@@ -307,9 +317,7 @@ The admin page is a thin control surface backed by `/admin/*` APIs. It currently
 - `/admin-page/manuals/USER_MANUAL.md`
 - `/admin-page/manuals/MANUAL_KO.md`
 
----
-
-## Admin login flow
+### Admin login flow
 Browser admin access is email-based and approval-backed.
 
 1. open `/admin-page`
@@ -322,16 +330,14 @@ Browser admin access is email-based and approval-backed.
 Current limitation:
 - admin browser sessions are process-local and do not survive restart
 
----
+### Useful admin API examples
 
-## Useful admin API examples
-
-### Get runtime settings
+#### Get runtime settings
 ```bash
 curl http://127.0.0.1:8000/admin/settings
 ```
 
-### Update runtime settings
+#### Update runtime settings
 ```bash
 curl -X PUT http://127.0.0.1:8000/admin/settings \
   -H 'Content-Type: application/json' \
@@ -343,12 +349,12 @@ curl -X PUT http://127.0.0.1:8000/admin/settings \
   }'
 ```
 
-### Get provider settings
+#### Get provider settings
 ```bash
 curl http://127.0.0.1:8000/admin/providers
 ```
 
-### Update provider settings
+#### Update provider settings
 ```bash
 curl -X PUT http://127.0.0.1:8000/admin/providers \
   -H 'Content-Type: application/json' \
@@ -359,12 +365,12 @@ curl -X PUT http://127.0.0.1:8000/admin/providers \
   }'
 ```
 
-### Get policy list
+#### Get policy list
 ```bash
 curl http://127.0.0.1:8000/admin/policies
 ```
 
-### Update a policy
+#### Update a policy
 ```bash
 curl -X PUT http://127.0.0.1:8000/admin/policies/set_volume \
   -H 'Content-Type: application/json' \
@@ -376,7 +382,7 @@ curl -X PUT http://127.0.0.1:8000/admin/policies/set_volume \
   }'
 ```
 
-### Read supporting resources
+#### Read supporting resources
 ```bash
 curl http://127.0.0.1:8000/admin/actions
 curl http://127.0.0.1:8000/admin/devices
@@ -387,7 +393,9 @@ curl http://127.0.0.1:8000/admin/stats
 
 ---
 
-## Real Webex setup notes
+## Real Webex and device setup
+
+### Real Webex setup notes
 To use real Webex messaging, you need values such as:
 - `WEBEX_MOCK_MODE=false`
 - `WEBEX_BOT_TOKEN`
@@ -402,9 +410,7 @@ Important behavior:
 - the server verifies `X-Spark-Signature`
 - the gateway fetches the full message or attachment action from Webex before acting
 
----
-
-## Real device setup notes
+### Real device setup notes
 To use real device execution, you need:
 - `DEVICE_MOCK_MODE=false`
 - `WEBEX_TOKEN_MANAGER_BASE_URL`
@@ -424,7 +430,7 @@ For configuration-backed operations, the app prefers inventory `webexDeviceId` f
 
 ---
 
-## Troubleshooting tips
+## Troubleshooting
 
 ### The app starts but device control fails
 Check:
@@ -456,6 +462,7 @@ Check:
 ---
 
 ## Current limits
+
 - Mock mode is still the default operating mode.
 - Natural-language coverage is strongest for the patterns implemented in `rule_based.py`.
 - Only `rule_based` and `ollama` are currently usable as runtime analysis providers.
@@ -466,24 +473,8 @@ Check:
 
 ---
 
-## Recommended first-use path
-1. start the app
-2. call `list devices`
-3. test `get status of <device>`
-4. test `show booking info on <device>`
-5. test a mutating action like `set volume to 20 on <device>` and observe approval behavior
-6. open the admin page
-7. only then enable real Webex and real device mode if needed
-
----
-
 ## Summary
+
 This app is an operations-oriented natural-language interface for Webex devices.
 
-The safest way to adopt it is:
-- start in mock mode
-- validate with debug APIs
-- separate read actions from mutating actions
-- keep meaningful approval gates for risky operations
-
-That gives you a stable path from local validation to controlled real-world use.
+The safest adoption path is to start in mock mode, validate with the debug API, separate read actions from mutating actions, and keep meaningful approval gates for risky operations.
