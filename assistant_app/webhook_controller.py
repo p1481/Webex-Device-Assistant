@@ -149,6 +149,8 @@ class WebhookController:
                 field_name = details.inputs.get("fieldName")
                 selection_decision = details.inputs.get("selectionDecision")
                 selected_value = details.inputs.get("selectedValue")
+                setting_field_name = details.inputs.get("settingFieldName")
+                setting_value = details.inputs.get("settingValue")
                 if not isinstance(pending_action_id, str) or not isinstance(
                     field_name, str
                 ):
@@ -156,23 +158,45 @@ class WebhookController:
                         "Entity selection inputs must include pendingActionId and fieldName."
                     )
                 phase = "resume_selection"
-                (
-                    reply,
-                    resolved,
-                ) = await self.orchestrator.resume_pending_action_selection(
-                    pending_action_id=pending_action_id,
-                    field_name=field_name,
-                    selected_value=selected_value
-                    if isinstance(selected_value, str)
-                    else None,
-                    user_id=details.personId,
-                    room_id=details.roomId,
-                    person_email=decided_by_email,
-                    cancel=(
-                        isinstance(selection_decision, str)
-                        and selection_decision.lower() == "cancel"
-                    ),
+                selected_value_arg = (
+                    selected_value if isinstance(selected_value, str) else None
                 )
+                cancel_selection = (
+                    isinstance(selection_decision, str)
+                    and selection_decision.lower() == "cancel"
+                )
+                if isinstance(setting_field_name, str) or isinstance(setting_value, str):
+                    (
+                        reply,
+                        resolved,
+                    ) = await self.orchestrator.resume_pending_action_selection(
+                        pending_action_id=pending_action_id,
+                        field_name=field_name,
+                        selected_value=selected_value_arg,
+                        user_id=details.personId,
+                        room_id=details.roomId,
+                        person_email=decided_by_email,
+                        cancel=cancel_selection,
+                        setting_field_name=setting_field_name
+                        if isinstance(setting_field_name, str)
+                        else None,
+                        setting_value=setting_value
+                        if isinstance(setting_value, str)
+                        else None,
+                    )
+                else:
+                    (
+                        reply,
+                        resolved,
+                    ) = await self.orchestrator.resume_pending_action_selection(
+                        pending_action_id=pending_action_id,
+                        field_name=field_name,
+                        selected_value=selected_value_arg,
+                        user_id=details.personId,
+                        room_id=details.roomId,
+                        person_email=decided_by_email,
+                        cancel=cancel_selection,
+                    )
                 if resolved and details.messageId:
                     phase = "delete_selection_card"
                     try:

@@ -385,11 +385,12 @@ def build_app() -> FastAPI:
 
     @app.post("/debug/messages")
     async def debug_message(payload: DebugMessageRequest) -> dict[str, object]:
+        source = MessageSource.WEBEX if payload.target_device is not None else MessageSource.DEBUG
         inbound = InboundUserMessage(
             session_id=payload.session_id,
             user_id=payload.user_id,
             text=payload.text,
-            source=MessageSource.DEBUG,
+            source=source,
             room_id=payload.room_id,
             preferred_mode=payload.preferred_mode,
             target_device=payload.target_device,

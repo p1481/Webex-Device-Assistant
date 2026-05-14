@@ -5831,6 +5831,247 @@ def test_file_backed_state_store_persists_processed_webhook_event_ids(
     assert restarted_store.get_stats().processed_webhook_events == 1
 
 
+
+def test_setting_option_request_returns_toggle_selection_card_with_device_dropdown() -> None:
+    from assistant_app.approval_manager import ApprovalManager
+    from assistant_app.memory_store import InMemorySessionStore
+    from assistant_app.mode_router import ModeRouter
+    from assistant_app.orchestrator import Orchestrator
+    from assistant_app.policy_evaluator import PolicyEvaluator
+    from assistant_app.providers.base import LLMProvider
+    from assistant_app.state_store import InMemoryStateStore
+    from shared.contracts import (
+        ExecutionMode,
+        InboundUserMessage,
+        MessageSource,
+        OrganizationDeviceRecord,
+        OrchestrationDecision,
+        ProviderSettings,
+        SessionContext,
+    )
+
+    class UnusedProvider(LLMProvider):
+        def bind_settings(self, settings: ProviderSettings) -> None:
+            _ = settings
+
+        async def analyze_message(
+            self, message: InboundUserMessage, session: SessionContext
+        ) -> OrchestrationDecision:
+            _ = message
+            _ = session
+            raise AssertionError("setting option card request should not use provider")
+
+        async def render_execution_reply(
+            self,
+            execution_result: object,
+            policy_reason: str,
+            canonical_text: str,
+        ) -> str | None:
+            _ = execution_result
+            _ = policy_reason
+            _ = canonical_text
+            return None
+
+    class UnusedModeRouter:
+        async def execute(self, *args: object, **kwargs: object) -> object:
+            raise AssertionError("execute should not be called before card selection")
+
+    async def list_devices() -> list[OrganizationDeviceRecord]:
+        return [
+                OrganizationDeviceRecord(
+                    device_id="device-1",
+                    display_name="Board Pro",
+                    product="Board Pro",
+                    place="HQ",
+                ),
+                OrganizationDeviceRecord(
+                    device_id="device-2",
+                    display_name="Room Bar",
+                    product="Room Bar",
+                    place="Home",
+                ),
+        ]
+
+    memory_store = InMemorySessionStore()
+    approval_manager = ApprovalManager(memory_store, InMemoryStateStore())
+    orchestrator = Orchestrator(
+        UnusedProvider(),
+        memory_store,
+        PolicyEvaluator(default_mode=ExecutionMode.ALL_LLM),
+        cast(ModeRouter, cast(object, UnusedModeRouter())),
+        approval_manager,
+        device_lister=list_devices,
+    )
+
+    reply = asyncio.run(
+        orchestrator.handle_message(
+            InboundUserMessage(
+                session_id="setting-option-card",
+                user_id="person-1",
+                text="마이크 음소거 설정",
+                source=MessageSource.WEBEX,
+                room_id="room-1",
+                preferred_mode=ExecutionMode.ALL_LLM,
+            )
+        )
+    )
+
+    assert reply.text == "마이크 음소거 상태를 선택해주세요."
+    attachments = reply.attachments
+    assert len(attachments) == 1
+    content = as_mapping(as_mapping(attachments[0])["content"])
+    body = as_sequence(content["body"])
+    choice_sets = [
+        as_mapping(item)
+        for item in body
+        if as_mapping(item).get("type") == "Input.ChoiceSet"
+    ]
+    assert [choice_set["id"] for choice_set in choice_sets] == [
+        "settingValue",
+        "selectedValue",
+    ]
+    assert choice_sets[0]["style"] == "expanded"
+    assert [as_mapping(choice)["value"] for choice in as_sequence(choice_sets[0]["choices"])] == [
+        "true",
+        "false",
+    ]
+    assert choice_sets[1]["style"] == "compact"
+    assert [as_mapping(choice)["value"] for choice in as_sequence(choice_sets[1]["choices"])] == [
+        "Board Pro",
+        "Room Bar",
+    ]
+    actions = as_sequence(content["actions"])
+    assert [as_mapping(action)["title"] for action in actions] == ["Apply", "Cancel"]
+
+    pending_action = memory_store.get_pending_action("setting-option-card", "person-1")
+    assert pending_action is not None
+    assert pending_action.intent.value == "set_microphone_mute"
+    submit_data = as_mapping(as_mapping(actions[0])["data"])
+    assert submit_data["kind"] == "entity_selection"
+    assert submit_data["pendingActionId"] == pending_action.pending_action_id
+    assert submit_data["fieldName"] == "setting_value"
+    assert submit_data["settingFieldName"] == "muted"
+
+
+def test_setting_card_submission_applies_value_and_device_selection() -> None:
+    from assistant_app.approval_manager import ApprovalManager
+    from assistant_app.memory_store import InMemorySessionStore
+    from assistant_app.mode_router import ModeRouter
+    from assistant_app.orchestrator import Orchestrator
+    from assistant_app.policy_evaluator import PolicyEvaluator
+    from assistant_app.providers.base import LLMProvider
+    from assistant_app.state_store import InMemoryStateStore
+    from shared.contracts import (
+        ActionProposal,
+        ApprovalState,
+        ExecutionMode,
+        ExecutionResult,
+        ExecutionStatus,
+        InboundUserMessage,
+        Intent,
+        OrchestrationDecision,
+        PendingActionProposal,
+        PolicyDecision,
+        ProviderSettings,
+        RiskLevel,
+        SessionContext,
+    )
+
+    class UnusedProvider(LLMProvider):
+        def bind_settings(self, settings: ProviderSettings) -> None:
+            _ = settings
+
+        async def analyze_message(
+            self, message: InboundUserMessage, session: SessionContext
+        ) -> OrchestrationDecision:
+            _ = message
+            _ = session
+            raise AssertionError("submission should resume an existing pending action")
+
+        async def render_execution_reply(
+            self,
+            execution_result: object,
+            policy_reason: str,
+            canonical_text: str,
+        ) -> str | None:
+            _ = execution_result
+            _ = policy_reason
+            _ = canonical_text
+            return None
+
+    class CapturingModeRouter:
+        def __init__(self) -> None:
+            self.proposal: object | None = None
+
+        def build_request(self, *args: object, **kwargs: object) -> object:
+            raise AssertionError("approval should not be required in this test")
+
+        async def execute(self, message: InboundUserMessage, proposal: object, policy_decision: object) -> ExecutionResult:
+            _ = message
+            _ = policy_decision
+            self.proposal = proposal
+            return ExecutionResult(
+                request_id="setting-submit-result",
+                intent=Intent.SET_MICROPHONE_MUTE,
+                execution_mode=ExecutionMode.ALL_LLM,
+                status=ExecutionStatus.SUCCESS,
+                message="Muted Board Pro.",
+            )
+
+    memory_store = InMemorySessionStore()
+    approval_manager = ApprovalManager(memory_store, InMemoryStateStore())
+    mode_router = CapturingModeRouter()
+    pending_action = PendingActionProposal(
+        intent=Intent.SET_MICROPHONE_MUTE,
+        summary="Change microphone mute state.",
+    )
+    memory_store.set_pending_action("setting-submit", "person-1", pending_action)
+    class NoApprovalPolicyEvaluator(PolicyEvaluator):
+        def evaluate(
+            self, proposal: object, preferred_mode: object = None
+        ) -> PolicyDecision:
+            _ = proposal
+            _ = preferred_mode
+            return PolicyDecision(
+                selected_mode=ExecutionMode.ALL_LLM,
+                allowed_modes=[ExecutionMode.ALL_LLM],
+                risk_level=RiskLevel.LOW,
+                approval_state=ApprovalState.NOT_REQUIRED,
+                reason="Test bypasses approval to verify setting-card submission.",
+            )
+
+    orchestrator = Orchestrator(
+        UnusedProvider(),
+        memory_store,
+        NoApprovalPolicyEvaluator(default_mode=ExecutionMode.ALL_LLM),
+        cast(ModeRouter, cast(object, mode_router)),
+        approval_manager,
+    )
+
+    reply, handled = asyncio.run(
+        orchestrator.resume_pending_action_selection(
+            pending_action.pending_action_id,
+            "setting_value",
+            "Board Pro",
+            "person-1",
+            "room-1",
+            setting_field_name="muted",
+            setting_value="true",
+        )
+    )
+
+    assert handled is True
+    assert reply.text == (
+        "Muted Board Pro. Policy: Test bypasses approval to verify setting-card submission."
+    )
+    assert isinstance(mode_router.proposal, ActionProposal)
+    proposal = mode_router.proposal
+    assert proposal.intent == Intent.SET_MICROPHONE_MUTE
+    assert proposal.set_microphone_mute is not None
+    assert proposal.set_microphone_mute.target_device == "Board Pro"
+    assert proposal.set_microphone_mute.muted is True
+    assert memory_store.get_pending_action("setting-submit", "person-1") is None
+
 def test_camera_mode_request_returns_supported_mode_selection_card() -> None:
     from assistant_app.approval_manager import ApprovalManager
     from assistant_app.memory_store import InMemorySessionStore
@@ -5931,3 +6172,664 @@ def test_camera_mode_request_returns_supported_mode_selection_card() -> None:
     assert pending_action is not None
     assert pending_action.intent.value == "set_camera_mode"
     assert as_mapping(as_mapping(actions[0])["data"])["pendingActionId"] == pending_action.pending_action_id
+
+
+def test_rule_based_provider_understands_turn_on_selfview_without_target() -> None:
+    from assistant_app.providers.rule_based import RuleBasedProvider
+    from shared.contracts import (
+        InboundUserMessage,
+        Intent,
+        MessageSource,
+        SessionContext,
+    )
+
+    provider = RuleBasedProvider(default_target_device="")
+
+    decision = asyncio.run(
+        provider.analyze_message(
+            InboundUserMessage(
+                session_id="selfview-turn-on-no-target",
+                user_id="debug-user",
+                text="turn on Selfview",
+                source=MessageSource.WEBEX,
+            ),
+            SessionContext(session_id="selfview-turn-on-no-target", turns=[]),
+        )
+    )
+
+    assert decision.action_proposal is not None
+    assert decision.action_proposal.intent == Intent.SET_SELFVIEW
+    assert decision.action_proposal.set_selfview is not None
+    assert decision.action_proposal.set_selfview.target_device == ""
+    assert decision.action_proposal.set_selfview.enabled is True
+
+
+def test_webex_turn_on_selfview_without_target_returns_device_selection_card() -> None:
+    from assistant_app.approval_manager import ApprovalManager
+    from assistant_app.memory_store import InMemorySessionStore
+    from assistant_app.mode_router import ModeRouter
+    from assistant_app.orchestrator import Orchestrator
+    from assistant_app.policy_evaluator import PolicyEvaluator
+    from assistant_app.providers.rule_based import RuleBasedProvider
+    from assistant_app.state_store import InMemoryStateStore
+    from shared.contracts import (
+        ExecutionMode,
+        InboundUserMessage,
+        MessageSource,
+        OrganizationDeviceRecord,
+    )
+
+    async def list_devices() -> list[OrganizationDeviceRecord]:
+        return [
+            OrganizationDeviceRecord(device_id="device-1", display_name="Board Pro"),
+            OrganizationDeviceRecord(device_id="device-2", display_name="Room Bar"),
+        ]
+
+    class UnusedModeRouter:
+        async def execute(self, *args: object, **kwargs: object) -> object:
+            raise AssertionError("execute should not be called while target is missing")
+
+        async def execute_request(self, execution_request: object) -> object:
+            raise AssertionError("execute_request should not be called while target is missing")
+
+        def build_request(self, *args: object, **kwargs: object) -> object:
+            raise AssertionError("build_request should not be called while target is missing")
+
+    memory_store = InMemorySessionStore()
+    approval_manager = ApprovalManager(memory_store, InMemoryStateStore())
+    orchestrator = Orchestrator(
+        RuleBasedProvider(default_target_device=""),
+        memory_store,
+        PolicyEvaluator(default_mode=ExecutionMode.ALL_LLM),
+        cast(ModeRouter, cast(object, UnusedModeRouter())),
+        approval_manager,
+        device_lister=list_devices,
+    )
+
+    reply = asyncio.run(
+        orchestrator.handle_message(
+            InboundUserMessage(
+                session_id="webex-selfview-selection-card",
+                user_id="person-1",
+                text="turn on Selfview",
+                source=MessageSource.WEBEX,
+                room_id="room-1",
+                preferred_mode=ExecutionMode.ALL_LLM,
+            )
+        )
+    )
+
+    assert reply.text == "어떤 장치의 Selfview를 켜드릴까요? 장치 이름을 말씀해 주세요."
+    assert len(reply.attachments) == 1
+    content = as_mapping(as_mapping(reply.attachments[0])["content"])
+    body = as_sequence(content["body"])
+    choice_set = as_mapping(body[2])
+    assert choice_set["id"] == "selectedValue"
+    assert [as_mapping(choice)["value"] for choice in as_sequence(choice_set["choices"])] == [
+        "Board Pro",
+        "Room Bar",
+    ]
+
+
+def test_rule_based_turn_on_toggle_commands_without_target_prompt_for_device() -> None:
+    from assistant_app.providers.rule_based import RuleBasedProvider
+    from shared.contracts import InboundUserMessage, Intent, MessageSource, SessionContext
+
+    cases = [
+        ("turn on SpeakerTrack", Intent.SET_SPEAKERTRACK, "set_speakertrack", "enabled"),
+        ("turn on standby", Intent.SET_STANDBY, "set_standby", "enabled"),
+        ("start presentation", Intent.SET_PRESENTATION, "set_presentation", "enabled"),
+        ("turn on video", Intent.SET_VIDEO_MUTE, "set_video_mute", "muted"),
+    ]
+    provider = RuleBasedProvider(default_target_device="")
+
+    for text, intent, payload_name, bool_field in cases:
+        decision = asyncio.run(
+            provider.analyze_message(
+                InboundUserMessage(
+                    session_id=f"toggle-no-target-{intent.value}",
+                    user_id="debug-user",
+                    text=text,
+                    source=MessageSource.WEBEX,
+                ),
+                SessionContext(session_id=f"toggle-no-target-{intent.value}", turns=[]),
+            )
+        )
+
+        assert decision.action_proposal is not None, text
+        assert decision.action_proposal.intent == intent
+        payload = getattr(decision.action_proposal, payload_name)
+        assert payload is not None
+        assert payload.target_device == ""
+        assert getattr(payload, bool_field) is not None
+
+
+def test_rule_based_understands_korean_selfview_and_video_without_target() -> None:
+    from assistant_app.providers.rule_based import RuleBasedProvider
+    from shared.contracts import InboundUserMessage, Intent, MessageSource, SessionContext
+
+    cases = [
+        ("셀프뷰 켜줘", Intent.SET_SELFVIEW, "set_selfview", "enabled", True),
+        ("셀프뷰 꺼줘", Intent.SET_SELFVIEW, "set_selfview", "enabled", False),
+        ("비디오 켜줘", Intent.SET_VIDEO_MUTE, "set_video_mute", "muted", False),
+        ("비디오 꺼줘", Intent.SET_VIDEO_MUTE, "set_video_mute", "muted", True),
+    ]
+    provider = RuleBasedProvider(default_target_device="")
+
+    for text, intent, payload_name, bool_field, expected_value in cases:
+        decision = asyncio.run(
+            provider.analyze_message(
+                InboundUserMessage(
+                    session_id=f"korean-toggle-no-target-{intent.value}",
+                    user_id="debug-user",
+                    text=text,
+                    source=MessageSource.WEBEX,
+                ),
+                SessionContext(session_id=f"korean-toggle-no-target-{intent.value}", turns=[]),
+            )
+        )
+
+        assert decision.action_proposal is not None, text
+        assert decision.action_proposal.intent == intent
+        payload = getattr(decision.action_proposal, payload_name)
+        assert payload is not None
+        assert payload.target_device == ""
+        assert getattr(payload, bool_field) is expected_value
+
+
+def test_webex_korean_selfview_and_video_without_target_return_device_selection_card() -> None:
+    from assistant_app.approval_manager import ApprovalManager
+    from assistant_app.memory_store import InMemorySessionStore
+    from assistant_app.mode_router import ModeRouter
+    from assistant_app.orchestrator import Orchestrator
+    from assistant_app.policy_evaluator import PolicyEvaluator
+    from assistant_app.providers.rule_based import RuleBasedProvider
+    from assistant_app.state_store import InMemoryStateStore
+    from shared.contracts import (
+        ExecutionMode,
+        InboundUserMessage,
+        MessageSource,
+        OrganizationDeviceRecord,
+    )
+
+    async def list_devices() -> list[OrganizationDeviceRecord]:
+        return [
+            OrganizationDeviceRecord(device_id="device-1", display_name="Board Pro"),
+            OrganizationDeviceRecord(device_id="device-2", display_name="Room Bar"),
+        ]
+
+    class UnusedModeRouter:
+        async def execute(self, *args: object, **kwargs: object) -> object:
+            raise AssertionError("execute should not be called while target is missing")
+
+        async def execute_request(self, execution_request: object) -> object:
+            raise AssertionError("execute_request should not be called while target is missing")
+
+        def build_request(self, *args: object, **kwargs: object) -> object:
+            raise AssertionError("build_request should not be called while target is missing")
+
+    cases = [
+        ("셀프뷰 켜줘", "어떤 장치의 Selfview를 켜드릴까요? 장치 이름을 말씀해 주세요."),
+        ("비디오 켜줘", "어떤 장치의 비디오를 켜드릴까요? 장치 이름을 말씀해 주세요."),
+    ]
+
+    for text, expected_reply in cases:
+        memory_store = InMemorySessionStore()
+        approval_manager = ApprovalManager(memory_store, InMemoryStateStore())
+        orchestrator = Orchestrator(
+            RuleBasedProvider(default_target_device=""),
+            memory_store,
+            PolicyEvaluator(default_mode=ExecutionMode.ALL_LLM),
+            cast(ModeRouter, cast(object, UnusedModeRouter())),
+            approval_manager,
+            device_lister=list_devices,
+        )
+
+        reply = asyncio.run(
+            orchestrator.handle_message(
+                InboundUserMessage(
+                    session_id=f"webex-korean-toggle-selection-card-{text}",
+                    user_id="person-1",
+                    text=text,
+                    source=MessageSource.WEBEX,
+                    room_id="room-1",
+                    preferred_mode=ExecutionMode.ALL_LLM,
+                )
+            )
+        )
+
+        assert reply.text == expected_reply
+        assert len(reply.attachments) == 1
+        content = as_mapping(as_mapping(reply.attachments[0])["content"])
+        body = as_sequence(content["body"])
+        choice_set = as_mapping(body[2])
+        assert choice_set["id"] == "selectedValue"
+        assert choice_set["placeholder"] == "장치를 선택하세요"
+        assert [as_mapping(choice)["value"] for choice in as_sequence(choice_set["choices"])] == [
+            "Board Pro",
+            "Room Bar",
+        ]
+
+
+def test_ollama_provider_uses_llm_before_rule_based_for_contextual_korean_toggle(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from assistant_app.providers.ollama import OllamaProvider
+    from shared.contracts import (
+        InboundUserMessage,
+        Intent,
+        MessageSource,
+        ProviderKind,
+        ProviderSettings,
+        SessionContext,
+    )
+
+    llm_client = QueuedAsyncClient()
+    llm_client.responses.append(
+        make_response(
+            "POST",
+            "/chat",
+            200,
+            {
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "reply_text": None,
+                            "action_proposal": {
+                                "intent": "set_selfview",
+                                "summary": "LLM interpreted a contextual Korean selfview request.",
+                                "confidence": 0.92,
+                                "set_selfview": {
+                                    "target_device": "",
+                                    "enabled": True,
+                                },
+                            },
+                        }
+                    )
+                }
+            },
+        )
+    )
+    _ = build_client_queue(llm_client)
+    monkeypatch.setattr("assistant_app.providers.ollama.httpx.AsyncClient", async_client_factory)
+
+    provider = OllamaProvider(default_target_device="")
+    provider.bind_settings(
+        ProviderSettings(
+            provider=ProviderKind.OLLAMA,
+            model="test-model",
+            base_url="http://ollama.local/api",
+            enabled=True,
+        )
+    )
+
+    decision = asyncio.run(
+        provider.analyze_message(
+            InboundUserMessage(
+                session_id="ollama-contextual-korean-selfview",
+                user_id="person-1",
+                text="화면에 내 모습 나오게 해줘",
+                source=MessageSource.WEBEX,
+            ),
+            SessionContext(session_id="ollama-contextual-korean-selfview", turns=[]),
+        )
+    )
+
+    assert len(llm_client.requests) == 1
+    assert decision.action_proposal is not None
+    assert decision.action_proposal.intent == Intent.SET_SELFVIEW
+    assert decision.action_proposal.set_selfview is not None
+    assert decision.action_proposal.set_selfview.target_device == ""
+    assert decision.action_proposal.set_selfview.enabled is True
+
+
+def test_ollama_provider_falls_back_to_rule_based_when_llm_returns_plain_non_action(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from assistant_app.providers.ollama import OllamaProvider
+    from shared.contracts import (
+        InboundUserMessage,
+        Intent,
+        MessageSource,
+        ProviderKind,
+        ProviderSettings,
+        SessionContext,
+    )
+
+    llm_client = QueuedAsyncClient()
+    llm_client.responses.append(
+        make_response(
+            "POST",
+            "/chat",
+            200,
+            {"message": {"content": "I am not sure what to do."}},
+        )
+    )
+    _ = build_client_queue(llm_client)
+    monkeypatch.setattr("assistant_app.providers.ollama.httpx.AsyncClient", async_client_factory)
+
+    provider = OllamaProvider(default_target_device="")
+    provider.bind_settings(
+        ProviderSettings(
+            provider=ProviderKind.OLLAMA,
+            model="test-model",
+            base_url="http://ollama.local/api",
+            enabled=True,
+        )
+    )
+
+    decision = asyncio.run(
+        provider.analyze_message(
+            InboundUserMessage(
+                session_id="ollama-rule-based-fallback-selfview",
+                user_id="person-1",
+                text="셀프뷰 켜줘",
+                source=MessageSource.WEBEX,
+            ),
+            SessionContext(session_id="ollama-rule-based-fallback-selfview", turns=[]),
+        )
+    )
+
+    assert len(llm_client.requests) == 1
+    assert decision.action_proposal is not None
+    assert decision.action_proposal.intent == Intent.SET_SELFVIEW
+    assert decision.action_proposal.set_selfview is not None
+    assert decision.action_proposal.set_selfview.enabled is True
+
+
+def test_rule_based_provider_extracts_korean_webex_join_number_without_target() -> None:
+    from assistant_app.providers.rule_based import RuleBasedProvider
+    from shared.contracts import InboundUserMessage, MessageSource, SessionContext
+
+    provider = RuleBasedProvider(default_target_device="demo-roomkit")
+
+    decision = asyncio.run(
+        provider.analyze_message(
+            InboundUserMessage(
+                session_id="korean-webex-join-number-no-target",
+                user_id="debug-user",
+                text="2556 542 7373 미팅 참여해줘",
+                source=MessageSource.WEBEX,
+            ),
+            SessionContext(session_id="korean-webex-join-number-no-target", turns=[]),
+        )
+    )
+
+    assert decision.pending_action is not None
+    assert decision.pending_action.intent.value == "webex_join"
+    assert decision.pending_action.meeting_identifier == "25565427373"
+    assert decision.pending_action.target_device is None
+
+
+def test_rule_based_provider_extracts_korean_webex_join_number_with_target() -> None:
+    from assistant_app.providers.rule_based import RuleBasedProvider
+    from shared.contracts import InboundUserMessage, MessageSource, SessionContext
+
+    provider = RuleBasedProvider(default_target_device="demo-roomkit")
+
+    decision = asyncio.run(
+        provider.analyze_message(
+            InboundUserMessage(
+                session_id="korean-webex-join-number-target",
+                user_id="debug-user",
+                text="Room Bar 로 25565427373 미팅번호 미팅 참여",
+                source=MessageSource.WEBEX,
+            ),
+            SessionContext(session_id="korean-webex-join-number-target", turns=[]),
+        )
+    )
+
+    assert decision.action_proposal is not None
+    assert decision.action_proposal.webex_join is not None
+    assert decision.action_proposal.webex_join.meeting_identifier == "25565427373"
+    assert decision.action_proposal.webex_join.target_device == "Room Bar"
+
+
+def test_ollama_provider_falls_back_for_invalid_llm_korean_webex_join_payload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from assistant_app.providers.ollama import OllamaProvider
+    from shared.contracts import InboundUserMessage, MessageSource, SessionContext
+
+    provider = OllamaProvider("demo-roomkit")
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return {
+                "message": {
+                    "content": '{"action_proposal":{"intent":"webex_join","summary":"join"}}'
+                }
+            }
+
+    class FakeAsyncClient:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            pass
+
+        async def __aenter__(self) -> "FakeAsyncClient":
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            return None
+
+        async def post(self, path: str, json: dict[str, object]) -> FakeResponse:
+            return FakeResponse()
+
+    monkeypatch.setattr("assistant_app.providers.ollama.httpx.AsyncClient", FakeAsyncClient)
+
+    decision = asyncio.run(
+        provider.analyze_message(
+            InboundUserMessage(
+                session_id="ollama-invalid-korean-webex-join",
+                user_id="debug-user",
+                text="25565427373 미팅번호로 미팅 참여",
+                source=MessageSource.WEBEX,
+            ),
+            SessionContext(session_id="ollama-invalid-korean-webex-join", turns=[]),
+        )
+    )
+
+    assert decision.pending_action is not None
+    assert decision.pending_action.intent.value == "webex_join"
+    assert decision.pending_action.meeting_identifier == "25565427373"
+    assert decision.reply_text is None
+
+
+def test_rule_based_provider_extracts_korean_environment_info_with_target() -> None:
+    from assistant_app.providers.rule_based import RuleBasedProvider
+    from shared.contracts import InboundUserMessage, MessageSource, SessionContext
+
+    provider = RuleBasedProvider(default_target_device="demo-roomkit")
+
+    decision = asyncio.run(
+        provider.analyze_message(
+            InboundUserMessage(
+                session_id="korean-environment-info-target",
+                user_id="debug-user",
+                text="Room Bar 온도와 습도 확인해줘",
+                source=MessageSource.WEBEX,
+            ),
+            SessionContext(session_id="korean-environment-info-target", turns=[]),
+        )
+    )
+
+    assert decision.action_proposal is not None
+    assert decision.action_proposal.get_environment_info is not None
+    assert decision.action_proposal.get_environment_info.target_device == "Room Bar"
+
+
+def test_ollama_provider_falls_back_for_invalid_llm_korean_environment_payload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from assistant_app.providers.ollama import OllamaProvider
+    from shared.contracts import InboundUserMessage, MessageSource, SessionContext
+
+    provider = OllamaProvider("demo-roomkit")
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return {
+                "message": {
+                    "content": '{"action_proposal":{"intent":"get_environment_info","summary":"check environment"}}'
+                }
+            }
+
+    class FakeAsyncClient:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            pass
+
+        async def __aenter__(self) -> "FakeAsyncClient":
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            return None
+
+        async def post(self, path: str, json: dict[str, object]) -> FakeResponse:
+            return FakeResponse()
+
+    monkeypatch.setattr("assistant_app.providers.ollama.httpx.AsyncClient", FakeAsyncClient)
+
+    decision = asyncio.run(
+        provider.analyze_message(
+            InboundUserMessage(
+                session_id="ollama-invalid-korean-environment",
+                user_id="debug-user",
+                text="Room Bar 온도와 습도 확인해줘",
+                source=MessageSource.WEBEX,
+            ),
+            SessionContext(session_id="ollama-invalid-korean-environment", turns=[]),
+        )
+    )
+
+    assert decision.action_proposal is not None
+    assert decision.action_proposal.get_environment_info is not None
+    assert decision.action_proposal.get_environment_info.target_device == "Room Bar"
+    assert decision.reply_text is None
+
+
+def test_missing_webex_join_accepts_https_meet_url_follow_up_then_resume() -> None:
+    scoped_client = build_authenticated_client()
+
+    first_response = scoped_client.post(
+        "/debug/messages",
+        json={
+            "text": "webex join on Board Pro",
+            "session_id": "followup-webex-join-url",
+        },
+    )
+    assert first_response.status_code == 200
+    first_reply = as_mapping(as_mapping(cast(object, first_response.json()))["reply"])
+    assert first_reply["text"] == "What Webex meeting ID or address should I join?"
+
+    second_response = scoped_client.post(
+        "/debug/messages",
+        json={
+            "text": "https://acecloud.webex.com/meet/youngcle",
+            "session_id": "followup-webex-join-url",
+        },
+    )
+    assert second_response.status_code == 200
+    second_reply = as_mapping(as_mapping(cast(object, second_response.json()))["reply"])
+    second_text = second_reply["text"]
+
+    assert isinstance(second_text, str)
+    assert "Approval required" in second_text
+
+    approvals_response = scoped_client.get("/admin/approvals")
+    assert approvals_response.status_code == 200
+    approvals = as_sequence(as_mapping(cast(object, approvals_response.json()))["approvals"])
+    pending = next(
+        approval
+        for approval in approvals
+        if as_mapping(approval)["session_id"] == "followup-webex-join-url"
+    )
+    execution_request = as_mapping(as_mapping(pending)["execution_request"])
+    webex_join = as_mapping(execution_request["webex_join"])
+
+    assert webex_join["meeting_identifier"] == "https://acecloud.webex.com/meet/youngcle"
+    assert webex_join["target_device"] == "Board Pro"
+
+
+def test_missing_webex_join_accepts_spaced_number_follow_up_then_uses_default_webex_device() -> None:
+    scoped_client = build_authenticated_client()
+
+    first_response = scoped_client.post(
+        "/debug/messages",
+        json={
+            "text": "Join meeting",
+            "session_id": "followup-webex-join-spaced-number-default",
+            "source": "webex",
+            "room_id": "debug-room",
+            "target_device": "Room Bar",
+        },
+    )
+    assert first_response.status_code == 200
+    first_reply = as_mapping(as_mapping(cast(object, first_response.json()))["reply"])
+    assert first_reply["text"] == "What Webex meeting ID or address should I join?"
+
+    second_response = scoped_client.post(
+        "/debug/messages",
+        json={
+            "text": "2571 017 7729",
+            "session_id": "followup-webex-join-spaced-number-default",
+            "source": "webex",
+            "room_id": "debug-room",
+            "target_device": "Room Bar",
+        },
+    )
+    assert second_response.status_code == 200
+    second_reply = as_mapping(as_mapping(cast(object, second_response.json()))["reply"])
+    second_text = second_reply["text"]
+
+    assert isinstance(second_text, str)
+    assert "Approval required" in second_text or "Webex join requested for 25710177729 on Room Bar" in second_text
+
+    approvals_response = scoped_client.get("/admin/approvals")
+    assert approvals_response.status_code == 200
+    approvals = as_sequence(as_mapping(cast(object, approvals_response.json()))["approvals"])
+    pending = next(
+        approval
+        for approval in approvals
+        if as_mapping(approval)["session_id"] == "followup-webex-join-spaced-number-default"
+    )
+    execution_request = as_mapping(as_mapping(pending)["execution_request"])
+    webex_join = as_mapping(execution_request["webex_join"])
+    assert webex_join["meeting_identifier"] == "25710177729"
+    assert webex_join["target_device"] == "Room Bar"
+
+
+def test_room_bar_drop_routes_to_hang_up_with_rule_based_fallback() -> None:
+    scoped_client = build_authenticated_client()
+    policy_response = scoped_client.put(
+        "/admin/policies/hang_up",
+        json={
+            "allowed_modes": ["separated", "all-llm"],
+            "risk_level": "low",
+            "approval_state": "not_required",
+            "reason": "Allow direct hangup execution in debug flow test.",
+        },
+    )
+    assert policy_response.status_code == 200
+    response = scoped_client.post(
+        "/debug/messages",
+        json={
+            "session_id": "room-bar-drop-fallback",
+            "user_id": "debug-user",
+            "text": "Room Bar drop",
+            "source": "webex",
+            "room_id": "debug-room",
+            "target_device": "Room Bar",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    reply = as_mapping(body["reply"])
+    text = reply["text"]
+    assert isinstance(text, str)
+    assert "hang up requested for Room Bar" in text or "hang up requested for room bar" in text.lower()
+    assert "invalid action payload" not in text.lower()

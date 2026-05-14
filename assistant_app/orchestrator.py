@@ -21,6 +21,7 @@ from shared.contracts import (
     OrganizationDeviceRecord,
     OutboundReply,
     PendingActionProposal,
+    MicrophoneProcessingMode,
     get_action_payload_field,
     intent_requires_target_device,
     SetVolumeParams,
@@ -30,6 +31,13 @@ from shared.contracts import (
     SetDisplayModeParams,
     WritableCameraMode,
     SetCameraModeParams,
+    SetMicrophoneMuteParams,
+    SetMicrophoneModeParams,
+    SetVideoMuteParams,
+    SetSelfviewParams,
+    SetSpeakerTrackParams,
+    SetStandbyParams,
+    SetPresentationParams,
 )
 
 
@@ -68,6 +76,24 @@ class Orchestrator:
 
         if pending_action is not None:
             return await self._handle_pending_follow_up(message, pending_action)
+
+        setting_option_pending_action = self._build_setting_option_card_pending_action(message)
+        if setting_option_pending_action is not None:
+            _ = self.memory_store.set_pending_action(
+                message.session_id,
+                message.user_id,
+                setting_option_pending_action,
+            )
+            reply = await self._build_setting_option_selection_reply(
+                message,
+                setting_option_pending_action,
+            )
+            _ = self.memory_store.append_assistant_turn(
+                message.session_id,
+                reply.text,
+                setting_option_pending_action.intent,
+            )
+            return reply
 
         display_mode_pending_action = self._build_display_mode_card_pending_action(message)
         if display_mode_pending_action is not None:
@@ -276,6 +302,8 @@ class Orchestrator:
         person_email: str | None = None,
         *,
         cancel: bool = False,
+        setting_field_name: str | None = None,
+        setting_value: str | None = None,
     ) -> tuple[OutboundReply, bool]:
         pending_lookup = self.memory_store.get_pending_action_by_id(pending_action_id)
         if pending_lookup is None:
@@ -297,7 +325,7 @@ class Orchestrator:
                 False,
             )
 
-        if field_name not in {"target_device", "display_mode", "camera_mode"}:
+        if field_name not in {"target_device", "display_mode", "camera_mode", "setting_value"}:
             reply = OutboundReply(
                 text="That selection request is no longer valid.",
                 room_id=room_id,
@@ -334,7 +362,25 @@ class Orchestrator:
             return reply, False
 
         updated_pending_action = pending_action.model_copy(deep=True)
-        if field_name == "display_mode":
+        if field_name == "setting_value":
+            if isinstance(selected_value, str) and selected_value.strip():
+                updated_pending_action.target_device = selected_value.strip()
+            if not self._apply_pending_setting_selection(
+                updated_pending_action,
+                setting_field_name,
+                setting_value,
+            ):
+                reply = OutboundReply(
+                    text="That setting selection is no longer valid.",
+                    room_id=room_id,
+                )
+                _ = self.memory_store.append_assistant_turn(
+                    session_id,
+                    reply.text,
+                    pending_action.intent,
+                )
+                return reply, False
+        elif field_name == "display_mode":
             try:
                 updated_pending_action.display_mode = DisplayMode(selected_value.strip())
             except ValueError:
@@ -439,24 +485,192 @@ class Orchestrator:
             return OutboundReply(text=fallback_text, room_id=message.room_id)
         return OutboundReply(text=fallback_text, room_id=message.room_id)
 
-    async def _build_target_device_selection_reply(
+    def _setting_option_specs(self) -> dict[Intent, dict[str, object]]:
+        return {
+            Intent.SET_MICROPHONE_MUTE: {
+                "title": "마이크 음소거 설정",
+                "prompt": "마이크 음소거 상태를 선택해주세요.",
+                "field": "muted",
+                "choices": [("음소거", "true"), ("음소거 해제", "false")],
+                "keywords": ("마이크", "mic", "microphone", "음소거", "뮤트"),
+                "verbs": ("설정", "변경", "선택", "set", "change"),
+            },
+            Intent.SET_VIDEO_MUTE: {
+                "title": "비디오 음소거 설정",
+                "prompt": "비디오 음소거 상태를 선택해주세요.",
+                "field": "muted",
+                "choices": [("비디오 끄기", "true"), ("비디오 켜기", "false")],
+                "keywords": ("비디오", "video mute", "camera off", "camera on"),
+                "verbs": ("설정", "변경", "선택", "set", "change"),
+            },
+            Intent.SET_SELFVIEW: {
+                "title": "셀프뷰 설정",
+                "prompt": "셀프뷰 상태를 선택해주세요.",
+                "field": "enabled",
+                "choices": [("켜기", "true"), ("끄기", "false")],
+                "keywords": ("selfview", "self view", "셀프뷰"),
+                "verbs": ("설정", "변경", "선택", "set", "change"),
+            },
+            Intent.SET_SPEAKERTRACK: {
+                "title": "SpeakerTrack 설정",
+                "prompt": "SpeakerTrack 상태를 선택해주세요.",
+                "field": "enabled",
+                "choices": [("켜기", "true"), ("끄기", "false")],
+                "keywords": ("speakertrack", "speaker track", "스피커트랙"),
+                "verbs": ("설정", "변경", "선택", "set", "change"),
+            },
+            Intent.SET_STANDBY: {
+                "title": "스탠바이 설정",
+                "prompt": "스탠바이 상태를 선택해주세요.",
+                "field": "enabled",
+                "choices": [("켜기", "true"), ("끄기", "false")],
+                "keywords": ("standby", "스탠바이"),
+                "verbs": ("설정", "변경", "선택", "set", "change"),
+            },
+            Intent.SET_PRESENTATION: {
+                "title": "프레젠테이션 설정",
+                "prompt": "프레젠테이션 공유 상태를 선택해주세요.",
+                "field": "enabled",
+                "choices": [("시작", "true"), ("중지", "false")],
+                "keywords": ("presentation", "share", "프레젠테이션", "공유"),
+                "verbs": ("설정", "변경", "선택", "set", "change"),
+            },
+            Intent.SET_MICROPHONE_MODE: {
+                "title": "마이크 모드 설정",
+                "prompt": "마이크 처리 모드를 선택해주세요.",
+                "field": "mode",
+                "choices": [
+                    ("Normal", MicrophoneProcessingMode.NORMAL.value),
+                    ("Noise Reduction", MicrophoneProcessingMode.NOISE_REDUCTION.value),
+                    ("Voice Optimized", MicrophoneProcessingMode.VOICE_OPTIMIZED.value),
+                    ("Music Mode", MicrophoneProcessingMode.MUSIC_MODE.value),
+                ],
+                "keywords": ("microphone mode", "mic mode", "마이크 모드"),
+                "verbs": ("설정", "변경", "선택", "set", "change"),
+            },
+        }
+
+    def _build_setting_option_card_pending_action(
+        self, message: InboundUserMessage
+    ) -> PendingActionProposal | None:
+        normalized = message.text.strip().casefold()
+        compact = re.sub(r"\s+", "", normalized)
+        for intent, spec in self._setting_option_specs().items():
+            keywords = tuple(str(keyword).casefold() for keyword in spec["keywords"])  # type: ignore[index]
+            verbs = tuple(str(verb).casefold() for verb in spec["verbs"])  # type: ignore[index]
+            if not any(keyword in normalized or re.sub(r"\s+", "", keyword) in compact for keyword in keywords):
+                continue
+            if not any(verb in normalized or re.sub(r"\s+", "", verb) in compact for verb in verbs):
+                continue
+            return PendingActionProposal(
+                intent=intent,
+                summary=str(spec["title"]),
+                target_device=self._extract_trailing_target_device(message.text) or message.target_device,
+            )
+        return None
+
+    async def _build_setting_option_selection_reply(
         self,
         message: InboundUserMessage,
         pending_action: PendingActionProposal,
-        fallback_text: str,
-    ) -> OutboundReply | None:
-        if (
-            message.source.value != "webex"
-            or message.room_id is None
-            or self.device_lister is None
-        ):
-            return None
+    ) -> OutboundReply:
+        spec = self._setting_option_specs()[pending_action.intent]
+        title = str(spec["title"])
+        prompt = str(spec["prompt"])
+        setting_field = str(spec["field"])
+        choices = [
+            {"title": title, "value": value}
+            for title, value in spec["choices"]  # type: ignore[index]
+        ]
+        body: list[dict[str, object]] = [
+            {"type": "TextBlock", "weight": "Bolder", "text": title},
+            {"type": "TextBlock", "wrap": True, "text": prompt},
+            {
+                "type": "Input.ChoiceSet",
+                "id": "settingValue",
+                "style": "expanded",
+                "isRequired": True,
+                "choices": choices,
+            },
+        ]
+        if pending_action.target_device:
+            body.append(
+                {
+                    "type": "TextBlock",
+                    "wrap": True,
+                    "text": f"대상 장치: {pending_action.target_device}",
+                }
+            )
+        else:
+            device_choices = await self._load_device_choices()
+            if device_choices:
+                body.append(
+                    {
+                        "type": "Input.ChoiceSet",
+                        "id": "selectedValue",
+                        "style": "compact",
+                        "isRequired": True,
+                        "placeholder": "장치를 선택하세요",
+                        "choices": device_choices,
+                    }
+                )
+            else:
+                body.append(
+                    {
+                        "type": "Input.ChoiceSet",
+                        "id": "selectedValue",
+                        "style": "compact",
+                        "isRequired": True,
+                        "placeholder": "장치 이름을 입력하세요",
+                        "choices": [],
+                    }
+                )
+        card: dict[str, object] = {
+            "contentType": "application/vnd.microsoft.card.adaptive",
+            "content": {
+                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                "type": "AdaptiveCard",
+                "version": "1.0",
+                "body": body,
+                "actions": [
+                    {
+                        "type": "Action.Submit",
+                        "title": "Apply",
+                        "data": {
+                            "kind": "entity_selection",
+                            "pendingActionId": pending_action.pending_action_id,
+                            "fieldName": "setting_value",
+                            "settingFieldName": setting_field,
+                            "selectionDecision": "submit",
+                        },
+                    },
+                    {
+                        "type": "Action.Submit",
+                        "title": "Cancel",
+                        "data": {
+                            "kind": "entity_selection",
+                            "pendingActionId": pending_action.pending_action_id,
+                            "fieldName": "setting_value",
+                            "selectionDecision": "cancel",
+                        },
+                    },
+                ],
+            },
+        }
+        return OutboundReply(
+            text=prompt,
+            markdown=f"**{title}**\n\n{prompt}",
+            room_id=message.room_id,
+            attachments=[card],
+        )
 
+    async def _load_device_choices(self) -> list[dict[str, str]]:
+        if self.device_lister is None:
+            return []
         try:
             devices = await self.device_lister()
         except Exception:
-            return None
-
+            return []
         choices: list[dict[str, str]] = []
         for device in devices[:10]:
             value = device.display_name.strip()
@@ -471,6 +685,120 @@ class Orchestrator:
             if subtitle_parts:
                 title_parts.append(f"({' / '.join(subtitle_parts)})")
             choices.append({"title": " ".join(title_parts), "value": value})
+        return choices
+
+    def _apply_pending_setting_selection(
+        self,
+        pending_action: PendingActionProposal,
+        setting_field_name: str | None,
+        setting_value: str | None,
+    ) -> bool:
+        if not isinstance(setting_field_name, str) or not isinstance(setting_value, str):
+            return False
+        normalized_value = setting_value.strip()
+        bool_value: bool | None
+        if normalized_value.casefold() == "true":
+            bool_value = True
+        elif normalized_value.casefold() == "false":
+            bool_value = False
+        else:
+            bool_value = None
+        try:
+            if pending_action.intent == Intent.SET_MICROPHONE_MUTE and setting_field_name == "muted" and bool_value is not None:
+                pending_action.action_proposal = ActionProposal(
+                    intent=Intent.SET_MICROPHONE_MUTE,
+                    summary=pending_action.summary,
+                    confidence=pending_action.confidence,
+                    set_microphone_mute=SetMicrophoneMuteParams(
+                        target_device=pending_action.target_device or "",
+                        muted=bool_value,
+                    ),
+                )
+                return True
+            if pending_action.intent == Intent.SET_VIDEO_MUTE and setting_field_name == "muted" and bool_value is not None:
+                pending_action.action_proposal = ActionProposal(
+                    intent=Intent.SET_VIDEO_MUTE,
+                    summary=pending_action.summary,
+                    confidence=pending_action.confidence,
+                    set_video_mute=SetVideoMuteParams(
+                        target_device=pending_action.target_device or "",
+                        muted=bool_value,
+                    ),
+                )
+                return True
+            if pending_action.intent == Intent.SET_SELFVIEW and setting_field_name == "enabled" and bool_value is not None:
+                pending_action.action_proposal = ActionProposal(
+                    intent=Intent.SET_SELFVIEW,
+                    summary=pending_action.summary,
+                    confidence=pending_action.confidence,
+                    set_selfview=SetSelfviewParams(
+                        target_device=pending_action.target_device or "",
+                        enabled=bool_value,
+                    ),
+                )
+                return True
+            if pending_action.intent == Intent.SET_SPEAKERTRACK and setting_field_name == "enabled" and bool_value is not None:
+                pending_action.action_proposal = ActionProposal(
+                    intent=Intent.SET_SPEAKERTRACK,
+                    summary=pending_action.summary,
+                    confidence=pending_action.confidence,
+                    set_speakertrack=SetSpeakerTrackParams(
+                        target_device=pending_action.target_device or "",
+                        enabled=bool_value,
+                    ),
+                )
+                return True
+            if pending_action.intent == Intent.SET_STANDBY and setting_field_name == "enabled" and bool_value is not None:
+                pending_action.action_proposal = ActionProposal(
+                    intent=Intent.SET_STANDBY,
+                    summary=pending_action.summary,
+                    confidence=pending_action.confidence,
+                    set_standby=SetStandbyParams(
+                        target_device=pending_action.target_device or "",
+                        enabled=bool_value,
+                    ),
+                )
+                return True
+            if pending_action.intent == Intent.SET_PRESENTATION and setting_field_name == "enabled" and bool_value is not None:
+                pending_action.action_proposal = ActionProposal(
+                    intent=Intent.SET_PRESENTATION,
+                    summary=pending_action.summary,
+                    confidence=pending_action.confidence,
+                    set_presentation=SetPresentationParams(
+                        target_device=pending_action.target_device or "",
+                        enabled=bool_value,
+                    ),
+                )
+                return True
+            if pending_action.intent == Intent.SET_MICROPHONE_MODE and setting_field_name == "mode":
+                pending_action.action_proposal = ActionProposal(
+                    intent=Intent.SET_MICROPHONE_MODE,
+                    summary=pending_action.summary,
+                    confidence=pending_action.confidence,
+                    set_microphone_mode=SetMicrophoneModeParams(
+                        target_device=pending_action.target_device or "",
+                        mode=MicrophoneProcessingMode(normalized_value),
+                    ),
+                )
+                return True
+        except ValueError:
+            return False
+        return False
+
+    async def _build_target_device_selection_reply(
+        self,
+        message: InboundUserMessage,
+        pending_action: PendingActionProposal,
+        fallback_text: str,
+    ) -> OutboundReply | None:
+        if (
+            message.source.value != "webex"
+            or message.room_id is None
+            or self.device_lister is None
+        ):
+            return None
+
+        choices = await self._load_device_choices()
 
         if not choices:
             return None
@@ -493,7 +821,7 @@ class Orchestrator:
                         "id": "selectedValue",
                         "style": "compact",
                         "isRequired": True,
-                        "placeholder": "Choose a device",
+                        "placeholder": "장치를 선택하세요",
                         "choices": choices,
                     },
                 ],
@@ -866,9 +1194,38 @@ class Orchestrator:
             return fallback_text
         if pending_action.intent == Intent.SET_MICROPHONE_MUTE:
             return "어떤 장치를 음소거할까요? 장치 이름을 말씀해주시거나 목록을 확인해주세요."
+        if pending_action.intent == Intent.SET_SELFVIEW:
+            enabled = self._get_pending_bool_value(pending_action, "enabled")
+            action = "켜드릴까요" if enabled is not False else "꺼드릴까요"
+            return f"어떤 장치의 Selfview를 {action}? 장치 이름을 말씀해 주세요."
+        if pending_action.intent == Intent.SET_VIDEO_MUTE:
+            muted = self._get_pending_bool_value(pending_action, "muted")
+            action = "꺼드릴까요" if muted is True else "켜드릴까요"
+            return f"어떤 장치의 비디오를 {action}? 장치 이름을 말씀해 주세요."
+        if pending_action.intent == Intent.SET_SPEAKERTRACK:
+            enabled = self._get_pending_bool_value(pending_action, "enabled")
+            action = "켜드릴까요" if enabled is not False else "꺼드릴까요"
+            return f"어떤 장치의 SpeakerTrack을 {action}? 장치 이름을 말씀해 주세요."
+        if pending_action.intent == Intent.SET_STANDBY:
+            enabled = self._get_pending_bool_value(pending_action, "enabled")
+            action = "켜드릴까요" if enabled is not False else "꺼드릴까요"
+            return f"어떤 장치의 스탠바이를 {action}? 장치 이름을 말씀해 주세요."
+        if pending_action.intent == Intent.SET_PRESENTATION:
+            enabled = self._get_pending_bool_value(pending_action, "enabled")
+            action = "시작할까요" if enabled is not False else "중지할까요"
+            return f"어떤 장치의 프레젠테이션 공유를 {action}? 장치 이름을 말씀해 주세요."
         if pending_action.intent == Intent.SET_VOLUME:
             return "어떤 장치의 볼륨을 올릴까요?"
         return fallback_text
+
+    def _get_pending_bool_value(
+        self, pending_action: PendingActionProposal, field_name: str
+    ) -> bool | None:
+        if pending_action.action_proposal is None:
+            return None
+        payload = self._get_action_payload(pending_action.action_proposal)
+        value = getattr(payload, field_name, None) if payload is not None else None
+        return value if isinstance(value, bool) else None
 
     def _pending_action_needs_target_device(
         self, pending_action: PendingActionProposal
@@ -1401,7 +1758,7 @@ class Orchestrator:
 
     def _extract_follow_up_webex_meeting_identifier(self, text: str) -> str | None:
         match = re.search(
-            r"(?:webex join|join webex)(?:\s+meeting)?\s+([A-Za-z0-9@._:-]+)",
+            r"(?:webex join|join webex)(?:\s+meeting)?\s+(https?://\S+|[A-Za-z0-9@._:/-]+)",
             text,
             re.IGNORECASE,
         )
@@ -1409,6 +1766,9 @@ class Orchestrator:
             return match.group(1).strip().rstrip("?.!")
 
         candidate = self._strip_trailing_target_clause(text)
+        digit_match = re.fullmatch(r"(?:\d[\s-]*){9,14}", candidate.strip())
+        if digit_match is not None:
+            return re.sub(r"\D+", "", candidate)
         candidate = re.sub(
             r"^(?:meeting(?:\s+id)?\s+)",
             "",
@@ -1417,7 +1777,7 @@ class Orchestrator:
         ).strip()
         if not candidate:
             return None
-        if re.fullmatch(r"[A-Za-z0-9@._:-]+", candidate) is None:
+        if re.fullmatch(r"https?://\S+|[A-Za-z0-9@._:/-]+", candidate) is None:
             return None
         return candidate.rstrip("?.!")
 

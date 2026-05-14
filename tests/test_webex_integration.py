@@ -5889,3 +5889,110 @@ def test_device_client_lists_supported_camera_modes_from_speakertrack_set_comman
             "params": {"displayName": "Room Bar Pro"},
         },
     )
+
+
+def test_device_client_get_environment_info_reads_webex_status_result_wrapper_for_peripheral_sensors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    api_client = QueuedAsyncClient()
+    api_client.responses.append(
+        make_response(
+            "GET",
+            "/devices",
+            200,
+            {
+                "items": [
+                    {
+                        "id": "device-1",
+                        "displayName": "Room Bar",
+                        "workspaceId": "workspace-1",
+                        "product": "Cisco Room Bar",
+                        "connectionStatus": "connected",
+                    }
+                ]
+            },
+        )
+    )
+    api_client.responses.append(
+        make_response(
+            "GET",
+            "/xapi/status",
+            200,
+            {
+                "deviceId": "device-1",
+                "result": {
+                    "RoomAnalytics": {
+                        "AmbientNoise": {"Level": {"A": 29}},
+                        "PeopleCount": {"Current": 0},
+                    },
+                    "Peripherals": {
+                        "ConnectedDevice": [
+                            {
+                                "id": 1001,
+                                "RoomAnalytics": {
+                                    "AmbientTemperature": "26.2",
+                                    "RelativeHumidity": 57,
+                                },
+                            }
+                        ]
+                    },
+                },
+            },
+        )
+    )
+    _ = build_client_queue(api_client)
+    monkeypatch.setattr(
+        "device_executor.device_client.httpx.AsyncClient", async_client_factory
+    )
+
+    device_client = DeviceClient(
+        AppConfig(
+            webex_mock_mode=False,
+            webex_bot_person_id="bot-person-id",
+            webex_webhook_secret="secret",
+            device_mock_mode=False,
+        ),
+        StaticTokenProvider(),
+    )
+
+    result = asyncio.run(device_client.get_environment_info("Room Bar"))
+
+    assert result.temperature_celsius == 26.2
+    assert result.relative_humidity_percent == 57.0
+    assert result.ambient_noise_db == 29.0
+    assert result.people_count == 0
+
+
+def test_device_client_command_error_includes_webex_response_body(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    api_client = QueuedAsyncClient()
+    api_client.responses.append(
+        make_response(
+            "POST",
+            "/xapi/command/Webex.Join",
+            400,
+            {"message": "Invalid meeting number", "errors": [{"description": "Meeting is not joinable"}]},
+        )
+    )
+    _ = build_client_queue(api_client)
+    monkeypatch.setattr(httpx, "AsyncClient", async_client_factory)
+
+    client = DeviceClient(
+        AppConfig(webex_mock_mode=False, device_mock_mode=False, webex_bot_token="token"),
+        StaticTokenProvider(),
+    )
+
+    with pytest.raises(RuntimeError) as exc_info:
+        _ = asyncio.run(
+            client._execute_command(
+                "device-1",
+                "Webex.Join",
+                {"Number": "25710177729"},
+            )
+        )
+
+    message = str(exc_info.value)
+    assert "400 Bad Request" in message
+    assert "Invalid meeting number" in message
+    assert "Meeting is not joinable" in message

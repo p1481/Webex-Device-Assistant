@@ -88,6 +88,19 @@ class RuleBasedProvider:
         "set layout to prominent",
         "switch layout to prominent",
     )
+    TOGGLE_ACTION_NAMES: frozenset[str] = frozenset(
+        {
+            "selfview",
+            "self view",
+            "speakertrack",
+            "speaker track",
+            "standby",
+            "presentation",
+            "share",
+            "video",
+            "camera",
+        }
+    )
     CAMERA_PAN_STEP: int = 1000
     CAMERA_TILT_STEP: int = 1000
     CAMERA_ZOOM_STEP: int = 700
@@ -199,10 +212,11 @@ class RuleBasedProvider:
                 )
             )
 
-        if "webex join" in lowered or "join webex" in lowered:
+        if self._is_webex_join_request(lowered):
             meeting_identifier = self._extract_webex_meeting_identifier(text)
             if meeting_identifier is not None:
-                if mentioned_target_device is None:
+                action_target_device = mentioned_target_device or message.target_device
+                if action_target_device is None:
                     return OrchestrationDecision(
                         pending_action=PendingActionProposal(
                             intent=Intent.WEBEX_JOIN,
@@ -215,7 +229,7 @@ class RuleBasedProvider:
                         intent=Intent.WEBEX_JOIN,
                         summary="Join a Webex meeting from the target device.",
                         webex_join=WebexJoinParams(
-                            target_device=target_device,
+                            target_device=action_target_device,
                             meeting_identifier=meeting_identifier,
                         ),
                     )
@@ -258,8 +272,15 @@ class RuleBasedProvider:
             )
 
         if any(
-            phrase in lowered for phrase in {"hang up", "hangup", "disconnect call"}
-        ):
+            phrase in lowered
+            for phrase in {
+                "hang up",
+                "hangup",
+                "disconnect call",
+                "drop call",
+                "drop meeting",
+            }
+        ) or lowered.strip().endswith(" drop"):
             return OrchestrationDecision(
                 action_proposal=ActionProposal(
                     intent=Intent.HANG_UP,
@@ -370,12 +391,27 @@ class RuleBasedProvider:
         if self._mentions_video_toggle(lowered):
             muted = self._extract_toggle_state(
                 lowered,
-                enable_words={"video mute", "mute video", "camera off", "stop video"},
+                enable_words={
+                    "video mute",
+                    "mute video",
+                    "camera off",
+                    "stop video",
+                    "turn off video",
+                    "비디오 꺼",
+                    "카메라 꺼",
+                    "비디오 중지",
+                    "카메라 중지",
+                },
                 disable_words={
                     "video unmute",
                     "unmute video",
                     "camera on",
                     "start video",
+                    "turn on video",
+                    "비디오 켜",
+                    "카메라 켜",
+                    "비디오 시작",
+                    "카메라 시작",
                 },
                 enable_value=True,
             )
@@ -412,11 +448,43 @@ class RuleBasedProvider:
                 )
             )
 
-        if "selfview" in lowered:
+        if (
+            "selfview" in lowered
+            or "self view" in lowered
+            or "셀프뷰" in lowered
+            or "내 모습" in lowered
+            or "내모습" in lowered
+        ):
             enabled = self._extract_toggle_state(
                 lowered,
-                enable_words={"selfview on", "enable selfview", "show selfview"},
-                disable_words={"selfview off", "disable selfview", "hide selfview"},
+                enable_words={
+                    "selfview on",
+                    "enable selfview",
+                    "show selfview",
+                    "turn on selfview",
+                    "셀프뷰 켜",
+                    "셀프뷰 보여",
+                    "셀프뷰 시작",
+                    "내 모습 보여",
+                    "내 모습 보이",
+                    "내 모습 나오",
+                    "내모습 보여",
+                    "내모습 보이",
+                    "내모습 나오",
+                },
+                disable_words={
+                    "selfview off",
+                    "disable selfview",
+                    "hide selfview",
+                    "turn off selfview",
+                    "셀프뷰 꺼",
+                    "셀프뷰 숨겨",
+                    "셀프뷰 중지",
+                    "내 모습 숨겨",
+                    "내 모습 안 보이",
+                    "내모습 숨겨",
+                    "내모습 안 보이",
+                },
             )
             if enabled is not None:
                 return OrchestrationDecision(
@@ -437,8 +505,16 @@ class RuleBasedProvider:
                     "start presentation",
                     "presentation start",
                     "start share",
+                    "turn on presentation",
+                    "turn on share",
                 },
-                disable_words={"stop presentation", "presentation stop", "stop share"},
+                disable_words={
+                    "stop presentation",
+                    "presentation stop",
+                    "stop share",
+                    "turn off presentation",
+                    "turn off share",
+                },
             )
             if enabled is not None:
                 return OrchestrationDecision(
@@ -649,11 +725,15 @@ class RuleBasedProvider:
                     "speakertrack on",
                     "activate speakertrack",
                     "speaker track on",
+                    "turn on speakertrack",
+                    "turn on speaker track",
                 },
                 disable_words={
                     "speakertrack off",
                     "deactivate speakertrack",
                     "speaker track off",
+                    "turn off speakertrack",
+                    "turn off speaker track",
                 },
             )
             if enabled is not None:
@@ -671,8 +751,18 @@ class RuleBasedProvider:
         if "standby" in lowered:
             enabled = self._extract_toggle_state(
                 lowered,
-                enable_words={"standby on", "activate standby", "enter standby"},
-                disable_words={"standby off", "deactivate standby", "exit standby"},
+                enable_words={
+                    "standby on",
+                    "activate standby",
+                    "enter standby",
+                    "turn on standby",
+                },
+                disable_words={
+                    "standby off",
+                    "deactivate standby",
+                    "exit standby",
+                    "turn off standby",
+                },
             )
             if enabled is not None:
                 return OrchestrationDecision(
@@ -760,6 +850,12 @@ class RuleBasedProvider:
             "environment",
             "sensor",
             "ambient",
+            "온도",
+            "습도",
+            "소음",
+            "공기질",
+            "환경",
+            "센서",
         }
         if "status" in lowered_text and not any(
             keyword in lowered_text for keyword in environment_keywords
@@ -780,6 +876,12 @@ class RuleBasedProvider:
                 "noise level",
                 "people count",
                 "air quality",
+                "온도",
+                "습도",
+                "소음",
+                "공기질",
+                "환경 정보",
+                "센서 정보",
             }
         )
 
@@ -811,6 +913,25 @@ class RuleBasedProvider:
                 "is obtp available",
                 "one button to push",
             }
+        )
+
+    def _is_webex_join_request(self, lowered_text: str) -> bool:
+        if "webex join" in lowered_text or "join webex" in lowered_text:
+            return True
+        if lowered_text.strip() in {"join meeting", "join a meeting", "join the meeting"}:
+            return True
+        return (
+            ("미팅" in lowered_text or "회의" in lowered_text or "meeting" in lowered_text)
+            and any(
+                phrase in lowered_text
+                for phrase in {
+                    "참여",
+                    "참가",
+                    "입장",
+                    "조인",
+                    "join",
+                }
+            )
         )
 
     def _is_join_obtp_request(self, lowered_text: str) -> bool:
@@ -874,15 +995,19 @@ class RuleBasedProvider:
             return korean_phrase_target
 
         lowered = " ".join(text.casefold().split())
-        if "룸바" in lowered or "룸 바" in lowered:
+        if "룸바" in lowered or "룸 바" in lowered or "room bar" in lowered:
             return "Room Bar"
 
         trailing_target = self._extract_trailing_target_device(text)
         if trailing_target is not None:
             return trailing_target
 
+        turn_toggle_target = self._extract_turn_toggle_target_device(text)
+        if turn_toggle_target is not None:
+            return turn_toggle_target
+
         match = re.search(
-            r"(?:status|volume|reboot|factory reset|webex join|join webex|dial|call|hang up|hangup|dtmf|mute|unmute|selfview|layout|presentation|share|input source|camera preset|speakertrack|speaker track|standby|전화|통화)\s+(?:of|on|for|로|으로)\s+([A-Za-z0-9._:-]+(?:\s+[A-Za-z0-9._:-]+)*)",
+            r"(?:status|volume|reboot|factory reset|webex join|join webex|dial|call|hang up|hangup|drop|dtmf|mute|unmute|selfview|layout|presentation|share|input source|camera preset|speakertrack|speaker track|standby|전화|통화)\s+(?:of|on|for|로|으로)\s+([A-Za-z0-9._:-]+(?:\s+[A-Za-z0-9._:-]+)*)",
             text,
             re.IGNORECASE,
         )
@@ -898,7 +1023,26 @@ class RuleBasedProvider:
         )
         if not match:
             return None
-        return match.group(1).strip().rstrip("?.!")
+        candidate = match.group(1).strip().rstrip("?.!")
+        lowered = " ".join(text.casefold().split())
+        normalized_candidate = " ".join(candidate.casefold().split())
+        if lowered.startswith("turn on ") and normalized_candidate in self.TOGGLE_ACTION_NAMES:
+            return None
+        return candidate
+
+    def _extract_turn_toggle_target_device(self, text: str) -> str | None:
+        lowered = " ".join(text.casefold().split())
+        for action in ("turn on", "turn off"):
+            prefix = f"{action} "
+            if not lowered.startswith(prefix):
+                continue
+            candidate = text[len(prefix) :].strip().rstrip("?.!")
+            normalized_candidate = " ".join(candidate.casefold().split())
+            if normalized_candidate in self.TOGGLE_ACTION_NAMES:
+                return None
+            if candidate:
+                return candidate
+        return None
 
     def _strip_trailing_target_clause(self, text: str) -> str:
         match = re.search(
@@ -913,12 +1057,28 @@ class RuleBasedProvider:
     def _extract_korean_phrase_target_device(self, text: str) -> str | None:
         lowered = text.lower()
         if not any(
-            token in lowered for token in {"전화", "통화", "음소거", "뮤트", "언뮤트"}
+            token in lowered
+            for token in {
+                "전화",
+                "통화",
+                "음소거",
+                "뮤트",
+                "언뮤트",
+                "미팅",
+                "회의",
+            }
         ):
             return None
 
         email_match = re.search(r"[A-Za-z0-9._+-]+@[A-Za-z0-9.-]+", text)
         candidate_text = text if email_match is None else text[: email_match.start()]
+        number_match = re.search(r"(?<!\d)(?:\d[\s-]*){9,14}(?!\d)", candidate_text)
+        if number_match is not None:
+            before_number = candidate_text[: number_match.start()].strip()
+            target_match = re.search(r"(.+?)(?:로|으로)\s*$", before_number)
+            if target_match:
+                candidate = target_match.group(1).strip().rstrip("?.!")
+                return candidate or None
         candidate_match = re.search(r"(.+?)(?:로|으로)\s*$", candidate_text)
         if not candidate_match:
             candidate_match = re.search(
@@ -933,7 +1093,17 @@ class RuleBasedProvider:
             return None
         if any(
             token in candidate.lower()
-            for token in {"전화", "통화", "call", "dial", "음소거", "뮤트", "언뮤트"}
+            for token in {
+                "전화",
+                "통화",
+                "call",
+                "dial",
+                "음소거",
+                "뮤트",
+                "언뮤트",
+                "미팅",
+                "회의",
+            }
         ):
             return None
         return candidate
@@ -970,11 +1140,15 @@ class RuleBasedProvider:
             re.IGNORECASE,
         )
         if not match:
+            digit_match = re.search(r"(?<!\d)(?:\d[\s-]*){9,14}(?!\d)", stripped_text)
+            if digit_match:
+                candidate = re.sub(r"\D+", "", digit_match.group(0))
+                return candidate if 9 <= len(candidate) <= 14 else None
             return None
         candidate = match.group(1).strip().rstrip("?.!")
         if candidate.lower() in {"on", "for", "of"}:
             return None
-        return candidate
+        return re.sub(r"\D+", "", candidate) if re.fullmatch(r"[\d\s-]+", candidate) else candidate
 
     def _extract_dial_address(self, text: str) -> str | None:
         stripped_text = self._strip_trailing_target_clause(text)
@@ -1021,7 +1195,12 @@ class RuleBasedProvider:
         )
 
     def _mentions_video_toggle(self, lowered_text: str) -> bool:
-        return "video" in lowered_text or "camera" in lowered_text
+        return (
+            "video" in lowered_text
+            or "camera" in lowered_text
+            or "비디오" in lowered_text
+            or "카메라" in lowered_text
+        )
 
     def _extract_camera_mode(self, lowered_text: str) -> WritableCameraMode | None:
         mode_phrases: dict[WritableCameraMode, set[str]] = {

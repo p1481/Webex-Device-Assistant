@@ -556,7 +556,10 @@ class DeviceClient:
         _ = await self._execute_command(
             device.id,
             command_key,
-            {"Number": next_booking.join_number},
+            self._build_meeting_join_arguments(
+                next_booking.join_number,
+                device.display_name or target_device,
+            ),
         )
         meeting_label = next_booking.title or "the next scheduled meeting"
         return (
@@ -572,12 +575,22 @@ class DeviceClient:
         _ = await self._execute_command(
             device.id,
             "Webex.Join",
-            {"Number": meeting_identifier},
+            self._build_meeting_join_arguments(
+                meeting_identifier,
+                device.display_name or target_device,
+            ),
         )
         return (
             f"Webex join requested for {meeting_identifier} on "
             f"{device.display_name or target_device}."
         )
+
+    def _build_meeting_join_arguments(
+        self,
+        meeting_identifier: str,
+        display_name: str | None,
+    ) -> dict[str, object]:
+        return {"Number": meeting_identifier}
 
     async def dial(self, target_device: str, address: str) -> str:
         if self.config.device_mock_mode:
@@ -851,8 +864,9 @@ class DeviceClient:
                 "Video.Input.SetMainVideoSource",
                 {"ConnectorId": connector_id},
             )
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code == 400:
+        except (httpx.HTTPStatusError, RuntimeError) as exc:
+            response = getattr(exc, "response", None)
+            if isinstance(exc, RuntimeError) or (response is not None and response.status_code == 400):
                 raise RuntimeError(
                     f"Cannot switch input source to {source_id} on "
                     f"{device.display_name or target_device}. Webex rejected "
@@ -1466,12 +1480,54 @@ class DeviceClient:
             headers=await self._auth_headers(),
             json=payload,
         )
+        if response.is_error:
+            raise RuntimeError(self._format_webex_error_response(response))
         _ = response.raise_for_status()
 
         command_payload = cast(object, response.json())
         if not isinstance(command_payload, dict):
             raise RuntimeError("Unexpected Webex xAPI command response shape.")
         return cast(dict[str, object], command_payload)
+
+    def _format_webex_error_response(self, response: httpx.Response) -> str:
+        base = f"Webex API returned {response.status_code} {response.reason_phrase} for {response.request.url}."
+        if not response.content:
+            return base
+        details: str | None = None
+        try:
+            body = response.json()
+        except ValueError:
+            body_text = response.text.strip()
+            details = body_text if body_text else None
+        else:
+            details = self._summarize_webex_error_body(body)
+        if not details:
+            return base
+        return f"{base} Details: {details}"
+
+    def _summarize_webex_error_body(self, body: object) -> str | None:
+        if isinstance(body, dict):
+            parts: list[str] = []
+            for key in ("message", "error", "reason", "description"):
+                value = body.get(key)
+                if isinstance(value, str) and value.strip():
+                    parts.append(value.strip())
+            errors = body.get("errors")
+            if isinstance(errors, list):
+                for item in errors:
+                    if isinstance(item, dict):
+                        for key in ("description", "message", "error"):
+                            value = item.get(key)
+                            if isinstance(value, str) and value.strip():
+                                parts.append(value.strip())
+                                break
+                    elif isinstance(item, str) and item.strip():
+                        parts.append(item.strip())
+            if parts:
+                return "; ".join(dict.fromkeys(parts))
+        if isinstance(body, str) and body.strip():
+            return body.strip()
+        return None
 
     async def _patch_device_config(
         self,
@@ -1640,7 +1696,11 @@ class DeviceClient:
         payload = cast(object, response.json())
         if not isinstance(payload, dict):
             raise RuntimeError("Unexpected Webex xAPI status response shape.")
-        return cast(dict[str, object], payload)
+        payload_dict = cast(dict[str, object], payload)
+        result = payload_dict.get("result")
+        if isinstance(result, dict):
+            return cast(dict[str, object], result)
+        return payload_dict
 
     async def _fetch_status_names_individually(
         self,

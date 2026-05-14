@@ -100,9 +100,12 @@ class OllamaProvider:
         message: InboundUserMessage,
         session: SessionContext,
     ) -> OrchestrationDecision:
+        fallback = await self._fallback_provider.analyze_message(message, session)
+
         payload = {
             "model": self.settings.model or DEFAULT_OLLAMA_MODEL,
             "stream": False,
+            "format": "json",
             "messages": self._build_messages(message, session),
         }
 
@@ -114,6 +117,8 @@ class OllamaProvider:
                 response = await client.post("/chat", json=payload)
                 response.raise_for_status()
         except httpx.HTTPError as exc:
+            if fallback.action_proposal is not None or fallback.pending_action is not None:
+                return fallback
             return OrchestrationDecision(
                 reply_text=f"Ollama provider unavailable: {exc}"
             )
@@ -146,12 +151,18 @@ class OllamaProvider:
 
         decision = self._parse_decision(content, message)
         if decision is not None:
-            return decision
+            if self._is_non_action_chat_decision(decision):
+                if fallback.action_proposal is not None or fallback.pending_action is not None:
+                    return fallback
+            else:
+                return decision
 
-        fallback = await self._fallback_provider.analyze_message(message, session)
         if fallback.action_proposal is not None or fallback.pending_action is not None:
             return fallback
+
         if self._looks_like_structured_output(content):
+            if fallback.action_proposal is not None or fallback.pending_action is not None:
+                return fallback
             return OrchestrationDecision(
                 reply_text=(
                     "I understood this as a device action, but the model returned an invalid action payload. "
@@ -159,6 +170,16 @@ class OllamaProvider:
                 )
             )
         return OrchestrationDecision(reply_text=content.strip())
+
+    def _is_non_action_chat_decision(self, decision: OrchestrationDecision) -> bool:
+        proposal = decision.action_proposal
+        return (
+            proposal is not None
+            and proposal.intent == Intent.CHAT
+            and decision.pending_action is None
+            and not decision.reply_text
+            and proposal.summary != "Start admin login approval."
+        )
 
     async def render_execution_reply(
         self,
@@ -200,8 +221,12 @@ class OllamaProvider:
         self, message: InboundUserMessage, session: SessionContext
     ) -> list[dict[str, str]]:
         system_prompt = (
-            "You are the analysis provider for a Webex Device Assistant. "
-            "Return either plain conversational text or a JSON object with this exact shape: "
+            "You are the intent analysis provider for a Webex Device Assistant. "
+            "Your primary job is semantic interpretation: infer the user's device-control requirement from natural language, context, synonyms, and Korean or English phrasing. "
+            "Do not depend on fixed command phrases. If the user asks to change, enable, disable, start, stop, show, hide, join, call, share, present, mute, unmute, reboot, or otherwise operate a supported device feature, return an action_proposal JSON object. "
+            "If the request is a supported device action but no specific device is named, set that action payload's target_device to an empty string so the app can show a device selection card. "
+            "Use chat only for true conversation/help/admin-login requests, not for supported device operations. "
+            "Return JSON only. Return either a JSON object with this exact shape: "
             '{"reply_text": string|null, "action_proposal": null|{'
             '"intent": "chat"|"get_status"|"get_environment_info"|"get_camera_mode"|"get_room_booking"|"list_devices"|"webex_join"|"join_obtp"|"dial"|"hang_up"|"send_dtmf"|"set_microphone_mute"|"set_microphone_mode"|"set_volume"|"set_video_mute"|"set_selfview"|"set_camera_mode"|"set_layout"|"set_presentation"|"switch_input_source"|"assign_matrix"|"unassign_matrix"|"swap_matrix"|"set_display_mode"|"set_display_role"|"activate_camera_preset"|"adjust_camera_position"|"set_speakertrack"|"set_standby"|"reboot"|"factory_reset"|"reset_context", '
             '"summary": string, "confidence": number, '
@@ -241,7 +266,8 @@ class OllamaProvider:
             "If the user asks for supported video layouts, answer with Video.Layout.SetLayout candidates only: Equal, Overlay, Prominent, Single, SpeakerOnly. "
             "Do not describe SpeakerTrack camera behaviors as video layouts; those are camera modes. "
             "If the user requests Manual, Dynamic, BestOverview, Closeup, Frames, or GroupAndSpeaker for camera mode, propose set_camera_mode, not set_layout. "
-            "If unsure, return plain text instead of inventing actions."
+            "Examples: '화면에 내 모습 나오게 해줘' or '내 모습 보이게 해줘' means set_selfview enabled=true; '상대방에게 내 화면 공유해줘' means set_presentation enabled=true; '회의실 조용히 해줘' may mean set_microphone_mute muted=true when the context is device control. "
+            "If unsure, return JSON with reply_text explaining what information is needed instead of inventing actions."
         )
         messages: list[dict[str, str]] = [{"role": "system", "content": system_prompt}]
 
@@ -409,6 +435,8 @@ class OllamaProvider:
             )
 
         if reply_text is None and proposal is None:
+            return None
+        if reply_text is not None and proposal is None and self._looks_like_structured_output(reply_text):
             return None
         return OrchestrationDecision(reply_text=reply_text, action_proposal=proposal)
 
