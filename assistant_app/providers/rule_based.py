@@ -12,12 +12,12 @@ from assistant_app.providers.rule_based_extractors import (
 from assistant_app.providers.rule_based_handlers import audio as _audio_handler
 from assistant_app.providers.rule_based_handlers import booking as _booking_handler
 from assistant_app.providers.rule_based_handlers import camera as _camera_handler
+from assistant_app.providers.rule_based_handlers import matrix as _matrix_handler
 from assistant_app.providers.rule_based_handlers import meeting as _meeting_handler
 from assistant_app.providers.rule_based_handlers import system as _system_handler
 from assistant_app.providers.rule_based_handlers import video as _video_handler
 from shared.contracts import (
     ActionProposal,
-    AssignMatrixParams,
     DisplayMode,
     DisplayRole,
     ExecutionResult,
@@ -26,15 +26,11 @@ from shared.contracts import (
     Intent,
     MicrophoneProcessingMode,
     OrchestrationDecision,
-    PendingActionProposal,
     ProviderSettings,
     SessionContext,
     SetPresentationParams,
     SetSpeakerTrackParams,
     SetStandbyParams,
-    SwapMatrixParams,
-    SwitchInputSourceParams,
-    UnassignMatrixParams,
     WritableCameraMode,
 )
 
@@ -227,116 +223,16 @@ class RuleBasedProvider:
                     )
                 )
 
-        matrix_assign = self._extract_matrix_assign(text)
-        if matrix_assign is not None:
-            if mentioned_target_device is None:
-                return OrchestrationDecision(
-                    pending_action=PendingActionProposal(
-                        intent=Intent.ASSIGN_MATRIX,
-                        summary="Assign a video matrix source to an output.",
-                        action_proposal=ActionProposal(
-                            intent=Intent.ASSIGN_MATRIX,
-                            summary="Assign a video matrix source to an output.",
-                            assign_matrix=AssignMatrixParams(
-                                target_device="",
-                                output=matrix_assign["output"],
-                                mode=matrix_assign["mode"],
-                                layout=matrix_assign["layout"],
-                                source_id=matrix_assign["source_id"],
-                                remote_main=matrix_assign["remote_main"],
-                            ),
-                        ),
-                    )
-                )
-            return OrchestrationDecision(
-                action_proposal=ActionProposal(
-                    intent=Intent.ASSIGN_MATRIX,
-                    summary="Assign a video matrix source to an output.",
-                    assign_matrix=AssignMatrixParams(
-                        target_device=target_device,
-                        output=matrix_assign["output"],
-                        mode=matrix_assign["mode"],
-                        layout=matrix_assign["layout"],
-                        source_id=matrix_assign["source_id"],
-                        remote_main=matrix_assign["remote_main"],
-                    ),
-                )
-            )
-
-        matrix_unassign = self._extract_matrix_unassign(text)
-        if matrix_unassign is not None:
-            if mentioned_target_device is None:
-                return OrchestrationDecision(
-                    pending_action=PendingActionProposal(
-                        intent=Intent.UNASSIGN_MATRIX,
-                        summary="Unassign a video matrix source from an output.",
-                        action_proposal=ActionProposal(
-                            intent=Intent.UNASSIGN_MATRIX,
-                            summary="Unassign a video matrix source from an output.",
-                            unassign_matrix=UnassignMatrixParams(
-                                target_device="",
-                                output=matrix_unassign["output"],
-                                source_id=matrix_unassign["source_id"],
-                                remote_main=matrix_unassign["remote_main"],
-                            ),
-                        ),
-                    )
-                )
-            return OrchestrationDecision(
-                action_proposal=ActionProposal(
-                    intent=Intent.UNASSIGN_MATRIX,
-                    summary="Unassign a video matrix source from an output.",
-                    unassign_matrix=UnassignMatrixParams(
-                        target_device=target_device,
-                        output=matrix_unassign["output"],
-                        source_id=matrix_unassign["source_id"],
-                        remote_main=matrix_unassign["remote_main"],
-                    ),
-                )
-            )
-
-        matrix_swap = self._extract_matrix_swap(text)
-        if matrix_swap is not None:
-            if mentioned_target_device is None:
-                return OrchestrationDecision(
-                    pending_action=PendingActionProposal(
-                        intent=Intent.SWAP_MATRIX,
-                        summary="Swap two video matrix outputs.",
-                        action_proposal=ActionProposal(
-                            intent=Intent.SWAP_MATRIX,
-                            summary="Swap two video matrix outputs.",
-                            swap_matrix=SwapMatrixParams(
-                                target_device="",
-                                output_a=matrix_swap["output_a"],
-                                output_b=matrix_swap["output_b"],
-                            ),
-                        ),
-                    )
-                )
-            return OrchestrationDecision(
-                action_proposal=ActionProposal(
-                    intent=Intent.SWAP_MATRIX,
-                    summary="Swap two video matrix outputs.",
-                    swap_matrix=SwapMatrixParams(
-                        target_device=target_device,
-                        output_a=matrix_swap["output_a"],
-                        output_b=matrix_swap["output_b"],
-                    ),
-                )
-            )
-
-        source_id = self._extract_source_id(text)
-        if source_id is not None:
-            return OrchestrationDecision(
-                action_proposal=ActionProposal(
-                    intent=Intent.SWITCH_INPUT_SOURCE,
-                    summary="Switch the main video input source.",
-                    switch_input_source=SwitchInputSourceParams(
-                        target_device=target_device,
-                        source_id=source_id,
-                    ),
-                )
-            )
+        matrix_decision = _matrix_handler.handle(
+            text=text,
+            lowered=lowered,
+            target_device=target_device,
+            mentioned_target_device=mentioned_target_device,
+            session=session,
+            provider=self,
+        )
+        if matrix_decision is not None:
+            return matrix_decision
 
         video_late_decision = _video_handler.handle_layout_and_display(
             text=text,
