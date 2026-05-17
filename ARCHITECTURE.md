@@ -239,6 +239,9 @@ Configuration is read from environment variables in `assistant_app/config.py`.
   - Bot person id used to ignore self messages.
 - `WEBEX_WEBHOOK_SECRET`
   - Shared secret for webhook validation.
+- `ADMIN_COOKIE_SECRET`
+  - HMAC key for admin UI session cookies. Required when `WEBEX_MOCK_MODE=false`.
+    See [docs/MIGRATION_ADMIN_COOKIE_SECRET.md](docs/MIGRATION_ADMIN_COOKIE_SECRET.md).
 - `WEBEX_WEBHOOK_TARGET_URL`
   - Public HTTPS URL for webhook reconciliation.
 - `WEBEX_WEBHOOK_RECONCILE_ON_STARTUP`

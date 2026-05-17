@@ -401,6 +401,7 @@ To use real Webex messaging, you need values such as:
 - `WEBEX_BOT_TOKEN`
 - `WEBEX_BOT_PERSON_ID`
 - `WEBEX_WEBHOOK_SECRET`
+- `ADMIN_COOKIE_SECRET` (admin UI cookie HMAC — required in real mode; see `docs/MIGRATION_ADMIN_COOKIE_SECRET.md`)
 - `WEBEX_WEBHOOK_TARGET_URL`
 
 Important behavior:
@@ -446,6 +447,7 @@ Check:
 - `WEBEX_BOT_TOKEN`
 - `WEBEX_BOT_PERSON_ID`
 - `WEBEX_WEBHOOK_SECRET`
+- `ADMIN_COOKIE_SECRET`
 - webhook registration state
 
 ### A device cannot be found

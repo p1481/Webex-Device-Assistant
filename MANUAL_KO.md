@@ -191,6 +191,7 @@ POST /webhooks/webex/messages
 - `WEBEX_BOT_TOKEN`
 - `WEBEX_BOT_PERSON_ID`
 - `WEBEX_WEBHOOK_SECRET`
+- `ADMIN_COOKIE_SECRET` (관리자 UI 세션 쿠키 HMAC 키. 마이그레이션 가이드: `docs/MIGRATION_ADMIN_COOKIE_SECRET.md`)
 
 선택적으로 스타트업 웹훅 정합성까지 맞추려면 다음 설정도 필요합니다.
 

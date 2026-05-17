@@ -146,6 +146,7 @@ Set these values to turn off Webex mock mode:
 - `WEBEX_BOT_TOKEN`
 - `WEBEX_BOT_PERSON_ID`
 - `WEBEX_WEBHOOK_SECRET`
+- `ADMIN_COOKIE_SECRET` (admin UI cookie HMAC — see [docs/MIGRATION_ADMIN_COOKIE_SECRET.md](docs/MIGRATION_ADMIN_COOKIE_SECRET.md))
 
 Example:
 
@@ -154,6 +155,7 @@ WEBEX_MOCK_MODE=false \
 WEBEX_BOT_TOKEN=... \
 WEBEX_BOT_PERSON_ID=... \
 WEBEX_WEBHOOK_SECRET=... \
+ADMIN_COOKIE_SECRET=... \
 .venv/bin/python -m uvicorn assistant_app.main:app --reload
 ```
 
@@ -177,6 +179,7 @@ WEBEX_MOCK_MODE=false \
 WEBEX_BOT_TOKEN=... \
 WEBEX_BOT_PERSON_ID=... \
 WEBEX_WEBHOOK_SECRET=... \
+ADMIN_COOKIE_SECRET=... \
 WEBEX_WEBHOOK_RECONCILE_ON_STARTUP=true \
 WEBEX_WEBHOOK_TARGET_URL=https://example.com/webhooks/webex/messages \
 .venv/bin/python -m uvicorn assistant_app.main:app --reload
@@ -286,6 +289,7 @@ Check:
 - `WEBEX_BOT_TOKEN`
 - `WEBEX_BOT_PERSON_ID`
 - `WEBEX_WEBHOOK_SECRET`
+- `ADMIN_COOKIE_SECRET`
 - webhook registration state
 - HTTPS reachability from Webex
 
