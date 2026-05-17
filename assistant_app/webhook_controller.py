@@ -275,8 +275,14 @@ class WebhookController:
             self.processed_event_store.mark_processed_webhook_event(event_id)
 
     def _verify_signature(self, raw_body: bytes, signature: str | None) -> None:
+        # fail-fast: refuse to process webhooks when the shared secret is
+        # not configured. We must never accept unsigned/unauthenticated
+        # webhook payloads in any environment.
         if not self.webhook_secret:
-            return
+            raise RuntimeError(
+                "Webhook signature verification is unavailable: "
+                "WEBEX_WEBHOOK_SECRET is not configured."
+            )
         if not signature:
             raise ValueError("Missing X-Spark-Signature header.")
 

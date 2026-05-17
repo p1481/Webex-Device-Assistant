@@ -412,6 +412,8 @@ def build_app() -> FastAPI:
             prepared_event = webex_gateway.parse_webhook_payload(payload)
         except ValueError as exc:
             raise HTTPException(status_code=401, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
 
         background_tasks.add_task(
             webhook_controller.process_message_event, prepared_event
@@ -431,6 +433,8 @@ def build_app() -> FastAPI:
             payload = webhook_controller.prepare_event(raw_body, x_spark_signature)
         except ValueError as exc:
             raise HTTPException(status_code=401, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
         background_tasks.add_task(
             webhook_controller.process_attachment_action_event, payload
         )
