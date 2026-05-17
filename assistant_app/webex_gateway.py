@@ -104,7 +104,7 @@ class WebexGateway:
         runtime_settings_provider: object | None = None,
     ) -> None:
         self.config: AppConfig = config
-        _ = token_provider
+        self._token_provider: WebexTokenProvider | None = token_provider
         self.bot_person_id: str | None = config.webex_bot_person_id
         self.bot_emails: set[str] = set()
         self._runtime_settings_provider = runtime_settings_provider
@@ -155,7 +155,7 @@ class WebexGateway:
         async with httpx.AsyncClient(
             base_url=self.config.webex_api_base, timeout=10.0
         ) as client:
-            response = await client.get("/people/me", headers=self._auth_headers())
+            response = await client.get("/people/me", headers=await self._auth_headers())
             _ = response.raise_for_status()
 
         identity = WebexBotIdentity.model_validate(response.json())
@@ -226,12 +226,21 @@ class WebexGateway:
             secret=self.config.webex_webhook_secret,
         )
 
-    def _auth_headers(self) -> dict[str, str]:
-        if not self.config.webex_bot_token:
-            raise RuntimeError(
-                "WEBEX_BOT_TOKEN is required when WEBEX_MOCK_MODE=false."
-            )
-        return {"Authorization": f"Bearer {self.config.webex_bot_token}"}
+    async def _resolve_bearer_token(self) -> str:
+        if self._token_provider is not None:
+            token = await self._token_provider.get_bearer_token()
+            if token and token.strip():
+                return token.strip()
+        if self.config.webex_bot_token:
+            return self.config.webex_bot_token
+        raise RuntimeError(
+            "WEBEX_BOT_TOKEN or a working WebexTokenProvider is required "
+            "when WEBEX_MOCK_MODE=false."
+        )
+
+    async def _auth_headers(self) -> dict[str, str]:
+        token = await self._resolve_bearer_token()
+        return {"Authorization": f"Bearer {token}"}
 
     async def list_webhooks(self) -> list[WebexWebhookRecord]:
         if self.config.webex_mock_mode:
@@ -240,7 +249,7 @@ class WebexGateway:
         async with httpx.AsyncClient(
             base_url=self.config.webex_api_base, timeout=10.0
         ) as client:
-            response = await client.get("/webhooks", headers=self._auth_headers())
+            response = await client.get("/webhooks", headers=await self._auth_headers())
             _ = response.raise_for_status()
 
         response_payload = cast(object, response.json())
@@ -275,7 +284,7 @@ class WebexGateway:
         ) as client:
             response = await client.post(
                 "/webhooks",
-                headers=self._auth_headers(),
+                headers=await self._auth_headers(),
                 json=registration.model_dump(by_alias=True, exclude_none=True),
             )
             _ = response.raise_for_status()
@@ -341,7 +350,7 @@ class WebexGateway:
             base_url=self.config.webex_api_base, timeout=10.0
         ) as client:
             response = await client.delete(
-                f"/webhooks/{webhook_id}", headers=self._auth_headers()
+                f"/webhooks/{webhook_id}", headers=await self._auth_headers()
             )
             _ = response.raise_for_status()
 
@@ -489,7 +498,7 @@ class WebexGateway:
         ) as client:
             response = await client.get(
                 f"/messages/{envelope.data.id}",
-                headers=self._auth_headers(),
+                headers=await self._auth_headers(),
             )
             _ = response.raise_for_status()
             response_payload = response.json()
@@ -597,7 +606,7 @@ class WebexGateway:
         ) as client:
             response = await client.post(
                 "/messages",
-                headers=self._auth_headers(),
+                headers=await self._auth_headers(),
                 json=payload,
             )
             _ = response.raise_for_status()
@@ -625,7 +634,7 @@ class WebexGateway:
         ) as client:
             response = await client.get(
                 f"/attachment/actions/{action_id}",
-                headers=self._auth_headers(),
+                headers=await self._auth_headers(),
             )
             _ = response.raise_for_status()
             return WebexAttachmentActionDetails.model_validate(response.json())
@@ -685,7 +694,7 @@ class WebexGateway:
         ) as client:
             response = await client.post(
                 "/messages",
-                headers=self._auth_headers(),
+                headers=await self._auth_headers(),
                 json=payload,
             )
             _ = response.raise_for_status()
@@ -698,7 +707,7 @@ class WebexGateway:
         ) as client:
             response = await client.get(
                 f"/people/{quote(person_id, safe='')}",
-                headers=self._auth_headers(),
+                headers=await self._auth_headers(),
             )
             _ = response.raise_for_status()
         payload = cast(object, response.json())
@@ -722,7 +731,7 @@ class WebexGateway:
         ) as client:
             response = await client.delete(
                 f"/messages/{message_id}",
-                headers=self._auth_headers(),
+                headers=await self._auth_headers(),
             )
             _ = response.raise_for_status()
         logger.info("Deleted Webex message message_id=%s", message_id)
