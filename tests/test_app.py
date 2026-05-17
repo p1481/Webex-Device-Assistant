@@ -7472,12 +7472,14 @@ def test_ollama_provider_accepts_semantic_korean_payloads_for_every_roomos_actio
             )
         )
         class FakeAsyncClient:
+            _llm_client: QueuedAsyncClient = llm_client
+
             def __init__(self, *args: object, **kwargs: object) -> None:
                 _ = args
                 _ = kwargs
 
             async def __aenter__(self) -> QueuedAsyncClient:
-                return llm_client
+                return self._llm_client
 
             async def __aexit__(
                 self,
