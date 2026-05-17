@@ -35,6 +35,7 @@ from assistant_app.mode_router import ModeRouter
 from assistant_app.orchestrator import Orchestrator
 from assistant_app.policy_evaluator import PolicyEvaluator
 from assistant_app.provider_registry import ProviderRegistry
+from assistant_app.routes.health import router as health_router
 from assistant_app.state_store import InMemoryStateStore, build_state_store
 from assistant_app.token_provider import TokenManagerTokenProvider
 from assistant_app.webex_gateway import WebexBotIdentityMismatchError, WebexGateway
@@ -312,14 +313,7 @@ def build_app() -> FastAPI:
 
     app.router.lifespan_context = lifespan
 
-    @app.get("/healthz")
-    async def healthz() -> dict[str, str]:
-        return {
-            "status": "ok",
-            "default_execution_mode": config.default_execution_mode.value,
-            "webex_mock_mode": str(config.webex_mock_mode).lower(),
-            "device_mock_mode": str(config.device_mock_mode).lower(),
-        }
+    app.include_router(health_router)
 
     @app.get("/debug/webex/runtime")
     async def debug_webex_runtime() -> dict[str, object]:
