@@ -96,8 +96,12 @@ DEFAULT_COMMAND_POLICIES: dict[Intent, CommandPolicy] = {
     Intent.SET_SELFVIEW: CommandPolicy(
         allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
         risk_level=RiskLevel.LOW,
-        approval_state=ApprovalState.REQUIRED,
-        reason="Selfview changes should require explicit approval by default.",
+        approval_state=ApprovalState.NOT_REQUIRED,
+        reason=(
+            "Selfview is a local UI toggle (own preview only, fully reversible). "
+            "When the user explicitly says on/off the intent and value are unambiguous, "
+            "so we skip the approval card and execute immediately."
+        ),
     ),
     Intent.SET_CAMERA_MODE: CommandPolicy(
         allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
