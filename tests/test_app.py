@@ -74,7 +74,8 @@ def build_authenticated_client(app_instance: FastAPI | None = None) -> TestClien
     )
     assert resolved is not None
     cookie_secret = (
-        scoped_app.state.services.config.webex_webhook_secret
+        getattr(scoped_app.state.services.config, "admin_cookie_secret", None)
+        or scoped_app.state.services.config.webex_webhook_secret
         or "device-assistant-dev-admin-cookie-secret"
     )
     scoped_client.cookies.set(
@@ -5323,6 +5324,7 @@ def test_admin_settings_report_split_webex_auth_config() -> None:
             "WEBEX_TOKEN_MANAGER_API_KEY": "token-manager-key",
             "WEBEX_BOT_PERSON_ID": "bot-person-id",
             "WEBEX_WEBHOOK_SECRET": "secret",
+            "ADMIN_COOKIE_SECRET": "test-cookie-secret",
         }
     ):
         monkeypatch = pytest.MonkeyPatch()

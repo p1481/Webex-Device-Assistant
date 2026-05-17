@@ -122,6 +122,7 @@ def test_real_mode_requires_webex_bot_token() -> None:
             "WEBEX_BOT_TOKEN": None,
             "WEBEX_BOT_PERSON_ID": "bot-person-id",
             "WEBEX_WEBHOOK_SECRET": "secret",
+            "ADMIN_COOKIE_SECRET": "test-cookie-secret",
         }
     ), pytest.raises(
         ValueError,
@@ -137,6 +138,7 @@ def test_real_mode_requires_webhook_secret() -> None:
             "WEBEX_BOT_TOKEN": "bot-token",
             "WEBEX_BOT_PERSON_ID": "bot-person-id",
             "WEBEX_WEBHOOK_SECRET": None,
+            "ADMIN_COOKIE_SECRET": "test-cookie-secret",
         }
     ), pytest.raises(
         ValueError,
@@ -309,6 +311,7 @@ def test_reconcile_mode_requires_target_url() -> None:
             "WEBEX_BOT_TOKEN": "bot-token",
             "WEBEX_BOT_PERSON_ID": "bot-person-id",
             "WEBEX_WEBHOOK_SECRET": "secret",
+            "ADMIN_COOKIE_SECRET": "test-cookie-secret",
             "WEBEX_WEBHOOK_RECONCILE_ON_STARTUP": "true",
             "WEBEX_WEBHOOK_TARGET_URL": None,
         }
@@ -339,6 +342,7 @@ def test_real_mode_requires_https_target_url_when_provided() -> None:
             "WEBEX_BOT_TOKEN": "bot-token",
             "WEBEX_BOT_PERSON_ID": "bot-person-id",
             "WEBEX_WEBHOOK_SECRET": "secret",
+            "ADMIN_COOKIE_SECRET": "test-cookie-secret",
             "WEBEX_WEBHOOK_TARGET_URL": "http://example.com/webhooks/webex/messages",
         }
     ), pytest.raises(
@@ -354,6 +358,7 @@ def test_real_mode_locks_webhook_subscription_to_messages_created() -> None:
             "WEBEX_BOT_TOKEN": "bot-token",
             "WEBEX_BOT_PERSON_ID": "bot-person-id",
             "WEBEX_WEBHOOK_SECRET": "secret",
+            "ADMIN_COOKIE_SECRET": "test-cookie-secret",
             "WEBEX_WEBHOOK_RESOURCE": "rooms",
         }
     ), pytest.raises(
@@ -689,6 +694,7 @@ def test_attachment_action_webhook_resolves_admin_login_request(
             "WEBEX_BOT_TOKEN": "bot-token",
             "WEBEX_BOT_PERSON_ID": "bot-person-id",
             "WEBEX_WEBHOOK_SECRET": "secret",
+            "ADMIN_COOKIE_SECRET": "test-cookie-secret",
         }
     ):
         app = build_app()
@@ -792,6 +798,7 @@ def test_attachment_action_webhook_executes_approved_action_request(
             "WEBEX_BOT_TOKEN": "bot-token",
             "WEBEX_BOT_PERSON_ID": "bot-person-id",
             "WEBEX_WEBHOOK_SECRET": "secret",
+            "ADMIN_COOKIE_SECRET": "test-cookie-secret",
         }
     ):
         app = build_app()
@@ -924,6 +931,7 @@ def test_attachment_action_webhook_executes_approved_action_request_in_real_devi
             "WEBEX_BOT_TOKEN": "bot-token",
             "WEBEX_BOT_PERSON_ID": "bot-person-id",
             "WEBEX_WEBHOOK_SECRET": "secret",
+            "ADMIN_COOKIE_SECRET": "test-cookie-secret",
             "DEVICE_MOCK_MODE": "false",
             "WEBEX_TOKEN_MANAGER_API_KEY": "token-manager-key",
             "WEBEX_TOKEN_MANAGER_BASE_URL": "http://token-manager.local",
@@ -2973,6 +2981,7 @@ def test_startup_reconcile_is_opt_in(monkeypatch: pytest.MonkeyPatch) -> None:
             "WEBEX_BOT_TOKEN": "bot-token",
             "WEBEX_BOT_PERSON_ID": "bot-person-id",
             "WEBEX_WEBHOOK_SECRET": "secret",
+            "ADMIN_COOKIE_SECRET": "test-cookie-secret",
         }
     ):
         app = build_app()
@@ -2985,6 +2994,7 @@ def test_startup_reconcile_is_opt_in(monkeypatch: pytest.MonkeyPatch) -> None:
             "WEBEX_BOT_TOKEN": "bot-token",
             "WEBEX_BOT_PERSON_ID": "bot-person-id",
             "WEBEX_WEBHOOK_SECRET": "secret",
+            "ADMIN_COOKIE_SECRET": "test-cookie-secret",
             "WEBEX_WEBHOOK_RECONCILE_ON_STARTUP": "true",
             "WEBEX_WEBHOOK_TARGET_URL": "https://example.com/webhooks/webex/messages",
         }
@@ -3026,6 +3036,7 @@ def test_startup_reconcile_failure_does_not_block_app(
             "WEBEX_BOT_TOKEN": "bot-token",
             "WEBEX_BOT_PERSON_ID": "bot-person-id",
             "WEBEX_WEBHOOK_SECRET": "secret",
+            "ADMIN_COOKIE_SECRET": "test-cookie-secret",
             "WEBEX_WEBHOOK_RECONCILE_ON_STARTUP": "true",
             "WEBEX_WEBHOOK_TARGET_URL": "https://example.com/webhooks/webex/messages",
         }
@@ -3073,6 +3084,7 @@ def test_webhook_endpoint_verifies_signature_and_processes_message(
             "WEBEX_BOT_TOKEN": "bot-token",
             "WEBEX_BOT_PERSON_ID": "bot-person-id",
             "WEBEX_WEBHOOK_SECRET": "secret",
+            "ADMIN_COOKIE_SECRET": "test-cookie-secret",
         }
     ), TestClient(build_app()) as client:
         payload = {
@@ -3113,6 +3125,7 @@ def test_startup_identity_resolution_failure_does_not_block_app(
             "WEBEX_BOT_TOKEN": "bot-token",
             "WEBEX_BOT_PERSON_ID": "bot-person-id",
             "WEBEX_WEBHOOK_SECRET": "secret",
+            "ADMIN_COOKIE_SECRET": "test-cookie-secret",
         }
     ), TestClient(build_app()) as client:
         response = client.get("/healthz")
@@ -3134,6 +3147,7 @@ def test_startup_identity_mismatch_blocks_app(
             "WEBEX_BOT_TOKEN": "bot-token",
             "WEBEX_BOT_PERSON_ID": "bot-person-id",
             "WEBEX_WEBHOOK_SECRET": "secret",
+            "ADMIN_COOKIE_SECRET": "test-cookie-secret",
         }
     ), pytest.raises(WebexBotIdentityMismatchError, match="configured mismatch"):
         with TestClient(build_app()):
