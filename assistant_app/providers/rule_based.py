@@ -10,36 +10,29 @@ from assistant_app.providers.rule_based_extractors import (
     MatrixUnassignMatch,
 )
 from assistant_app.providers.rule_based_handlers import booking as _booking_handler
+from assistant_app.providers.rule_based_handlers import camera as _camera_handler
+from assistant_app.providers.rule_based_handlers import meeting as _meeting_handler
 from assistant_app.providers.rule_based_handlers import system as _system_handler
 from shared.contracts import (
     ActionProposal,
-    ActivateCameraPresetParams,
-    AdjustCameraPositionParams,
     AssignMatrixParams,
-    DialParams,
     DisplayMode,
     DisplayRole,
     ExecutionResult,
-    GetCameraModeParams,
     GetStatusParams,
-    HangUpParams,
     InboundUserMessage,
     Intent,
-    JoinObtpParams,
     MicrophoneProcessingMode,
     OrchestrationDecision,
     PendingActionProposal,
     ProviderSettings,
-    SendDtmfParams,
     SessionContext,
-    SetCameraModeParams,
     SetDisplayModeParams,
     SetDisplayRoleParams,
     SetLayoutParams,
     SetMicrophoneModeParams,
     SetMicrophoneMuteParams,
     SetPresentationParams,
-    SetSelfviewParams,
     SetSpeakerTrackParams,
     SetStandbyParams,
     SetVideoMuteParams,
@@ -47,7 +40,6 @@ from shared.contracts import (
     SwapMatrixParams,
     SwitchInputSourceParams,
     UnassignMatrixParams,
-    WebexJoinParams,
     WritableCameraMode,
 )
 
@@ -153,118 +145,28 @@ class RuleBasedProvider:
                 )
             )
 
-        if self._is_get_camera_mode_request(lowered):
-            return OrchestrationDecision(
-                action_proposal=ActionProposal(
-                    intent=Intent.GET_CAMERA_MODE,
-                    summary="Get the current camera mode.",
-                    get_camera_mode=GetCameraModeParams(target_device=target_device),
-                )
-            )
+        camera_get_decision = _camera_handler.handle_get_mode(
+            text=text,
+            lowered=lowered,
+            target_device=target_device,
+            mentioned_target_device=mentioned_target_device,
+            session=session,
+            provider=self,
+        )
+        if camera_get_decision is not None:
+            return camera_get_decision
 
-        if self._is_join_obtp_request(lowered):
-            return OrchestrationDecision(
-                action_proposal=ActionProposal(
-                    intent=Intent.JOIN_OBTP,
-                    summary="Join the next joinable scheduled meeting from the target device.",
-                    join_obtp=JoinObtpParams(target_device=target_device),
-                )
-            )
-
-        if self._is_webex_join_request(lowered):
-            meeting_identifier = self._extract_webex_meeting_identifier(text)
-            if meeting_identifier is not None:
-                action_target_device = mentioned_target_device or message.target_device
-                if action_target_device is None:
-                    return OrchestrationDecision(
-                        pending_action=PendingActionProposal(
-                            intent=Intent.WEBEX_JOIN,
-                            summary="Join a Webex meeting from the target device.",
-                            meeting_identifier=meeting_identifier,
-                        )
-                    )
-                return OrchestrationDecision(
-                    action_proposal=ActionProposal(
-                        intent=Intent.WEBEX_JOIN,
-                        summary="Join a Webex meeting from the target device.",
-                        webex_join=WebexJoinParams(
-                            target_device=action_target_device,
-                            meeting_identifier=meeting_identifier,
-                        ),
-                    )
-                )
-            return OrchestrationDecision(
-                pending_action=PendingActionProposal(
-                    intent=Intent.WEBEX_JOIN,
-                    summary="Join a Webex meeting from the target device.",
-                    target_device=mentioned_target_device,
-                )
-            )
-
-        if any(
-            phrase in lowered
-            for phrase in {"dial ", "sip ", "call ", "join sip", "전화", "통화"}
-        ):
-            address = self._extract_dial_address(text)
-            if address is not None:
-                if mentioned_target_device is None:
-                    return OrchestrationDecision(
-                        pending_action=PendingActionProposal(
-                            intent=Intent.DIAL,
-                            summary="Dial from the target device.",
-                            address=address,
-                        )
-                    )
-                return OrchestrationDecision(
-                    action_proposal=ActionProposal(
-                        intent=Intent.DIAL,
-                        summary="Dial from the target device.",
-                        dial=DialParams(target_device=target_device, address=address),
-                    )
-                )
-            return OrchestrationDecision(
-                pending_action=PendingActionProposal(
-                    intent=Intent.DIAL,
-                    summary="Dial from the target device.",
-                    target_device=mentioned_target_device,
-                )
-            )
-
-        if any(
-            phrase in lowered
-            for phrase in {
-                "hang up",
-                "hangup",
-                "disconnect call",
-                "drop call",
-                "drop meeting",
-            }
-        ) or lowered.strip().endswith(" drop"):
-            return OrchestrationDecision(
-                action_proposal=ActionProposal(
-                    intent=Intent.HANG_UP,
-                    summary="Disconnect the current device call.",
-                    hang_up=HangUpParams(
-                        target_device=target_device,
-                        call_id=self._extract_call_id(text),
-                    ),
-                )
-            )
-
-        if "dtmf" in lowered or "send tone" in lowered or "send digits" in lowered:
-            tones = self._extract_dtmf_tones(text)
-            if tones is not None:
-                return OrchestrationDecision(
-                    action_proposal=ActionProposal(
-                        intent=Intent.SEND_DTMF,
-                        summary="Send DTMF tones on the current call.",
-                        send_dtmf=SendDtmfParams(
-                            target_device=target_device,
-                            tones=tones,
-                            call_id=self._extract_call_id(text),
-                        ),
-                    )
-                )
+        meeting_decision = _meeting_handler.handle(
+            text=text,
+            lowered=lowered,
+            target_device=target_device,
+            mentioned_target_device=mentioned_target_device,
+            message_target_device=message.target_device,
+            session=session,
+            provider=self,
+        )
+        if meeting_decision is not None:
+            return meeting_decision
 
         if self._mentions_microphone_toggle(lowered):
             muted = self._extract_toggle_state(
@@ -386,83 +288,17 @@ class RuleBasedProvider:
                     )
                 )
 
-        if self._is_set_camera_mode_request(lowered):
-            writable_camera_mode = self._extract_camera_mode(lowered)
-            if writable_camera_mode is not None:
-                return OrchestrationDecision(
-                    action_proposal=ActionProposal(
-                        intent=Intent.SET_CAMERA_MODE,
-                        summary="Change the camera mode.",
-                        set_camera_mode=SetCameraModeParams(
-                            target_device=target_device,
-                            mode=writable_camera_mode,
-                        ),
-                    )
-                )
-            return OrchestrationDecision(
-                reply_text=(
-                    "I currently support these camera modes based on the RoomOS "
-                    "Cameras SpeakerTrack Set command Behavior values: Manual, "
-                    "Dynamic, BestOverview, Closeup, Frames, and GroupAndSpeaker."
-                )
-            )
-
-        if (
-            "selfview" in lowered
-            or "self view" in lowered
-            or "셀프뷰" in lowered
-            or "내 모습" in lowered
-            or "내모습" in lowered
-        ):
-            enabled = self._extract_toggle_state(
-                lowered,
-                enable_words={
-                    "selfview on",
-                    "enable selfview",
-                    "show selfview",
-                    "turn on selfview",
-                    "셀프뷰 켜",
-                    "셀프뷰 보여",
-                    "셀프뷰 시작",
-                    "내 모습 보여",
-                    "내 모습 보이",
-                    "내 모습 나오",
-                    "내모습 보여",
-                    "내모습 보이",
-                    "내모습 나오",
-                },
-                disable_words={
-                    "selfview off",
-                    "disable selfview",
-                    "hide selfview",
-                    "turn off selfview",
-                    "셀프뷰 꺼",
-                    "셀프뷰 숨겨",
-                    "셀프뷰 중지",
-                    "내 모습 숨겨",
-                    "내 모습 안 보이",
-                    "내모습 숨겨",
-                    "내모습 안 보이",
-                },
-            )
-            if enabled is not None:
-                return OrchestrationDecision(
-                    action_proposal=ActionProposal(
-                        intent=Intent.SET_SELFVIEW,
-                        summary="Change selfview state.",
-                        set_selfview=SetSelfviewParams(
-                            target_device=target_device,
-                            enabled=enabled,
-                        ),
-                    )
-                )
-            return OrchestrationDecision(
-                pending_action=PendingActionProposal(
-                    intent=Intent.SET_SELFVIEW,
-                    summary="Change selfview state.",
-                    target_device=mentioned_target_device or message.target_device,
-                )
-            )
+        camera_set_decision = _camera_handler.handle_set_mode_and_selfview(
+            text=text,
+            lowered=lowered,
+            target_device=target_device,
+            mentioned_target_device=mentioned_target_device,
+            message_target_device=message.target_device,
+            session=session,
+            provider=self,
+        )
+        if camera_set_decision is not None:
+            return camera_set_decision
 
         if "presentation" in lowered or "share" in lowered:
             enabled = self._extract_toggle_state(
@@ -653,35 +489,16 @@ class RuleBasedProvider:
                     )
                 )
 
-        camera_position = self._extract_camera_position(text)
-        if camera_position is not None:
-            return OrchestrationDecision(
-                action_proposal=ActionProposal(
-                    intent=Intent.ADJUST_CAMERA_POSITION,
-                    summary="Adjust a specific camera position.",
-                    adjust_camera_position=AdjustCameraPositionParams(
-                        target_device=target_device if mentioned_target_device else "",
-                        camera_id=camera_position["camera_id"],
-                        pan=camera_position["pan"],
-                        tilt=camera_position["tilt"],
-                        zoom=camera_position["zoom"],
-                    ),
-                )
-            )
-
-        if "camera preset" in lowered or "preset" in lowered:
-            preset_id = self._extract_preset_id(text)
-            if preset_id is not None:
-                return OrchestrationDecision(
-                    action_proposal=ActionProposal(
-                        intent=Intent.ACTIVATE_CAMERA_PRESET,
-                        summary="Activate a camera preset.",
-                        activate_camera_preset=ActivateCameraPresetParams(
-                            target_device=target_device,
-                            preset_id=preset_id,
-                        ),
-                    )
-                )
+        camera_late_decision = _camera_handler.handle_position_and_preset(
+            text=text,
+            lowered=lowered,
+            target_device=target_device,
+            mentioned_target_device=mentioned_target_device,
+            session=session,
+            provider=self,
+        )
+        if camera_late_decision is not None:
+            return camera_late_decision
 
         if "speakertrack" in lowered or "speaker track" in lowered:
             enabled = self._extract_toggle_state(
