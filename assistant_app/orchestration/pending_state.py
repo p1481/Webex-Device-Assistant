@@ -264,7 +264,19 @@ async def resume_pending_action_selection(
                 updated_pending_action.target_device,
             )
         if intent_needs_setting_option_selection(orchestrator, updated_pending_action.intent):
-            _ = clear_proposal_target_setting_value(orchestrator, updated_pending_action)
+            # Only clear the setting value when none was extracted yet — otherwise
+            # the user's original intent ("셀프뷰 켜줘") already pinned enabled=True
+            # and wiping it would force a redundant ON/OFF follow-up card.
+            existing_proposal = updated_pending_action.action_proposal
+            already_has_value = (
+                existing_proposal is not None
+                and get_proposal_setting_field_and_value(orchestrator, existing_proposal)
+                is not None
+            )
+            if not already_has_value:
+                _ = clear_proposal_target_setting_value(
+                    orchestrator, updated_pending_action
+                )
 
     synthetic_message = InboundUserMessage(
         session_id=session_id,

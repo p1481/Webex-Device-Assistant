@@ -6866,23 +6866,45 @@ def test_selfview_request_prompts_device_first_then_filtered_capability_options(
             ),
         ]
 
-    class UnusedModeRouter:
+    class CapturingModeRouter:
+        def __init__(self) -> None:
+            self.execute_request_calls: list[object] = []
+
         async def execute(self, *args: object, **kwargs: object) -> object:
-            raise AssertionError("execute should not be called before device and option selection")
+            from shared.contracts import ExecutionResult, ExecutionStatus, Intent
+
+            self.execute_request_calls.append((args, kwargs))
+            return ExecutionResult(
+                request_id="req-selfview-cap-test",
+                intent=Intent.SET_SELFVIEW,
+                execution_mode=ExecutionMode.ALL_LLM,
+                status=ExecutionStatus.SUCCESS,
+                message="Enabled selfview on Room Bar.",
+            )
 
         async def execute_request(self, execution_request: object) -> object:
-            raise AssertionError("execute_request should not be called before device and option selection")
+            from shared.contracts import ExecutionResult, ExecutionStatus, Intent
+
+            self.execute_request_calls.append(execution_request)
+            return ExecutionResult(
+                request_id="req-selfview-cap-test",
+                intent=Intent.SET_SELFVIEW,
+                execution_mode=ExecutionMode.ALL_LLM,
+                status=ExecutionStatus.SUCCESS,
+                message="Enabled selfview on Room Bar.",
+            )
 
         def build_request(self, *args: object, **kwargs: object) -> object:
-            raise AssertionError("build_request should not be called before device and option selection")
+            return object()
 
     memory_store = InMemorySessionStore()
     approval_manager = ApprovalManager(memory_store, InMemoryStateStore())
+    captured_router = CapturingModeRouter()
     orchestrator = Orchestrator(
         RuleBasedProvider(default_target_device=""),
         memory_store,
         PolicyEvaluator(default_mode=ExecutionMode.ALL_LLM),
-        cast(ModeRouter, cast(object, UnusedModeRouter())),
+        cast(ModeRouter, cast(object, captured_router)),
         approval_manager,
         device_lister=list_devices,
     )
@@ -6924,16 +6946,11 @@ def test_selfview_request_prompts_device_first_then_filtered_capability_options(
     )
 
     assert handled is True
-    assert len(second_reply.attachments) == 1
-    option_content = as_mapping(as_mapping(second_reply.attachments[0])["content"])
-    option_body = as_sequence(option_content["body"])
-    option_choice_set = as_mapping(option_body[2])
-    assert option_choice_set["id"] == "settingValue"
-    assert [as_mapping(choice)["value"] for choice in as_sequence(option_choice_set["choices"])] == [
-        "true",
-        "false",
-    ]
-    assert "대상 장치: Room Bar" in json.dumps(option_content, ensure_ascii=False)
+    # With enabled=True already extracted from "turn on Selfview", the device
+    # selection should execute immediately — no second ON/OFF card.
+    assert second_reply.attachments == []
+    assert "Enabled selfview on Room Bar" in second_reply.text
+    assert len(captured_router.execute_request_calls) == 1
 
 
 def test_device_list_formats_workspace_name_with_model_and_capabilities() -> None:
