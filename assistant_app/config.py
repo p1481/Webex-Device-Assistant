@@ -80,6 +80,7 @@ class AppConfig:
     webex_webhook_reconcile_on_startup: bool = False
     webex_mock_mode: bool = True
     device_mock_mode: bool = True
+    admin_cookie_secret: str | None = None
     default_execution_mode: ExecutionMode = ExecutionMode.SEPARATED
     default_target_device: str = ""
 
@@ -90,6 +91,7 @@ class AppConfig:
         _require_env("WEBEX_BOT_TOKEN", self.webex_bot_token)
         _require_env("WEBEX_BOT_PERSON_ID", self.webex_bot_person_id)
         _require_env("WEBEX_WEBHOOK_SECRET", self.webex_webhook_secret)
+        _require_env("ADMIN_COOKIE_SECRET", self.admin_cookie_secret)
         _require_literal(
             "WEBEX_WEBHOOK_RESOURCE", self.webex_webhook_resource, "messages"
         )
@@ -164,6 +166,7 @@ class AppConfig:
             ),
             webex_mock_mode=_env_flag("WEBEX_MOCK_MODE", True),
             device_mock_mode=_env_flag("DEVICE_MOCK_MODE", True),
+            admin_cookie_secret=_env_text("ADMIN_COOKIE_SECRET"),
             default_execution_mode=_env_mode(
                 "DEFAULT_EXECUTION_MODE", ExecutionMode.SEPARATED
             ),

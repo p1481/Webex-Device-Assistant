@@ -58,8 +58,20 @@ def get_authenticated_admin_session(request: Request) -> AdminAuthSession:
 
 
 def _cookie_secret(request: Request) -> str:
-    configured = request.app.state.services.config.webex_webhook_secret
-    return configured or "device-assistant-dev-admin-cookie-secret"
+    config = request.app.state.services.config
+    configured = getattr(config, "admin_cookie_secret", None)
+    if isinstance(configured, str) and configured.strip():
+        return configured.strip()
+    # In mock/dev mode we fall back to a fixed dev secret so local
+    # development still works. In real mode, AppConfig.validate() requires
+    # ADMIN_COOKIE_SECRET to be set, so we should never reach here without
+    # an explicit value.
+    if config.webex_mock_mode:
+        return "device-assistant-dev-admin-cookie-secret"
+    raise HTTPException(
+        status_code=503,
+        detail="ADMIN_COOKIE_SECRET is not configured.",
+    )
 
 
 def _sign_session_id(session_id: str, secret: str) -> str:
