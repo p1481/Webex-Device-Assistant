@@ -6,7 +6,7 @@ from collections.abc import Awaitable, Callable
 from assistant_app.approval_manager import ApprovalManager
 from assistant_app.memory_store import InMemorySessionStore
 from assistant_app.mode_router import ModeRouter
-from assistant_app.orchestration import formatters
+from assistant_app.orchestration import formatters, text_extractors
 from assistant_app.policy_evaluator import PolicyEvaluator
 from assistant_app.providers.base import LLMProvider
 from shared.contracts import (
@@ -1145,19 +1145,7 @@ class Orchestrator:
         )
 
     def _extract_display_mode_target_device(self, message: InboundUserMessage) -> str | None:
-        trailing_target = self._extract_trailing_target_device(message.text)
-        if trailing_target:
-            return trailing_target
-        lowered = message.text.lower()
-        markers = ["디스플레이모드", "디스플레이 모드", "display mode", "displaymode"]
-        marker_positions = [
-            lowered.find(marker) for marker in markers if lowered.find(marker) > 0
-        ]
-        if marker_positions:
-            candidate = message.text[: min(marker_positions)].strip(" ,:：-–—")
-            if candidate:
-                return candidate
-        return message.target_device
+        return text_extractors.extract_display_mode_target_device(message)
 
     def _build_display_mode_selection_reply(
         self,
@@ -1255,49 +1243,10 @@ class Orchestrator:
         )
 
     def _extract_explicit_camera_mode(self, normalized_text: str) -> WritableCameraMode | None:
-        compact = re.sub(r"[\s_-]+", "", normalized_text.casefold())
-        mode_phrases: tuple[tuple[WritableCameraMode, tuple[str, ...]], ...] = (
-            (WritableCameraMode.MANUAL, ("manual", "수동")),
-            (WritableCameraMode.DYNAMIC, ("dynamic", "동적")),
-            (
-                WritableCameraMode.BEST_OVERVIEW,
-                ("best overview", "best_overview", "bestoverview", "overview"),
-            ),
-            (
-                WritableCameraMode.CLOSEUP,
-                ("closeup", "close up", "speaker closeup", "speaker close up"),
-            ),
-            (WritableCameraMode.FRAMES, ("frames", "frame")),
-            (
-                WritableCameraMode.GROUP_AND_SPEAKER,
-                (
-                    "group and speaker",
-                    "group_and_speaker",
-                    "groupandspeaker",
-                    "group speaker",
-                ),
-            ),
-        )
-        for mode, phrases in mode_phrases:
-            for phrase in phrases:
-                if phrase in normalized_text or re.sub(r"[\s_-]+", "", phrase) in compact:
-                    return mode
-        return None
+        return text_extractors.extract_explicit_camera_mode(normalized_text)
 
     def _extract_camera_mode_target_device(self, message: InboundUserMessage) -> str | None:
-        trailing_target = self._extract_trailing_target_device(message.text)
-        if trailing_target:
-            return trailing_target
-        lowered = message.text.lower()
-        markers = ["카메라모드", "카메라 모드", "camera mode", "cameramode"]
-        marker_positions = [
-            lowered.find(marker) for marker in markers if lowered.find(marker) > 0
-        ]
-        if marker_positions:
-            candidate = message.text[: min(marker_positions)].strip(" ,:：-–—")
-            if candidate:
-                return candidate
-        return message.target_device
+        return text_extractors.extract_camera_mode_target_device(message)
 
     async def _build_camera_mode_selection_reply(
         self,
@@ -1371,12 +1320,7 @@ class Orchestrator:
         )
 
     def _is_reset_message(self, text: str) -> bool:
-        return text.strip().lower() in {
-            "/reset",
-            "/clear-context",
-            "reset context",
-            "clear context",
-        }
+        return text_extractors.is_reset_message(text)
 
     def _next_missing_pending_field(
         self, pending_action: PendingActionProposal
@@ -2049,84 +1993,22 @@ class Orchestrator:
         return proposal
 
     def _extract_follow_up_webex_meeting_identifier(self, text: str) -> str | None:
-        match = re.search(
-            r"(?:webex join|join webex)(?:\s+meeting)?\s+(https?://\S+|[A-Za-z0-9@._:/-]+)",
-            text,
-            re.IGNORECASE,
-        )
-        if match is not None:
-            return match.group(1).strip().rstrip("?.!")
-
-        candidate = self._strip_trailing_target_clause(text)
-        digit_match = re.fullmatch(r"(?:\d[\s-]*){9,14}", candidate.strip())
-        if digit_match is not None:
-            return re.sub(r"\D+", "", candidate)
-        candidate = re.sub(
-            r"^(?:meeting(?:\s+id)?\s+)",
-            "",
-            candidate,
-            flags=re.IGNORECASE,
-        ).strip()
-        if not candidate:
-            return None
-        if re.fullmatch(r"https?://\S+|[A-Za-z0-9@._:/-]+", candidate) is None:
-            return None
-        return candidate.rstrip("?.!")
+        return text_extractors.extract_follow_up_webex_meeting_identifier(text)
 
     def _extract_follow_up_dial_address(self, text: str) -> str | None:
-        match = re.search(
-            r"(?:dial|call|join sip|sip|전화(?:해줘)?|통화(?:해줘)?)\s+(?:to\s+|로\s+|으로\s+)?([A-Za-z0-9@._:+-]+)",
-            text,
-            re.IGNORECASE,
-        )
-        if match is not None:
-            return match.group(1).strip().rstrip("?.!")
-
-        fallback_match = re.search(r"([A-Za-z0-9._+-]+@[A-Za-z0-9.-]+)", text)
-        if fallback_match is not None:
-            return fallback_match.group(1).strip().rstrip("?.!")
-
-        candidate = self._strip_trailing_target_clause(text)
-        candidate = re.sub(r"^(?:to\s+)", "", candidate, flags=re.IGNORECASE).strip()
-        if not candidate:
-            return None
-        if re.fullmatch(r"[A-Za-z0-9@._:+-]+", candidate) is None:
-            return None
-        return candidate.rstrip("?.!")
+        return text_extractors.extract_follow_up_dial_address(text)
 
     def _extract_follow_up_volume_level(self, text: str) -> int | None:
-        match = re.search(r"(?:set volume|volume)\s+(?:to\s+)?(\d{1,3})", text)
-        if match is None:
-            match = re.search(r"\b(\d{1,3})\b", text)
-        if match is None:
-            return None
-        level = int(match.group(1))
-        return level if 0 <= level <= 100 else None
+        return text_extractors.extract_follow_up_volume_level(text)
 
     def _extract_trailing_target_device(self, text: str) -> str | None:
-        match = re.search(
-            r"\b(?:on|for|of)\s+([A-Za-z0-9._:-]+(?:\s+[A-Za-z0-9._:-]+)*)\s*[?.!]*$",
-            text,
-            re.IGNORECASE,
-        )
-        if match is None:
-            return None
-        return match.group(1).strip().rstrip("?.!")
+        return text_extractors.extract_trailing_target_device(text)
 
     def _strip_trailing_target_clause(self, text: str) -> str:
-        match = re.search(
-            r"^(.*?)(?:\s+\b(?:on|for|of)\s+[A-Za-z0-9._:-]+(?:\s+[A-Za-z0-9._:-]+)*)\s*[?.!]*$",
-            text,
-            re.IGNORECASE,
-        )
-        if match is None:
-            return text.strip().rstrip("?.!")
-        return match.group(1).strip().rstrip("?.!")
+        return text_extractors.strip_trailing_target_clause(text)
 
     def _extract_direct_target_device_response(self, text: str) -> str | None:
-        candidate = re.sub(r"^(?:on|for|of)\s+", "", text.strip(), flags=re.IGNORECASE)
-        normalized = candidate.rstrip("?.!")
-        return normalized or None
+        return text_extractors.extract_direct_target_device_response(text)
 
     def _resolve_pending_target_device_response(
         self,
