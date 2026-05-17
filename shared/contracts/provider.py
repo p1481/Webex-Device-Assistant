@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
 
-class ProviderKind(str, Enum):
+class ProviderKind(StrEnum):
     RULE_BASED = "rule_based"
     OPENAI = "openai"
     GEMINI = "gemini"

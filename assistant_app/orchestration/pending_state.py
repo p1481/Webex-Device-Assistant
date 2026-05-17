@@ -46,7 +46,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 def reset_session(
-    orchestrator: "Orchestrator",
+    orchestrator: Orchestrator,
     message: InboundUserMessage,
     reply_text: str = "I cleared the session context. Ask for a device status whenever you're ready.",
 ) -> OutboundReply:
@@ -63,7 +63,7 @@ def reset_session(
 
 
 async def handle_pending_follow_up(
-    orchestrator: "Orchestrator",
+    orchestrator: Orchestrator,
     message: InboundUserMessage,
     pending_action: PendingActionProposal,
 ) -> OutboundReply:
@@ -97,7 +97,7 @@ async def handle_pending_follow_up(
 
 
 async def resume_pending_action_selection(
-    orchestrator: "Orchestrator",
+    orchestrator: Orchestrator,
     pending_action_id: str,
     field_name: str,
     selected_value: str | None,
@@ -308,7 +308,7 @@ async def resume_pending_action_selection(
 
 
 async def build_pending_reply(
-    orchestrator: "Orchestrator",
+    orchestrator: Orchestrator,
     message: InboundUserMessage,
     pending_action: PendingActionProposal,
 ) -> OutboundReply:
@@ -348,7 +348,7 @@ async def build_pending_reply(
 
 
 def next_missing_pending_field(
-    orchestrator: "Orchestrator", pending_action: PendingActionProposal
+    orchestrator: Orchestrator, pending_action: PendingActionProposal
 ) -> str | None:
     if pending_action.action_proposal is not None:
         if proposal_has_missing_target_device(orchestrator, pending_action.action_proposal):
@@ -390,7 +390,7 @@ def next_missing_pending_field(
 
 
 def collect_pending_follow_up(
-    orchestrator: "Orchestrator",
+    orchestrator: Orchestrator,
     pending_action: PendingActionProposal,
     text: str,
 ) -> PendingActionProposal:
@@ -483,7 +483,7 @@ def collect_pending_follow_up(
 
 
 def pending_action_needs_target_device(
-    orchestrator: "Orchestrator", pending_action: PendingActionProposal
+    orchestrator: Orchestrator, pending_action: PendingActionProposal
 ) -> bool:
     if pending_action.action_proposal is not None:
         return proposal_has_missing_target_device(
@@ -495,7 +495,7 @@ def pending_action_needs_target_device(
 
 
 def get_pending_bool_value(
-    orchestrator: "Orchestrator",
+    orchestrator: Orchestrator,
     pending_action: PendingActionProposal,
     field_name: str,
 ) -> bool | None:
@@ -507,13 +507,13 @@ def get_pending_bool_value(
 
 
 def intent_needs_setting_option_selection(
-    orchestrator: "Orchestrator", intent: Intent
+    orchestrator: Orchestrator, intent: Intent
 ) -> bool:
     return intent in orchestrator._setting_option_specs()
 
 
 def resolve_pending_target_device_response(
-    orchestrator: "Orchestrator",
+    orchestrator: Orchestrator,
     intent: Intent,
     text: str,
     trailing_target_device: str | None,
@@ -619,7 +619,7 @@ def looks_like_pending_intent_follow_up(intent: Intent, text: str) -> bool:
 
 
 def apply_pending_setting_selection(
-    orchestrator: "Orchestrator",
+    orchestrator: Orchestrator,
     pending_action: PendingActionProposal,
     setting_field_name: str | None,
     setting_value: str | None,
@@ -718,7 +718,7 @@ def apply_pending_setting_selection(
 
 
 def build_action_proposal_from_pending(
-    orchestrator: "Orchestrator", pending_action: PendingActionProposal
+    orchestrator: Orchestrator, pending_action: PendingActionProposal
 ) -> ActionProposal | None:
     if pending_action.action_proposal is not None:
         return (
@@ -808,7 +808,7 @@ def build_action_proposal_from_pending(
 
 
 def build_missing_target_pending_action(
-    orchestrator: "Orchestrator", proposal: ActionProposal | None
+    orchestrator: Orchestrator, proposal: ActionProposal | None
 ) -> PendingActionProposal | None:
     if proposal is None or not proposal_has_missing_target_device(orchestrator, proposal):
         return None
@@ -821,7 +821,7 @@ def build_missing_target_pending_action(
 
 
 def proposal_has_missing_target_device(
-    orchestrator: "Orchestrator", proposal: ActionProposal
+    orchestrator: Orchestrator, proposal: ActionProposal
 ) -> bool:
     if not intent_requires_target_device(proposal.intent):
         return False
@@ -833,7 +833,7 @@ def proposal_has_missing_target_device(
 
 
 def get_proposal_setting_field_and_value(
-    orchestrator: "Orchestrator", proposal: ActionProposal
+    orchestrator: Orchestrator, proposal: ActionProposal
 ) -> tuple[str, str] | None:
     payload = get_action_payload(proposal)
     if payload is None:
@@ -853,7 +853,7 @@ def get_proposal_setting_field_and_value(
 
 
 def clear_proposal_target_setting_value(
-    orchestrator: "Orchestrator", pending_action: PendingActionProposal
+    orchestrator: Orchestrator, pending_action: PendingActionProposal
 ) -> bool:
     proposal = pending_action.action_proposal
     if proposal is None:

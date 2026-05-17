@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, model_validator
@@ -42,7 +42,7 @@ from .admin import OrganizationDeviceRecord
 from .policy import ApprovalState, ExecutionMode
 
 
-class ExecutionStatus(str, Enum):
+class ExecutionStatus(StrEnum):
     SUCCESS = "success"
     BLOCKED = "blocked"
     UNSUPPORTED = "unsupported"

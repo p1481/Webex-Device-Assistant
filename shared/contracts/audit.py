@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -10,7 +10,7 @@ from .actions import Intent
 from .policy import ExecutionMode
 
 
-class AuditEventType(str, Enum):
+class AuditEventType(StrEnum):
     APPROVAL_REQUESTED = "approval_requested"
     APPROVAL_RESOLVED = "approval_resolved"
     EXECUTION_REQUESTED = "execution_requested"

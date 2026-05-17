@@ -100,7 +100,7 @@ def setting_option_specs() -> dict[Intent, dict[str, object]]:
 
 
 def build_setting_option_card_pending_action(
-    orchestrator: "Orchestrator", message: InboundUserMessage
+    orchestrator: Orchestrator, message: InboundUserMessage
 ) -> PendingActionProposal | None:
     normalized = message.text.strip().casefold()
     compact = re.sub(r"\s+", "", normalized)
@@ -120,7 +120,7 @@ def build_setting_option_card_pending_action(
 
 
 async def build_setting_option_selection_reply(
-    orchestrator: "Orchestrator",
+    orchestrator: Orchestrator,
     message: InboundUserMessage,
     pending_action: PendingActionProposal,
 ) -> OutboundReply:
@@ -229,7 +229,7 @@ def normalize_capability_product(product: str | None) -> str:
 
 
 def device_capabilities(
-    orchestrator: "Orchestrator", device: OrganizationDeviceRecord
+    orchestrator: Orchestrator, device: OrganizationDeviceRecord
 ) -> set[str]:
     candidates = [device.product, device.display_name]
     for candidate in candidates:
@@ -245,7 +245,7 @@ def device_capabilities(
 
 
 def capability_labels(
-    orchestrator: "Orchestrator", capabilities: set[str]
+    orchestrator: Orchestrator, capabilities: set[str]
 ) -> list[str]:
     return [
         label
@@ -255,7 +255,7 @@ def capability_labels(
 
 
 def device_supports_intent(
-    orchestrator: "Orchestrator",
+    orchestrator: Orchestrator,
     device: OrganizationDeviceRecord,
     intent: Intent | None,
 ) -> bool:
@@ -267,12 +267,12 @@ def device_supports_intent(
     return bool(device_capabilities(orchestrator, device) & required_capabilities)
 
 
-async def load_device_choices(orchestrator: "Orchestrator") -> list[dict[str, str]]:
+async def load_device_choices(orchestrator: Orchestrator) -> list[dict[str, str]]:
     return await load_device_choices_for_intent(orchestrator, None)
 
 
 async def load_device_choices_for_intent(
-    orchestrator: "Orchestrator", intent: Intent | None
+    orchestrator: Orchestrator, intent: Intent | None
 ) -> list[dict[str, str]]:
     if orchestrator.device_lister is None:
         return []
@@ -310,7 +310,7 @@ async def load_device_choices_for_intent(
 
 
 async def build_target_device_selection_reply(
-    orchestrator: "Orchestrator",
+    orchestrator: Orchestrator,
     message: InboundUserMessage,
     pending_action: PendingActionProposal,
     fallback_text: str,
@@ -412,7 +412,7 @@ def display_mode_choices() -> list[tuple[str, str, str]]:
 
 
 def build_display_mode_card_pending_action(
-    orchestrator: "Orchestrator", message: InboundUserMessage
+    orchestrator: Orchestrator, message: InboundUserMessage
 ) -> PendingActionProposal | None:
     normalized = message.text.strip().lower()
     compact = re.sub(r"\s+", "", normalized)
@@ -433,7 +433,7 @@ def build_display_mode_card_pending_action(
 
 
 def build_display_mode_selection_reply(
-    orchestrator: "Orchestrator",
+    orchestrator: Orchestrator,
     message: InboundUserMessage,
     pending_action: PendingActionProposal,
 ) -> OutboundReply:
@@ -513,7 +513,7 @@ def camera_mode_title(mode: str) -> str:
 
 
 def build_camera_mode_card_pending_action(
-    orchestrator: "Orchestrator", message: InboundUserMessage
+    orchestrator: Orchestrator, message: InboundUserMessage
 ) -> PendingActionProposal | None:
     normalized = message.text.strip().lower()
     compact = re.sub(r"\s+", "", normalized)
@@ -536,7 +536,7 @@ def build_camera_mode_card_pending_action(
 
 
 async def build_camera_mode_selection_reply(
-    orchestrator: "Orchestrator",
+    orchestrator: Orchestrator,
     message: InboundUserMessage,
     pending_action: PendingActionProposal,
 ) -> OutboundReply:
@@ -651,7 +651,7 @@ def build_approval_reply(
 
 
 def build_follow_up_question(
-    orchestrator: "Orchestrator", pending_action: PendingActionProposal
+    orchestrator: Orchestrator, pending_action: PendingActionProposal
 ) -> str:
     next_missing_field = orchestrator._next_missing_pending_field(pending_action)
     questions = {
@@ -668,7 +668,7 @@ def build_follow_up_question(
 
 
 def build_target_device_follow_up_text(
-    orchestrator: "Orchestrator",
+    orchestrator: Orchestrator,
     message: InboundUserMessage,
     pending_action: PendingActionProposal,
     fallback_text: str,

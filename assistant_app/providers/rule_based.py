@@ -646,18 +646,17 @@ class RuleBasedProvider:
             "display mode" in lowered
             or "monitor mode" in lowered
             or display_mode is not None
-        ):
-            if display_mode is not None:
-                return OrchestrationDecision(
-                    action_proposal=ActionProposal(
-                        intent=Intent.SET_DISPLAY_MODE,
-                        summary="Change the display mode.",
-                        set_display_mode=SetDisplayModeParams(
-                            target_device=target_device,
-                            mode=display_mode,
-                        ),
-                    )
+        ) and display_mode is not None:
+            return OrchestrationDecision(
+                action_proposal=ActionProposal(
+                    intent=Intent.SET_DISPLAY_MODE,
+                    summary="Change the display mode.",
+                    set_display_mode=SetDisplayModeParams(
+                        target_device=target_device,
+                        mode=display_mode,
+                    ),
                 )
+            )
 
         if "display role" in lowered or "monitor role" in lowered:
             connector_id = self._extract_connector_id(text)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -9,17 +9,17 @@ from pydantic import BaseModel, Field
 from .execution import ExecutionRequest
 
 
-class ApprovalSubjectType(str, Enum):
+class ApprovalSubjectType(StrEnum):
     ACTION = "action"
     ADMIN_LOGIN = "admin_login"
 
 
-class ApprovalChannel(str, Enum):
+class ApprovalChannel(StrEnum):
     WEBEX_CARD = "webex_card"
     DEBUG = "debug"
 
 
-class ApprovalStatus(str, Enum):
+class ApprovalStatus(StrEnum):
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"

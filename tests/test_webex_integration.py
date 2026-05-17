@@ -4892,7 +4892,7 @@ def test_device_client_patches_supported_device_configurations(
             },
         )
     ]
-    if False and method_name == "set_display_mode":
+    if False:
         expected_resolve_requests.append(
             (
                 "GET",

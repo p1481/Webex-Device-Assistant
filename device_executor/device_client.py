@@ -1382,9 +1382,7 @@ class DeviceClient:
         if device_type is not None and device_type not in self.MAIN_DEVICE_TYPES:
             return False
         permissions = self._normalize_permissions(item.get("permissions"))
-        if not self._permissions_include_xapi(permissions):
-            return False
-        return True
+        return self._permissions_include_xapi(permissions)
 
     def _mock_device_items(self) -> list[dict[str, object]]:
         return self._filter_device_items(

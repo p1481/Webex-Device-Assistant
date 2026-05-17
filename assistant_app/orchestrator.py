@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from collections.abc import Awaitable, Callable
 
 from assistant_app.approval_manager import ApprovalManager
@@ -19,31 +18,14 @@ from shared.contracts import (
     ApprovalRequest,
     ApprovalState,
     ApprovalStatus,
-    DialParams,
-    DisplayMode,
     ExecutionResult,
     ExecutionStatus,
     InboundUserMessage,
     Intent,
-    MessageSource,
-    MicrophoneProcessingMode,
     OrganizationDeviceRecord,
     OutboundReply,
     PendingActionProposal,
-    SetCameraModeParams,
-    SetDisplayModeParams,
-    SetMicrophoneModeParams,
-    SetMicrophoneMuteParams,
-    SetPresentationParams,
-    SetSelfviewParams,
-    SetSpeakerTrackParams,
-    SetStandbyParams,
-    SetVideoMuteParams,
-    SetVolumeParams,
-    WebexJoinParams,
     WritableCameraMode,
-    get_action_payload_field,
-    intent_requires_target_device,
 )
 
 

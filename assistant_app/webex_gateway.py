@@ -768,10 +768,7 @@ class WebexGateway:
             for email in (webhook_person_email, fetched_person_email)
             if isinstance(email, str)
         }
-        if self.bot_emails.intersection(candidate_emails):
-            return True
-
-        return False
+        return bool(self.bot_emails.intersection(candidate_emails))
 
     def _is_allowed_webex_sender(self, person_email: str | None) -> bool:
         runtime_settings_provider = self._runtime_settings_provider

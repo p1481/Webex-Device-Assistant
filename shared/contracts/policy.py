@@ -1,22 +1,22 @@
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, computed_field
 
 
-class ExecutionMode(str, Enum):
+class ExecutionMode(StrEnum):
     SEPARATED = "separated"
     ALL_LLM = "all-llm"
 
 
-class RiskLevel(str, Enum):
+class RiskLevel(StrEnum):
     READ_ONLY = "read_only"
     LOW = "low"
     HIGH = "high"
 
 
-class ApprovalState(str, Enum):
+class ApprovalState(StrEnum):
     NOT_REQUIRED = "not_required"
     REQUIRED = "required"
     APPROVED = "approved"

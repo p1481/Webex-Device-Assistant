@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, model_validator
 
 
-class Intent(str, Enum):
+class Intent(StrEnum):
     CHAT = "chat"
     GET_STATUS = "get_status"
     GET_ENVIRONMENT_INFO = "get_environment_info"
@@ -91,7 +91,7 @@ class SetMicrophoneMuteParams(TargetDeviceParams):
     muted: bool
 
 
-class MicrophoneProcessingMode(str, Enum):
+class MicrophoneProcessingMode(StrEnum):
     NORMAL = "normal"
     NOISE_REDUCTION = "noise-reduction"
     VOICE_OPTIMIZED = "voice-optimized"
@@ -114,7 +114,7 @@ class SetSelfviewParams(TargetDeviceParams):
     enabled: bool
 
 
-class WritableCameraMode(str, Enum):
+class WritableCameraMode(StrEnum):
     MANUAL = "Manual"
     DYNAMIC = "Dynamic"
     BEST_OVERVIEW = "BestOverview"
@@ -158,7 +158,7 @@ class SwapMatrixParams(TargetDeviceParams):
     output_b: str
 
 
-class DisplayMode(str, Enum):
+class DisplayMode(StrEnum):
     LEFT_VIDEO_RIGHT_VIDEO = "left-video-right-video"
     LEFT_VIDEO_RIGHT_PRESENTATION = "left-video-right-presentation"
     LEFT_PRESENTATION_RIGHT_VIDEO = "left-presentation-right-video"
@@ -169,7 +169,7 @@ class SetDisplayModeParams(TargetDeviceParams):
     mode: DisplayMode
 
 
-class DisplayRole(str, Enum):
+class DisplayRole(StrEnum):
     AUTO = "auto"
     FIRST = "first"
     SECOND = "second"
