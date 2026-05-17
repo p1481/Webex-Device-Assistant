@@ -9,6 +9,8 @@ from assistant_app.providers.rule_based_extractors import (
     MatrixSwapMatch,
     MatrixUnassignMatch,
 )
+from assistant_app.providers.rule_based_handlers import booking as _booking_handler
+from assistant_app.providers.rule_based_handlers import system as _system_handler
 from shared.contracts import (
     ActionProposal,
     ActivateCameraPresetParams,
@@ -18,21 +20,16 @@ from shared.contracts import (
     DisplayMode,
     DisplayRole,
     ExecutionResult,
-    FactoryResetParams,
     GetCameraModeParams,
-    GetEnvironmentInfoParams,
-    GetRoomBookingParams,
     GetStatusParams,
     HangUpParams,
     InboundUserMessage,
     Intent,
     JoinObtpParams,
-    ListDevicesParams,
     MicrophoneProcessingMode,
     OrchestrationDecision,
     PendingActionProposal,
     ProviderSettings,
-    RebootParams,
     SendDtmfParams,
     SessionContext,
     SetCameraModeParams,
@@ -111,14 +108,6 @@ class RuleBasedProvider:
         text = message.text.strip()
         lowered = text.lower()
 
-        if lowered in {"/reset", "/clear-context", "reset context", "clear context"}:
-            return OrchestrationDecision(
-                reply_text="I cleared the session context. Ask for a device status whenever you're ready.",
-                action_proposal=ActionProposal(
-                    intent=Intent.RESET_CONTEXT, summary="Reset conversation context."
-                ),
-            )
-
         if lowered in {"admin login", "admin auth", "/admin-login"}:
             return OrchestrationDecision(
                 reply_text="I started an admin login approval request.",
@@ -133,37 +122,27 @@ class RuleBasedProvider:
             text, message.target_device
         )
 
-        if self._is_list_devices_request(lowered):
-            return OrchestrationDecision(
-                action_proposal=ActionProposal(
-                    intent=Intent.LIST_DEVICES,
-                    summary="List devices in the Webex organization.",
-                    list_devices=ListDevicesParams(
-                        limit=10,
-                        online_only=("online" in lowered or "온라인" in lowered),
-                    ),
-                )
-            )
+        early_decision = _system_handler.handle_early(
+            text=text,
+            lowered=lowered,
+            target_device=target_device,
+            mentioned_target_device=mentioned_target_device,
+            session=session,
+            provider=self,
+        )
+        if early_decision is not None:
+            return early_decision
 
-        if self._is_get_environment_info_request(lowered):
-            return OrchestrationDecision(
-                action_proposal=ActionProposal(
-                    intent=Intent.GET_ENVIRONMENT_INFO,
-                    summary="Get the current environment sensor information.",
-                    get_environment_info=GetEnvironmentInfoParams(
-                        target_device=target_device
-                    ),
-                )
-            )
-
-        if self._is_get_room_booking_request(lowered):
-            return OrchestrationDecision(
-                action_proposal=ActionProposal(
-                    intent=Intent.GET_ROOM_BOOKING,
-                    summary="Get the current room booking and OBTP status.",
-                    get_room_booking=GetRoomBookingParams(target_device=target_device),
-                )
-            )
+        booking_decision = _booking_handler.handle(
+            text=text,
+            lowered=lowered,
+            target_device=target_device,
+            mentioned_target_device=mentioned_target_device,
+            session=session,
+            provider=self,
+        )
+        if booking_decision is not None:
+            return booking_decision
 
         if "status" in lowered:
             return OrchestrationDecision(
@@ -762,28 +741,16 @@ class RuleBasedProvider:
                     )
                 )
 
-        if "reboot" in lowered:
-            return OrchestrationDecision(
-                action_proposal=ActionProposal(
-                    intent=Intent.REBOOT,
-                    summary="Reboot the target device.",
-                    reboot=RebootParams(target_device=target_device),
-                )
-            )
-
-        if "factory reset" in lowered:
-            return OrchestrationDecision(
-                action_proposal=ActionProposal(
-                    intent=Intent.FACTORY_RESET,
-                    summary="Factory reset the target device.",
-                    factory_reset=FactoryResetParams(
-                        target_device=target_device,
-                        acknowledged=(
-                            "confirm" in lowered or "yes" in lowered or "ack" in lowered
-                        ),
-                    ),
-                )
-            )
+        late_system_decision = _system_handler.handle_late(
+            text=text,
+            lowered=lowered,
+            target_device=target_device,
+            mentioned_target_device=mentioned_target_device,
+            session=session,
+            provider=self,
+        )
+        if late_system_decision is not None:
+            return late_system_decision
 
         fallback = (
             "I can currently help with read-only device status. "
