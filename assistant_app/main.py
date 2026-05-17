@@ -5,14 +5,13 @@ import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
-from typing import Annotated, ClassVar, cast
+from typing import ClassVar, cast
 from uuid import uuid4
 
 from fastapi import (
     BackgroundTasks,
     Depends,
     FastAPI,
-    Header,
     HTTPException,
     Request,
     Response,
@@ -36,6 +35,7 @@ from assistant_app.orchestrator import Orchestrator
 from assistant_app.policy_evaluator import PolicyEvaluator
 from assistant_app.provider_registry import ProviderRegistry
 from assistant_app.routes.health import router as health_router
+from assistant_app.routes.webhooks import router as webhooks_router
 from assistant_app.state_store import InMemoryStateStore, build_state_store
 from assistant_app.token_provider import TokenManagerTokenProvider
 from assistant_app.webex_gateway import WebexBotIdentityMismatchError, WebexGateway
@@ -314,6 +314,7 @@ def build_app() -> FastAPI:
     app.router.lifespan_context = lifespan
 
     app.include_router(health_router)
+    app.include_router(webhooks_router)
 
     @app.get("/debug/webex/runtime")
     async def debug_webex_runtime() -> dict[str, object]:
@@ -389,50 +390,6 @@ def build_app() -> FastAPI:
         )
         reply = await orchestrator.handle_message(inbound)
         return {"reply": reply.model_dump()}
-
-    @app.post("/webhooks/webex/messages", status_code=202)
-    async def webex_messages(
-        request: Request,
-        background_tasks: BackgroundTasks,
-        x_spark_signature: Annotated[
-            str | None, Header(alias="X-Spark-Signature")
-        ] = None,
-    ) -> dict[str, str]:
-        raw_body = await request.body()
-        try:
-            payload = webhook_controller.prepare_event(raw_body, x_spark_signature)
-            prepared_event = webex_gateway.parse_webhook_payload(payload)
-        except ValueError as exc:
-            raise HTTPException(status_code=401, detail=str(exc)) from exc
-        except RuntimeError as exc:
-            raise HTTPException(status_code=503, detail=str(exc)) from exc
-
-        background_tasks.add_task(
-            webhook_controller.process_message_event, prepared_event
-        )
-        return {"status": "accepted", "event_id": prepared_event.id}
-
-    @app.post("/webhooks/webex/attachment-actions", status_code=202)
-    async def webex_attachment_actions(
-        request: Request,
-        background_tasks: BackgroundTasks,
-        x_spark_signature: Annotated[
-            str | None, Header(alias="X-Spark-Signature")
-        ] = None,
-    ) -> dict[str, str]:
-        raw_body = await request.body()
-        try:
-            payload = webhook_controller.prepare_event(raw_body, x_spark_signature)
-        except ValueError as exc:
-            raise HTTPException(status_code=401, detail=str(exc)) from exc
-        except RuntimeError as exc:
-            raise HTTPException(status_code=503, detail=str(exc)) from exc
-        background_tasks.add_task(
-            webhook_controller.process_attachment_action_event, payload
-        )
-        raw_event_id = payload.get("id")
-        event_id = raw_event_id if isinstance(raw_event_id, str) else "unknown"
-        return {"status": "accepted", "event_id": event_id}
 
     @app.post("/debug/approvals/{request_id}")
     async def debug_approval_decision(
