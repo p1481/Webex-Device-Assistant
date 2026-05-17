@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from shared.contracts import (
     ApprovalChannel,
@@ -12,8 +12,8 @@ from shared.contracts import (
     AuditEventType,
     AuditRecord,
     ExecutionRequest,
-    Intent,
     InboundUserMessage,
+    Intent,
 )
 
 from .memory_store import InMemorySessionStore
@@ -101,7 +101,7 @@ class ApprovalManager:
             title="Approve admin login",
             prompt="Approve this admin login request to unlock administrative actions.",
             admin_session_id=admin_session_id,
-            expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+            expires_at=datetime.now(UTC) + timedelta(minutes=10),
         )
         stored = self.state_store.create_approval_request(request)
         session = self.memory_store.get_or_create(message.session_id)

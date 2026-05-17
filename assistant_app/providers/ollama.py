@@ -12,13 +12,13 @@ from assistant_app.ollama_support import (
 )
 from assistant_app.providers.rule_based import RuleBasedProvider
 from shared.contracts import (
-    ActivateCameraPresetParams,
     ActionProposal,
+    ActivateCameraPresetParams,
     AdjustCameraPositionParams,
     AssignMatrixParams,
+    DialParams,
     DisplayMode,
     DisplayRole,
-    DialParams,
     ExecutionResult,
     ExecutionStatus,
     FactoryResetParams,
@@ -38,6 +38,7 @@ from shared.contracts import (
     ProviderSettings,
     RebootParams,
     SendDtmfParams,
+    SessionContext,
     SetCameraModeParams,
     SetDisplayModeParams,
     SetDisplayRoleParams,
@@ -48,16 +49,14 @@ from shared.contracts import (
     SetSelfviewParams,
     SetSpeakerTrackParams,
     SetStandbyParams,
-    SessionContext,
-    SetVolumeParams,
     SetVideoMuteParams,
-    SwitchInputSourceParams,
+    SetVolumeParams,
     SwapMatrixParams,
+    SwitchInputSourceParams,
     UnassignMatrixParams,
-    WritableCameraMode,
     WebexJoinParams,
+    WritableCameraMode,
 )
-
 
 OLLAMA_ASYNC_CLIENT = httpx.AsyncClient
 

@@ -3,41 +3,41 @@ from __future__ import annotations
 import re
 from collections.abc import Awaitable, Callable
 
+from assistant_app.approval_manager import ApprovalManager
 from assistant_app.memory_store import InMemorySessionStore
 from assistant_app.mode_router import ModeRouter
 from assistant_app.policy_evaluator import PolicyEvaluator
-from assistant_app.approval_manager import ApprovalManager
 from assistant_app.providers.base import LLMProvider
 from shared.contracts import (
     ActionProposal,
     ApprovalRequest,
     ApprovalState,
     ApprovalStatus,
+    DialParams,
+    DisplayMode,
     ExecutionResult,
     ExecutionStatus,
     InboundUserMessage,
     Intent,
     MessageSource,
+    MicrophoneProcessingMode,
     OrganizationDeviceRecord,
     OutboundReply,
     PendingActionProposal,
-    MicrophoneProcessingMode,
-    get_action_payload_field,
-    intent_requires_target_device,
-    SetVolumeParams,
-    DialParams,
-    WebexJoinParams,
-    DisplayMode,
-    SetDisplayModeParams,
-    WritableCameraMode,
     SetCameraModeParams,
-    SetMicrophoneMuteParams,
+    SetDisplayModeParams,
     SetMicrophoneModeParams,
-    SetVideoMuteParams,
+    SetMicrophoneMuteParams,
+    SetPresentationParams,
     SetSelfviewParams,
     SetSpeakerTrackParams,
     SetStandbyParams,
-    SetPresentationParams,
+    SetVideoMuteParams,
+    SetVolumeParams,
+    WebexJoinParams,
+    WritableCameraMode,
+    get_action_payload_field,
+    intent_requires_target_device,
 )
 
 

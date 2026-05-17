@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from assistant_app.ollama_support import check_ollama_availability
 from shared.contracts import (
-    AdminAuthSession,
     ActionRegistryItem,
-    ApprovalRequest,
+    AdminAuthSession,
     AdminStats,
+    ApprovalRequest,
     AuditEventType,
     AuditRecord,
     CommandPolicy,

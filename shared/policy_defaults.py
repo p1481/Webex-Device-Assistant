@@ -8,7 +8,6 @@ from shared.contracts import (
     RiskLevel,
 )
 
-
 DEFAULT_COMMAND_POLICIES: dict[Intent, CommandPolicy] = {
     Intent.GET_STATUS: CommandPolicy(
         allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],

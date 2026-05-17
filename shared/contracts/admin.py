@@ -8,7 +8,6 @@ from pydantic import BaseModel, Field, model_validator
 from .policy import ExecutionMode
 from .provider import ProviderKind
 
-
 AdminFieldState = Literal["live", "read_only", "restart_required"]
 
 
@@ -46,7 +45,7 @@ class RuntimeAdminSettings(BaseModel):
     device_mock_mode: bool = True
 
     @model_validator(mode="after")
-    def normalize_lists(self) -> "RuntimeAdminSettings":
+    def normalize_lists(self) -> RuntimeAdminSettings:
         self.allowed_webex_user_emails = _normalize_email_list(
             self.allowed_webex_user_emails
         )
@@ -68,7 +67,7 @@ class RuntimeAdminSettingsUpdate(BaseModel):
     selected_device_name: str | None = None
 
     @model_validator(mode="after")
-    def normalize_lists(self) -> "RuntimeAdminSettingsUpdate":
+    def normalize_lists(self) -> RuntimeAdminSettingsUpdate:
         if self.default_user_email is not None:
             self.default_user_email = self.default_user_email.strip().lower()
         if self.allowed_webex_user_emails is not None:
@@ -94,7 +93,7 @@ class AdminAuthRequest(BaseModel):
     email: str
 
     @model_validator(mode="after")
-    def normalize_email(self) -> "AdminAuthRequest":
+    def normalize_email(self) -> AdminAuthRequest:
         self.email = self.email.strip().lower()
         return self
 

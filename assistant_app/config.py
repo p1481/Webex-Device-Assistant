@@ -84,7 +84,7 @@ class AppConfig:
     default_execution_mode: ExecutionMode = ExecutionMode.SEPARATED
     default_target_device: str = ""
 
-    def validate(self) -> "AppConfig":
+    def validate(self) -> AppConfig:
         if self.webex_mock_mode:
             return self._validate_device_config()
 
@@ -107,7 +107,7 @@ class AppConfig:
 
         return self._validate_device_config()
 
-    def _validate_device_config(self) -> "AppConfig":
+    def _validate_device_config(self) -> AppConfig:
         if self.device_mock_mode:
             return self
 
@@ -124,7 +124,7 @@ class AppConfig:
         return self
 
     @classmethod
-    def from_env(cls) -> "AppConfig":
+    def from_env(cls) -> AppConfig:
         config = cls(
             admin_state_path=_env_text("ADMIN_STATE_PATH"),
             default_provider=ProviderKind(

@@ -3,12 +3,11 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import HTTPException, Request, Response
 
 from shared.contracts import AdminAuthSession, ApprovalStatus
-
 
 ADMIN_SESSION_COOKIE = "wda_admin_session"
 
@@ -95,4 +94,4 @@ def _verify_session_cookie(cookie_value: str, secret: str) -> str | None:
 def _is_expired(session: AdminAuthSession) -> bool:
     if session.expires_at is None:
         return False
-    return session.expires_at <= datetime.now(timezone.utc)
+    return session.expires_at <= datetime.now(UTC)

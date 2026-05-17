@@ -4,7 +4,6 @@ import httpx
 
 from shared.contracts import ProviderSettings
 
-
 DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434/api"
 DEFAULT_OLLAMA_MODEL = "gemma4:latest"
 

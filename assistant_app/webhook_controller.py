@@ -5,14 +5,12 @@ import hmac
 import json
 import logging
 
-from shared.contracts import ApprovalDecision, ApprovalStatus
-
-from assistant_app.memory_store import InMemorySessionStore
-from assistant_app.state_store import InMemoryStateStore
 from assistant_app.approval_manager import ApprovalManager
+from assistant_app.memory_store import InMemorySessionStore
 from assistant_app.orchestrator import Orchestrator
+from assistant_app.state_store import InMemoryStateStore
 from assistant_app.webex_gateway import WebexGateway, WebexWebhookEnvelope
-
+from shared.contracts import ApprovalDecision, ApprovalStatus
 
 logger = logging.getLogger(__name__)
 

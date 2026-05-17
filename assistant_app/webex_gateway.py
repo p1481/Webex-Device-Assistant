@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import logging
 from base64 import b64decode
-from urllib.parse import quote
-from urllib.parse import parse_qsl
 from typing import ClassVar, cast
+from urllib.parse import parse_qsl, quote
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field

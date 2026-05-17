@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from itertools import islice
 from typing import ClassVar, cast
 
@@ -2209,8 +2209,8 @@ class DeviceClient:
         except ValueError:
             return (0, normalized)
         if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=timezone.utc)
-        return (0, parsed.astimezone(timezone.utc).isoformat())
+            parsed = parsed.replace(tzinfo=UTC)
+        return (0, parsed.astimezone(UTC).isoformat())
 
     def _extract_network_string(
         self,

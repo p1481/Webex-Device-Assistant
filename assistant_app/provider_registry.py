@@ -13,11 +13,11 @@ from assistant_app.providers.rule_based import RuleBasedProvider
 from shared.contracts import (
     ChatRequest,
     ChatResponse,
-    ToolCall,
     ProviderCapabilities,
     ProviderDescriptor,
     ProviderKind,
     ProviderSettings,
+    ToolCall,
 )
 
 

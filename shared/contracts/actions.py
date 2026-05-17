@@ -194,7 +194,7 @@ class AdjustCameraPositionParams(TargetDeviceParams):
     zoom: int | None = Field(default=None)
 
     @model_validator(mode="after")
-    def validate_adjustment(self) -> "AdjustCameraPositionParams":
+    def validate_adjustment(self) -> AdjustCameraPositionParams:
         normalized_camera_id = self.camera_id.strip()
         if not normalized_camera_id.isdigit() or int(normalized_camera_id) <= 0:
             raise ValueError(
@@ -336,7 +336,7 @@ class ActionProposal(BaseModel):
     factory_reset: FactoryResetParams | None = None
 
     @model_validator(mode="after")
-    def validate_payload(self) -> "ActionProposal":
+    def validate_payload(self) -> ActionProposal:
         payload_name = get_action_payload_field(self.intent)
         if payload_name is not None and getattr(self, payload_name) is None:
             raise ValueError(
@@ -365,7 +365,7 @@ class OrchestrationDecision(BaseModel):
     pending_action: PendingActionProposal | None = None
 
     @model_validator(mode="after")
-    def validate_decision(self) -> "OrchestrationDecision":
+    def validate_decision(self) -> OrchestrationDecision:
         if (
             self.reply_text is None
             and self.action_proposal is None

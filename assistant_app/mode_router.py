@@ -8,8 +8,8 @@ from shared.contracts import (
     ExecutionMode,
     ExecutionRequest,
     ExecutionResult,
-    Intent,
     InboundUserMessage,
+    Intent,
     PolicyDecision,
 )
 

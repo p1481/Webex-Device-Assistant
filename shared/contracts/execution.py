@@ -31,15 +31,15 @@ from .actions import (
     SetSelfviewParams,
     SetSpeakerTrackParams,
     SetStandbyParams,
-    SetVolumeParams,
     SetVideoMuteParams,
-    SwitchInputSourceParams,
+    SetVolumeParams,
     SwapMatrixParams,
+    SwitchInputSourceParams,
     UnassignMatrixParams,
     WebexJoinParams,
 )
-from .policy import ApprovalState, ExecutionMode
 from .admin import OrganizationDeviceRecord
+from .policy import ApprovalState, ExecutionMode
 
 
 class ExecutionStatus(str, Enum):
@@ -167,7 +167,7 @@ class ExecutionRequest(BaseModel):
     factory_reset: FactoryResetParams | None = None
 
     @model_validator(mode="after")
-    def validate_payload(self) -> "ExecutionRequest":
+    def validate_payload(self) -> ExecutionRequest:
         required_payloads: dict[Intent, str] = {
             Intent.GET_STATUS: "get_status",
             Intent.GET_ENVIRONMENT_INFO: "get_environment_info",

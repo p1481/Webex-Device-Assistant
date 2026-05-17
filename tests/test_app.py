@@ -1,19 +1,17 @@
-from collections.abc import Mapping, Sequence
-from collections.abc import Iterator
-from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
+import asyncio
 import json
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager
+from datetime import UTC, datetime, timedelta
 from os import environ
 from pathlib import Path
-import asyncio
+from typing import cast
 from uuid import uuid4
 
 import httpx
-from typing import cast
-
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-import pytest
 
 from assistant_app.admin_auth import ADMIN_SESSION_COOKIE, _sign_session_id
 from assistant_app.main import app, build_app
@@ -46,8 +44,8 @@ def build_authenticated_client(app_instance: FastAPI | None = None) -> TestClien
             email=email,
             approval_request_id="",
             approved=True,
-            expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
-            approved_at=datetime.now(timezone.utc),
+            expires_at=datetime.now(UTC) + timedelta(minutes=10),
+            approved_at=datetime.now(UTC),
         )
     )
     approval_request = (
@@ -3967,14 +3965,14 @@ def test_webex_missing_target_for_mute_returns_selection_card() -> None:
     from shared.contracts import (
         ActionProposal,
         ExecutionMode,
-        Intent,
         InboundUserMessage,
+        Intent,
         MessageSource,
-        OrganizationDeviceRecord,
         OrchestrationDecision,
+        OrganizationDeviceRecord,
         ProviderSettings,
-        SetMicrophoneMuteParams,
         SessionContext,
+        SetMicrophoneMuteParams,
     )
 
     class BlankTargetMuteProvider(LLMProvider):
@@ -4076,11 +4074,11 @@ def test_webex_follow_up_mic_mute_repeats_selection_card_when_target_still_missi
     from shared.contracts import (
         ActionProposal,
         ExecutionMode,
-        Intent,
         InboundUserMessage,
+        Intent,
         MessageSource,
-        OrganizationDeviceRecord,
         OrchestrationDecision,
+        OrganizationDeviceRecord,
         ProviderSettings,
         SessionContext,
         SetMicrophoneMuteParams,
@@ -4304,11 +4302,11 @@ def test_webex_missing_target_for_volume_returns_selection_card() -> None:
     from shared.contracts import (
         ActionProposal,
         ExecutionMode,
-        Intent,
         InboundUserMessage,
+        Intent,
         MessageSource,
-        OrganizationDeviceRecord,
         OrchestrationDecision,
+        OrganizationDeviceRecord,
         ProviderSettings,
         SessionContext,
         SetVolumeParams,
@@ -4402,11 +4400,11 @@ def test_webex_follow_up_volume_repeats_selection_card_when_target_still_missing
     from shared.contracts import (
         ActionProposal,
         ExecutionMode,
-        Intent,
         InboundUserMessage,
+        Intent,
         MessageSource,
-        OrganizationDeviceRecord,
         OrchestrationDecision,
+        OrganizationDeviceRecord,
         ProviderSettings,
         SessionContext,
         SetVolumeParams,
@@ -5227,10 +5225,10 @@ def test_admin_auth_browser_flow_sets_cookie_and_logout_clears_access() -> None:
     )
 
     approval_response = scoped_client.post(
-        (
+
             f"/debug/approvals/{pending_approval.request_id}?approved=true"
             f"&user_id=person-1&email=youngcle@cisco.com&admin_session_id={session_id}"
-        )
+
     )
     assert approval_response.status_code == 200
 
@@ -5275,10 +5273,10 @@ def test_admin_auth_rejects_mismatched_admin_session_id() -> None:
     )
 
     reject_response = scoped_client.post(
-        (
+
             f"/debug/approvals/{pending_approval.request_id}?approved=true"
             "&user_id=person-1&email=youngcle@cisco.com&admin_session_id=wrong-session"
-        )
+
     )
     assert reject_response.status_code == 200
     reject_payload = cast(object, reject_response.json())
@@ -5844,8 +5842,8 @@ def test_setting_option_request_returns_toggle_selection_card_with_device_dropdo
         ExecutionMode,
         InboundUserMessage,
         MessageSource,
-        OrganizationDeviceRecord,
         OrchestrationDecision,
+        OrganizationDeviceRecord,
         ProviderSettings,
         SessionContext,
     )

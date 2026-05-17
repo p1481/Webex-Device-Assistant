@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import logging
 import sys
-from datetime import datetime, timedelta, timezone
-from uuid import uuid4
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Annotated, ClassVar
-from typing import cast
+from datetime import UTC, datetime, timedelta
+from typing import Annotated, ClassVar, cast
+from uuid import uuid4
 
 from fastapi import (
     BackgroundTasks,
@@ -22,13 +21,13 @@ from pydantic import BaseModel, ConfigDict
 
 from admin_page import router as admin_page_router
 from assistant_app.action_registry import build_default_action_registry
-from assistant_app.agentic_tool_runtime import AllLlmToolRuntime
 from assistant_app.admin_auth import (
     attach_admin_session_cookie,
     clear_admin_session_cookie,
     get_authenticated_admin_session,
 )
 from assistant_app.admin_service import AdminService
+from assistant_app.agentic_tool_runtime import AllLlmToolRuntime
 from assistant_app.approval_manager import ApprovalManager
 from assistant_app.config import AppConfig
 from assistant_app.memory_store import InMemorySessionStore
@@ -63,7 +62,6 @@ from shared.contracts import (
     RuntimeAdminSettingsUpdate,
     StartupConfigStatus,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +125,7 @@ def _configure_logging() -> None:
         handler.setFormatter(
             logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s")
         )
-        setattr(handler, "_assistant_app_handler", True)
+        handler._assistant_app_handler = True
         root_logger.addHandler(handler)
 
     for logger_name in (
@@ -481,7 +479,7 @@ def build_app() -> FastAPI:
                 session_id=str(uuid4()),
                 email=payload.email,
                 approval_request_id="",
-                expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+                expires_at=datetime.now(UTC) + timedelta(minutes=10),
             )
         )
         approval_request = approval_manager.create_admin_auth_request(
@@ -520,7 +518,7 @@ def build_app() -> FastAPI:
             raise HTTPException(status_code=404, detail="Admin auth session not found.")
         if (
             auth_session.expires_at is not None
-            and auth_session.expires_at <= datetime.now(timezone.utc)
+            and auth_session.expires_at <= datetime.now(UTC)
         ):
             admin_service.delete_admin_auth_session(session_id)
             clear_admin_session_cookie(response)
@@ -537,7 +535,7 @@ def build_app() -> FastAPI:
         if status in {"approved", "executed"}:
             if not auth_session.approved:
                 auth_session.approved = True
-                auth_session.approved_at = datetime.now(timezone.utc)
+                auth_session.approved_at = datetime.now(UTC)
                 _ = admin_service.update_admin_auth_session(auth_session)
             attach_admin_session_cookie(response, request, auth_session.session_id)
         return AdminAuthStatusResponse(

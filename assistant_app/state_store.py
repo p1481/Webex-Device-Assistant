@@ -1,21 +1,21 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from threading import RLock
-from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field
 
 from assistant_app.ollama_support import DEFAULT_OLLAMA_BASE_URL, DEFAULT_OLLAMA_MODEL
 from shared.contracts import (
-    AdminAuthSession,
     ActionRegistryItem,
+    AdminAuthSession,
+    AdminStats,
     ApprovalDecision,
     ApprovalRequest,
     ApprovalStatus,
-    AdminStats,
     AuditRecord,
     CommandPolicy,
     Intent,
@@ -225,7 +225,7 @@ class InMemoryStateStore:
             return None
 
         request.status = ApprovalStatus.EXECUTED
-        request.resolved_at = datetime.now(timezone.utc)
+        request.resolved_at = datetime.now(UTC)
         self._approval_requests[request_id] = request
         return request.model_copy(deep=True)
 

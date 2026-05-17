@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from uuid import uuid4
 
@@ -43,7 +43,7 @@ class ApprovalRequest(BaseModel):
     correlation_id: str | None = None
     expires_at: datetime | None = None
     consumed_at: datetime | None = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     resolved_at: datetime | None = None
 
 
@@ -55,4 +55,4 @@ class ApprovalDecision(BaseModel):
     admin_session_id: str | None = None
     attachment_action_id: str | None = None
     correlation_id: str | None = None
-    decided_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    decided_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

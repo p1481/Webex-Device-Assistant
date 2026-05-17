@@ -123,12 +123,11 @@ def test_real_mode_requires_webex_bot_token() -> None:
             "WEBEX_BOT_PERSON_ID": "bot-person-id",
             "WEBEX_WEBHOOK_SECRET": "secret",
         }
+    ), pytest.raises(
+        ValueError,
+        match="WEBEX_BOT_TOKEN is required when WEBEX_MOCK_MODE=false.",
     ):
-        with pytest.raises(
-            ValueError,
-            match="WEBEX_BOT_TOKEN is required when WEBEX_MOCK_MODE=false.",
-        ):
-            _ = AppConfig.from_env()
+        _ = AppConfig.from_env()
 
 
 def test_real_mode_requires_webhook_secret() -> None:
@@ -139,12 +138,11 @@ def test_real_mode_requires_webhook_secret() -> None:
             "WEBEX_BOT_PERSON_ID": "bot-person-id",
             "WEBEX_WEBHOOK_SECRET": None,
         }
+    ), pytest.raises(
+        ValueError,
+        match="WEBEX_WEBHOOK_SECRET is required when WEBEX_MOCK_MODE=false.",
     ):
-        with pytest.raises(
-            ValueError,
-            match="WEBEX_WEBHOOK_SECRET is required when WEBEX_MOCK_MODE=false.",
-        ):
-            _ = AppConfig.from_env()
+        _ = AppConfig.from_env()
 
 
 def test_gateway_resolve_bot_identity_rejects_mismatched_config(
@@ -314,12 +312,11 @@ def test_reconcile_mode_requires_target_url() -> None:
             "WEBEX_WEBHOOK_RECONCILE_ON_STARTUP": "true",
             "WEBEX_WEBHOOK_TARGET_URL": None,
         }
+    ), pytest.raises(
+        ValueError,
+        match="WEBEX_WEBHOOK_TARGET_URL is required when WEBEX_MOCK_MODE=false.",
     ):
-        with pytest.raises(
-            ValueError,
-            match="WEBEX_WEBHOOK_TARGET_URL is required when WEBEX_MOCK_MODE=false.",
-        ):
-            _ = AppConfig.from_env()
+        _ = AppConfig.from_env()
 
 
 def test_real_device_mode_requires_token_manager_api_key() -> None:
@@ -328,12 +325,11 @@ def test_real_device_mode_requires_token_manager_api_key() -> None:
             "DEVICE_MOCK_MODE": "false",
             "WEBEX_TOKEN_MANAGER_API_KEY": None,
         }
+    ), pytest.raises(
+        ValueError,
+        match="WEBEX_TOKEN_MANAGER_API_KEY is required when DEVICE_MOCK_MODE=false.",
     ):
-        with pytest.raises(
-            ValueError,
-            match="WEBEX_TOKEN_MANAGER_API_KEY is required when DEVICE_MOCK_MODE=false.",
-        ):
-            _ = AppConfig.from_env()
+        _ = AppConfig.from_env()
 
 
 def test_real_mode_requires_https_target_url_when_provided() -> None:
@@ -345,11 +341,10 @@ def test_real_mode_requires_https_target_url_when_provided() -> None:
             "WEBEX_WEBHOOK_SECRET": "secret",
             "WEBEX_WEBHOOK_TARGET_URL": "http://example.com/webhooks/webex/messages",
         }
+    ), pytest.raises(
+        ValueError, match="WEBEX_WEBHOOK_TARGET_URL must be a valid https URL."
     ):
-        with pytest.raises(
-            ValueError, match="WEBEX_WEBHOOK_TARGET_URL must be a valid https URL."
-        ):
-            _ = AppConfig.from_env()
+        _ = AppConfig.from_env()
 
 
 def test_real_mode_locks_webhook_subscription_to_messages_created() -> None:
@@ -361,11 +356,10 @@ def test_real_mode_locks_webhook_subscription_to_messages_created() -> None:
             "WEBEX_WEBHOOK_SECRET": "secret",
             "WEBEX_WEBHOOK_RESOURCE": "rooms",
         }
+    ), pytest.raises(
+        ValueError, match="WEBEX_WEBHOOK_RESOURCE must be 'messages'."
     ):
-        with pytest.raises(
-            ValueError, match="WEBEX_WEBHOOK_RESOURCE must be 'messages'."
-        ):
-            _ = AppConfig.from_env()
+        _ = AppConfig.from_env()
 
 
 def test_gateway_webhook_lifecycle_uses_official_endpoints(
@@ -3035,9 +3029,8 @@ def test_startup_reconcile_failure_does_not_block_app(
             "WEBEX_WEBHOOK_RECONCILE_ON_STARTUP": "true",
             "WEBEX_WEBHOOK_TARGET_URL": "https://example.com/webhooks/webex/messages",
         }
-    ):
-        with TestClient(build_app()) as client:
-            response = client.get("/healthz")
+    ), TestClient(build_app()) as client:
+        response = client.get("/healthz")
 
     assert response.status_code == 200
 
@@ -3081,25 +3074,24 @@ def test_webhook_endpoint_verifies_signature_and_processes_message(
             "WEBEX_BOT_PERSON_ID": "bot-person-id",
             "WEBEX_WEBHOOK_SECRET": "secret",
         }
-    ):
-        with TestClient(build_app()) as client:
-            payload = {
-                "id": "event-1",
-                "resource": "messages",
-                "event": "created",
-                "data": {"id": "message-1", "roomId": "room-1", "personId": "person-1"},
-            }
-            raw_body = json.dumps(payload).encode("utf-8")
-            signature = hmac.new(b"secret", raw_body, hashlib.sha1).hexdigest()
+    ), TestClient(build_app()) as client:
+        payload = {
+            "id": "event-1",
+            "resource": "messages",
+            "event": "created",
+            "data": {"id": "message-1", "roomId": "room-1", "personId": "person-1"},
+        }
+        raw_body = json.dumps(payload).encode("utf-8")
+        signature = hmac.new(b"secret", raw_body, hashlib.sha1).hexdigest()
 
-            response = client.post(
-                "/webhooks/webex/messages",
-                content=raw_body,
-                headers={
-                    "Content-Type": "application/json",
-                    "X-Spark-Signature": signature,
-                },
-            )
+        response = client.post(
+            "/webhooks/webex/messages",
+            content=raw_body,
+            headers={
+                "Content-Type": "application/json",
+                "X-Spark-Signature": signature,
+            },
+        )
 
     assert response.status_code == 202
     assert response.json() == {"status": "accepted", "event_id": "event-1"}
@@ -3122,9 +3114,8 @@ def test_startup_identity_resolution_failure_does_not_block_app(
             "WEBEX_BOT_PERSON_ID": "bot-person-id",
             "WEBEX_WEBHOOK_SECRET": "secret",
         }
-    ):
-        with TestClient(build_app()) as client:
-            response = client.get("/healthz")
+    ), TestClient(build_app()) as client:
+        response = client.get("/healthz")
 
     assert response.status_code == 200
 
@@ -3144,10 +3135,9 @@ def test_startup_identity_mismatch_blocks_app(
             "WEBEX_BOT_PERSON_ID": "bot-person-id",
             "WEBEX_WEBHOOK_SECRET": "secret",
         }
-    ):
-        with pytest.raises(WebexBotIdentityMismatchError, match="configured mismatch"):
-            with TestClient(build_app()):
-                pass
+    ), pytest.raises(WebexBotIdentityMismatchError, match="configured mismatch"):
+        with TestClient(build_app()):
+            pass
 
 
 def test_process_message_event_retries_same_event_after_send_failure() -> None:
@@ -4377,9 +4367,7 @@ def test_device_client_executes_supported_cloud_xapi_commands(
     )
 
     method = getattr(device_client, method_name)
-    if method_name in {"reboot", "hang_up", "factory_reset"}:
-        result = asyncio.run(method("Board Pro", **kwargs))
-    elif method_name in {
+    if method_name in {"reboot", "hang_up", "factory_reset"} or method_name in {
         "webex_join",
         "dial",
         "set_microphone_mute",
