@@ -9,10 +9,12 @@ from assistant_app.providers.rule_based_extractors import (
     MatrixSwapMatch,
     MatrixUnassignMatch,
 )
+from assistant_app.providers.rule_based_handlers import audio as _audio_handler
 from assistant_app.providers.rule_based_handlers import booking as _booking_handler
 from assistant_app.providers.rule_based_handlers import camera as _camera_handler
 from assistant_app.providers.rule_based_handlers import meeting as _meeting_handler
 from assistant_app.providers.rule_based_handlers import system as _system_handler
+from assistant_app.providers.rule_based_handlers import video as _video_handler
 from shared.contracts import (
     ActionProposal,
     AssignMatrixParams,
@@ -27,16 +29,9 @@ from shared.contracts import (
     PendingActionProposal,
     ProviderSettings,
     SessionContext,
-    SetDisplayModeParams,
-    SetDisplayRoleParams,
-    SetLayoutParams,
-    SetMicrophoneModeParams,
-    SetMicrophoneMuteParams,
     SetPresentationParams,
     SetSpeakerTrackParams,
     SetStandbyParams,
-    SetVideoMuteParams,
-    SetVolumeParams,
     SwapMatrixParams,
     SwitchInputSourceParams,
     UnassignMatrixParams,
@@ -168,125 +163,27 @@ class RuleBasedProvider:
         if meeting_decision is not None:
             return meeting_decision
 
-        if self._mentions_microphone_toggle(lowered):
-            muted = self._extract_toggle_state(
-                lowered,
-                enable_words={
-                    "mute microphone",
-                    "mute mic",
-                    "microphone mute",
-                    "mic mute",
-                    "mute",
-                    "음소거",
-                    "뮤트",
-                },
-                disable_words={
-                    "unmute microphone",
-                    "unmute mic",
-                    "microphone unmute",
-                    "mic unmute",
-                    "unmute",
-                    "음소거 해제",
-                    "언뮤트",
-                },
-                enable_value=True,
-            )
-            if muted is not None:
-                return OrchestrationDecision(
-                    action_proposal=ActionProposal(
-                        intent=Intent.SET_MICROPHONE_MUTE,
-                        summary="Change microphone mute state.",
-                        set_microphone_mute=SetMicrophoneMuteParams(
-                            target_device=target_device,
-                            muted=muted,
-                        ),
-                    )
-                )
+        audio_decision = _audio_handler.handle(
+            text=text,
+            lowered=lowered,
+            target_device=target_device,
+            mentioned_target_device=mentioned_target_device,
+            session=session,
+            provider=self,
+        )
+        if audio_decision is not None:
+            return audio_decision
 
-        if "microphone mode" in lowered or "mic mode" in lowered:
-            mode = self._extract_microphone_mode(lowered)
-            if mode is not None:
-                return OrchestrationDecision(
-                    action_proposal=ActionProposal(
-                        intent=Intent.SET_MICROPHONE_MODE,
-                        summary="Change microphone processing mode.",
-                        set_microphone_mode=SetMicrophoneModeParams(
-                            target_device=target_device,
-                            mode=mode,
-                        ),
-                    )
-                )
-
-        if (
-            "set volume" in lowered
-            or lowered.startswith("volume ")
-            or "볼륨" in lowered
-        ):
-            level = self._extract_volume_level(lowered)
-            if level is not None:
-                if mentioned_target_device is None:
-                    return OrchestrationDecision(
-                        pending_action=PendingActionProposal(
-                            intent=Intent.SET_VOLUME,
-                            summary="Set device volume.",
-                            level=level,
-                        )
-                    )
-                return OrchestrationDecision(
-                    action_proposal=ActionProposal(
-                        intent=Intent.SET_VOLUME,
-                        summary="Set device volume.",
-                        set_volume=SetVolumeParams(
-                            target_device=target_device, level=level
-                        ),
-                    )
-                )
-            return OrchestrationDecision(
-                pending_action=PendingActionProposal(
-                    intent=Intent.SET_VOLUME,
-                    summary="Set device volume.",
-                    target_device=mentioned_target_device,
-                )
-            )
-
-        if self._mentions_video_toggle(lowered):
-            muted = self._extract_toggle_state(
-                lowered,
-                enable_words={
-                    "video mute",
-                    "mute video",
-                    "camera off",
-                    "stop video",
-                    "turn off video",
-                    "비디오 꺼",
-                    "카메라 꺼",
-                    "비디오 중지",
-                    "카메라 중지",
-                },
-                disable_words={
-                    "video unmute",
-                    "unmute video",
-                    "camera on",
-                    "start video",
-                    "turn on video",
-                    "비디오 켜",
-                    "카메라 켜",
-                    "비디오 시작",
-                    "카메라 시작",
-                },
-                enable_value=True,
-            )
-            if muted is not None:
-                return OrchestrationDecision(
-                    action_proposal=ActionProposal(
-                        intent=Intent.SET_VIDEO_MUTE,
-                        summary="Change main video mute state.",
-                        set_video_mute=SetVideoMuteParams(
-                            target_device=target_device,
-                            muted=muted,
-                        ),
-                    )
-                )
+        video_mute_decision = _video_handler.handle_video_mute(
+            text=text,
+            lowered=lowered,
+            target_device=target_device,
+            mentioned_target_device=mentioned_target_device,
+            session=session,
+            provider=self,
+        )
+        if video_mute_decision is not None:
+            return video_mute_decision
 
         camera_set_decision = _camera_handler.handle_set_mode_and_selfview(
             text=text,
@@ -441,53 +338,16 @@ class RuleBasedProvider:
                 )
             )
 
-        layout_name = self._extract_layout_name(text)
-        if layout_name is not None and (
-            "layout" in lowered or layout_name == "Prominent"
-        ):
-            return OrchestrationDecision(
-                action_proposal=ActionProposal(
-                    intent=Intent.SET_LAYOUT,
-                    summary="Change the video layout.",
-                    set_layout=SetLayoutParams(
-                        target_device=target_device,
-                        layout_name=layout_name,
-                    ),
-                )
-            )
-
-        display_mode = self._extract_display_mode(lowered)
-        if (
-            "display mode" in lowered
-            or "monitor mode" in lowered
-            or display_mode is not None
-        ) and display_mode is not None:
-            return OrchestrationDecision(
-                action_proposal=ActionProposal(
-                    intent=Intent.SET_DISPLAY_MODE,
-                    summary="Change the display mode.",
-                    set_display_mode=SetDisplayModeParams(
-                        target_device=target_device,
-                        mode=display_mode,
-                    ),
-                )
-            )
-
-        if "display role" in lowered or "monitor role" in lowered:
-            connector_id = self._extract_connector_id(text)
-            display_role = self._extract_display_role(lowered)
-            if connector_id is not None and display_role is not None:
-                return OrchestrationDecision(
-                    action_proposal=ActionProposal(
-                        intent=Intent.SET_DISPLAY_ROLE,
-                        summary="Change a display connector role.",
-                        set_display_role=SetDisplayRoleParams(
-                            target_device=target_device,
-                            connector_id=connector_id,
-                            role=display_role,
-                        ),
-                    )
-                )
+        video_late_decision = _video_handler.handle_layout_and_display(
+            text=text,
+            lowered=lowered,
+            target_device=target_device,
+            mentioned_target_device=mentioned_target_device,
+            session=session,
+            provider=self,
+        )
+        if video_late_decision is not None:
+            return video_late_decision
 
         camera_late_decision = _camera_handler.handle_position_and_preset(
             text=text,
