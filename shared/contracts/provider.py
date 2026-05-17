@@ -38,6 +38,7 @@ class ProviderSettings(BaseModel):
     temperature: float | None = None
     max_tokens: int | None = None
     enabled: bool = True
+    render_execution_replies: bool = False
 
 
 class ProviderDescriptor(BaseModel):

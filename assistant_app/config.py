@@ -59,9 +59,9 @@ def _require_literal(name: str, value: str, expected: str) -> None:
 class AppConfig:
     app_name: str = "Webex Device Assistant App"
     admin_state_path: str | None = None
-    default_provider: ProviderKind = ProviderKind.RULE_BASED
-    default_provider_model: str = "rule-based-default"
-    default_provider_base_url: str | None = None
+    default_provider: ProviderKind = ProviderKind.OLLAMA
+    default_provider_model: str = DEFAULT_OLLAMA_MODEL
+    default_provider_base_url: str | None = DEFAULT_OLLAMA_BASE_URL
     webex_api_base: str = "https://webexapis.com/v1"
     webex_bot_token: str | None = None
     webex_bot_person_id: str | None = None
@@ -126,12 +126,12 @@ class AppConfig:
         config = cls(
             admin_state_path=_env_text("ADMIN_STATE_PATH"),
             default_provider=ProviderKind(
-                os.getenv("DEFAULT_PROVIDER", ProviderKind.RULE_BASED.value)
+                os.getenv("DEFAULT_PROVIDER", ProviderKind.OLLAMA.value)
             ),
             default_provider_model=os.getenv(
                 "DEFAULT_PROVIDER_MODEL",
                 DEFAULT_OLLAMA_MODEL
-                if os.getenv("DEFAULT_PROVIDER", ProviderKind.RULE_BASED.value)
+                if os.getenv("DEFAULT_PROVIDER", ProviderKind.OLLAMA.value)
                 == ProviderKind.OLLAMA.value
                 else "rule-based-default",
             ),

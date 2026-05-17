@@ -39,6 +39,8 @@ class ModeRouter:
     ) -> ExecutionResult:
         if execution_request.execution_mode == ExecutionMode.SEPARATED:
             return await self.device_executor.execute(execution_request)
+        if execution_request.execution_mode == ExecutionMode.ALL_LLM:
+            return await self.direct_tool_adapter.execute(execution_request)
         if self.all_llm_tool_runtime is not None:
             return await self.all_llm_tool_runtime.execute(execution_request)
         return await self.direct_tool_adapter.execute(execution_request)

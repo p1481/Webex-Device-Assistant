@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field
 
+from assistant_app.ollama_support import DEFAULT_OLLAMA_BASE_URL, DEFAULT_OLLAMA_MODEL
 from shared.contracts import (
     AdminAuthSession,
     ActionRegistryItem,
@@ -31,12 +32,13 @@ from shared.policy_defaults import DEFAULT_COMMAND_POLICIES
 
 
 class PersistedProviderSettings(BaseModel):
-    provider: ProviderKind = ProviderKind.RULE_BASED
-    model: str | None = "rule-based-default"
-    base_url: str | None = None
+    provider: ProviderKind = ProviderKind.OLLAMA
+    model: str | None = DEFAULT_OLLAMA_MODEL
+    base_url: str | None = DEFAULT_OLLAMA_BASE_URL
     temperature: float | None = None
     max_tokens: int | None = None
     enabled: bool = True
+    render_execution_replies: bool = False
 
 
 class PersistedControlPlaneState(BaseModel):
@@ -60,8 +62,9 @@ class InMemoryStateStore:
             DEFAULT_COMMAND_POLICIES
         )
         self._provider_settings = ProviderSettings(
-            provider=ProviderKind.RULE_BASED,
-            model="rule-based-default",
+            provider=ProviderKind.OLLAMA,
+            model=DEFAULT_OLLAMA_MODEL,
+            base_url=DEFAULT_OLLAMA_BASE_URL,
         )
         self._provider_descriptors: list[ProviderDescriptor] = []
         self._runtime_admin_settings = RuntimeAdminSettings()
@@ -364,6 +367,7 @@ class FileBackedStateStore(InMemoryStateStore):
                 temperature=document.provider_settings.temperature,
                 max_tokens=document.provider_settings.max_tokens,
                 enabled=document.provider_settings.enabled,
+                render_execution_replies=document.provider_settings.render_execution_replies,
             )
 
         self._policy_settings = dict(DEFAULT_COMMAND_POLICIES)
@@ -399,6 +403,7 @@ class FileBackedStateStore(InMemoryStateStore):
                 temperature=self._provider_settings.temperature,
                 max_tokens=self._provider_settings.max_tokens,
                 enabled=self._provider_settings.enabled,
+                render_execution_replies=self._provider_settings.render_execution_replies,
             ),
             policies=persisted_policies,
             approvals=self.list_approval_requests(),

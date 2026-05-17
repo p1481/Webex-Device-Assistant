@@ -347,6 +347,7 @@ def test_ollama_provider_can_render_execution_reply_markdown() -> None:
     from shared.contracts import ExecutionMode, ExecutionResult, ExecutionStatus, Intent
 
     provider = OllamaProvider(default_target_device="demo-roomkit")
+    provider.settings.render_execution_replies = True
 
     async def fake_post(url: str, json: dict[str, object]) -> httpx.Response:
         assert url == "/chat"
@@ -355,9 +356,7 @@ def test_ollama_provider_can_render_execution_reply_markdown() -> None:
         return httpx.Response(
             200,
             request=httpx.Request("POST", "http://test/chat"),
-            json={
-                "message": {"content": "### 상태 요약\n- Home Office는 온라인입니다."}
-            },
+            json={"message": {"content": "### 상태 요약\n- Home Office는 온라인입니다."}},
         )
 
     class FakeAsyncClient:
@@ -378,7 +377,7 @@ def test_ollama_provider_can_render_execution_reply_markdown() -> None:
 
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr(
-        "assistant_app.providers.ollama.httpx.AsyncClient", FakeAsyncClient
+        "assistant_app.providers.ollama.OLLAMA_ASYNC_CLIENT", FakeAsyncClient
     )
     try:
         rendered = asyncio.run(
@@ -411,6 +410,7 @@ def test_ollama_provider_render_payload_omits_null_status_fields() -> None:
     )
 
     provider = OllamaProvider(default_target_device="demo-roomkit")
+    provider.settings.render_execution_replies = True
 
     async def fake_post(url: str, payload_json: dict[str, object]) -> httpx.Response:
         assert url == "/chat"
@@ -447,7 +447,7 @@ def test_ollama_provider_render_payload_omits_null_status_fields() -> None:
 
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr(
-        "assistant_app.providers.ollama.httpx.AsyncClient", FakeAsyncClient
+        "assistant_app.providers.ollama.OLLAMA_ASYNC_CLIENT", FakeAsyncClient
     )
     try:
         rendered = asyncio.run(
@@ -490,6 +490,7 @@ def test_ollama_provider_render_payload_omits_null_room_booking_fields() -> None
     )
 
     provider = OllamaProvider(default_target_device="demo-roomkit")
+    provider.settings.render_execution_replies = True
 
     async def fake_post(url: str, payload_json: dict[str, object]) -> httpx.Response:
         assert url == "/chat"
@@ -528,7 +529,7 @@ def test_ollama_provider_render_payload_omits_null_room_booking_fields() -> None
 
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr(
-        "assistant_app.providers.ollama.httpx.AsyncClient", FakeAsyncClient
+        "assistant_app.providers.ollama.OLLAMA_ASYNC_CLIENT", FakeAsyncClient
     )
     try:
         rendered = asyncio.run(
@@ -557,7 +558,6 @@ def test_ollama_provider_render_payload_omits_null_room_booking_fields() -> None
         monkeypatch.undo()
 
     assert rendered == "### booking summary\n- null fields omitted"
-
 
 def test_orchestrator_returns_markdown_when_provider_renders_it() -> None:
     from assistant_app.approval_manager import ApprovalManager
@@ -3074,7 +3074,7 @@ def test_ollama_fallback_preserves_pending_follow_up() -> None:
 
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr(
-        "assistant_app.providers.ollama.httpx.AsyncClient", FakeAsyncClient
+        "assistant_app.providers.ollama.OLLAMA_ASYNC_CLIENT", FakeAsyncClient
     )
     try:
         decision = asyncio.run(
@@ -3149,7 +3149,7 @@ def test_ollama_rejects_internal_meeting_identifier_and_asks_follow_up() -> None
 
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr(
-        "assistant_app.providers.ollama.httpx.AsyncClient", FakeAsyncClient
+        "assistant_app.providers.ollama.OLLAMA_ASYNC_CLIENT", FakeAsyncClient
     )
     try:
         decision = asyncio.run(
@@ -3224,7 +3224,7 @@ def test_ollama_korean_join_without_meeting_id_asks_follow_up() -> None:
 
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr(
-        "assistant_app.providers.ollama.httpx.AsyncClient", FakeAsyncClient
+        "assistant_app.providers.ollama.OLLAMA_ASYNC_CLIENT", FakeAsyncClient
     )
     try:
         decision = asyncio.run(
@@ -5301,7 +5301,7 @@ def test_admin_provider_endpoints_are_available() -> None:
     body = as_mapping(payload)
     assert "providers" in body
     active = as_mapping(body["active"])
-    assert active["provider"] == "rule_based"
+    assert active["provider"] == "ollama"
 
 
 def test_admin_settings_endpoint_exposes_default_admin_user() -> None:
@@ -6451,7 +6451,7 @@ def test_ollama_provider_uses_llm_before_rule_based_for_contextual_korean_toggle
         )
     )
     _ = build_client_queue(llm_client)
-    monkeypatch.setattr("assistant_app.providers.ollama.httpx.AsyncClient", async_client_factory)
+    monkeypatch.setattr("assistant_app.providers.ollama.OLLAMA_ASYNC_CLIENT", async_client_factory)
 
     provider = OllamaProvider(default_target_device="")
     provider.bind_settings(
@@ -6506,7 +6506,7 @@ def test_ollama_provider_falls_back_to_rule_based_when_llm_returns_plain_non_act
         )
     )
     _ = build_client_queue(llm_client)
-    monkeypatch.setattr("assistant_app.providers.ollama.httpx.AsyncClient", async_client_factory)
+    monkeypatch.setattr("assistant_app.providers.ollama.OLLAMA_ASYNC_CLIENT", async_client_factory)
 
     provider = OllamaProvider(default_target_device="")
     provider.bind_settings(
@@ -6617,7 +6617,7 @@ def test_ollama_provider_falls_back_for_invalid_llm_korean_webex_join_payload(
         async def post(self, path: str, json: dict[str, object]) -> FakeResponse:
             return FakeResponse()
 
-    monkeypatch.setattr("assistant_app.providers.ollama.httpx.AsyncClient", FakeAsyncClient)
+    monkeypatch.setattr("assistant_app.providers.ollama.OLLAMA_ASYNC_CLIENT", FakeAsyncClient)
 
     decision = asyncio.run(
         provider.analyze_message(
@@ -6692,7 +6692,7 @@ def test_ollama_provider_falls_back_for_invalid_llm_korean_environment_payload(
         async def post(self, path: str, json: dict[str, object]) -> FakeResponse:
             return FakeResponse()
 
-    monkeypatch.setattr("assistant_app.providers.ollama.httpx.AsyncClient", FakeAsyncClient)
+    monkeypatch.setattr("assistant_app.providers.ollama.OLLAMA_ASYNC_CLIENT", FakeAsyncClient)
 
     decision = asyncio.run(
         provider.analyze_message(
@@ -6804,28 +6804,29 @@ def test_missing_webex_join_accepts_spaced_number_follow_up_then_uses_default_we
 
 
 def test_room_bar_drop_routes_to_hang_up_with_rule_based_fallback() -> None:
-    scoped_client = build_authenticated_client()
-    policy_response = scoped_client.put(
-        "/admin/policies/hang_up",
-        json={
-            "allowed_modes": ["separated", "all-llm"],
-            "risk_level": "low",
-            "approval_state": "not_required",
-            "reason": "Allow direct hangup execution in debug flow test.",
-        },
-    )
-    assert policy_response.status_code == 200
-    response = scoped_client.post(
-        "/debug/messages",
-        json={
-            "session_id": "room-bar-drop-fallback",
-            "user_id": "debug-user",
-            "text": "Room Bar drop",
-            "source": "webex",
-            "room_id": "debug-room",
-            "target_device": "Room Bar",
-        },
-    )
+    with temporary_env({"DEFAULT_PROVIDER": "rule_based"}):
+        scoped_client = build_authenticated_client()
+        policy_response = scoped_client.put(
+            "/admin/policies/hang_up",
+            json={
+                "allowed_modes": ["separated", "all-llm"],
+                "risk_level": "low",
+                "approval_state": "not_required",
+                "reason": "Allow direct hangup execution in debug flow test.",
+            },
+        )
+        assert policy_response.status_code == 200
+        response = scoped_client.post(
+            "/debug/messages",
+            json={
+                "session_id": "room-bar-drop-fallback",
+                "user_id": "debug-user",
+                "text": "Room Bar drop",
+                "source": "webex",
+                "room_id": "debug-room",
+                "target_device": "Room Bar",
+            },
+        )
     assert response.status_code == 200
     body = response.json()
     reply = as_mapping(body["reply"])
@@ -6833,3 +6834,694 @@ def test_room_bar_drop_routes_to_hang_up_with_rule_based_fallback() -> None:
     assert isinstance(text, str)
     assert "hang up requested for Room Bar" in text or "hang up requested for room bar" in text.lower()
     assert "invalid action payload" not in text.lower()
+
+
+
+def test_selfview_request_prompts_device_first_then_filtered_capability_options() -> None:
+    from assistant_app.approval_manager import ApprovalManager
+    from assistant_app.memory_store import InMemorySessionStore
+    from assistant_app.mode_router import ModeRouter
+    from assistant_app.orchestrator import Orchestrator
+    from assistant_app.policy_evaluator import PolicyEvaluator
+    from assistant_app.providers.rule_based import RuleBasedProvider
+    from assistant_app.state_store import InMemoryStateStore
+    from shared.contracts import (
+        ExecutionMode,
+        InboundUserMessage,
+        MessageSource,
+        OrganizationDeviceRecord,
+    )
+
+    async def list_devices() -> list[OrganizationDeviceRecord]:
+        return [
+            OrganizationDeviceRecord(
+                device_id="device-room-bar",
+                display_name="Room Bar",
+                product="Cisco Room Bar",
+                place="HQ 7F",
+                online=True,
+            ),
+            OrganizationDeviceRecord(
+                device_id="device-navigator",
+                display_name="Navigator",
+                product="Cisco Room Navigator",
+                place="HQ 7F",
+                online=True,
+            ),
+        ]
+
+    class UnusedModeRouter:
+        async def execute(self, *args: object, **kwargs: object) -> object:
+            raise AssertionError("execute should not be called before device and option selection")
+
+        async def execute_request(self, execution_request: object) -> object:
+            raise AssertionError("execute_request should not be called before device and option selection")
+
+        def build_request(self, *args: object, **kwargs: object) -> object:
+            raise AssertionError("build_request should not be called before device and option selection")
+
+    memory_store = InMemorySessionStore()
+    approval_manager = ApprovalManager(memory_store, InMemoryStateStore())
+    orchestrator = Orchestrator(
+        RuleBasedProvider(default_target_device=""),
+        memory_store,
+        PolicyEvaluator(default_mode=ExecutionMode.ALL_LLM),
+        cast(ModeRouter, cast(object, UnusedModeRouter())),
+        approval_manager,
+        device_lister=list_devices,
+    )
+
+    first_reply = asyncio.run(
+        orchestrator.handle_message(
+            InboundUserMessage(
+                session_id="capability-selfview-device-first",
+                user_id="person-1",
+                text="turn on Selfview",
+                source=MessageSource.WEBEX,
+                room_id="room-1",
+                preferred_mode=ExecutionMode.ALL_LLM,
+            )
+        )
+    )
+
+    assert len(first_reply.attachments) == 1
+    content = as_mapping(as_mapping(first_reply.attachments[0])["content"])
+    body = as_sequence(content["body"])
+    device_choice_set = as_mapping(body[2])
+    assert device_choice_set["id"] == "selectedValue"
+    assert [as_mapping(choice)["value"] for choice in as_sequence(device_choice_set["choices"])] == [
+        "Room Bar"
+    ]
+    assert "Navigator" not in json.dumps(content, ensure_ascii=False)
+
+    pending_action = memory_store.get_pending_action("capability-selfview-device-first", "person-1")
+    assert pending_action is not None
+
+    second_reply, handled = asyncio.run(
+        orchestrator.resume_pending_action_selection(
+            pending_action.pending_action_id,
+            "target_device",
+            "Room Bar",
+            "person-1",
+            "room-1",
+        )
+    )
+
+    assert handled is True
+    assert len(second_reply.attachments) == 1
+    option_content = as_mapping(as_mapping(second_reply.attachments[0])["content"])
+    option_body = as_sequence(option_content["body"])
+    option_choice_set = as_mapping(option_body[2])
+    assert option_choice_set["id"] == "settingValue"
+    assert [as_mapping(choice)["value"] for choice in as_sequence(option_choice_set["choices"])] == [
+        "true",
+        "false",
+    ]
+    assert "대상 장치: Room Bar" in json.dumps(option_content, ensure_ascii=False)
+
+
+def test_device_list_formats_workspace_name_with_model_and_capabilities() -> None:
+    from assistant_app.approval_manager import ApprovalManager
+    from assistant_app.memory_store import InMemorySessionStore
+    from assistant_app.mode_router import ModeRouter
+    from assistant_app.orchestrator import Orchestrator
+    from assistant_app.policy_evaluator import PolicyEvaluator
+    from assistant_app.providers.rule_based import RuleBasedProvider
+    from assistant_app.state_store import InMemoryStateStore
+    from shared.contracts import ExecutionMode, OrganizationDeviceRecord
+
+    memory_store = InMemorySessionStore()
+    orchestrator = Orchestrator(
+        RuleBasedProvider(default_target_device=""),
+        memory_store,
+        PolicyEvaluator(default_mode=ExecutionMode.ALL_LLM),
+        cast(ModeRouter, cast(object, object())),
+        ApprovalManager(memory_store, InMemoryStateStore()),
+    )
+
+    rendered = orchestrator._format_device_list(
+        [
+            OrganizationDeviceRecord(
+                device_id="device-room-bar",
+                display_name="Executive Room",
+                product="Cisco Room Bar",
+                place="HQ 7F",
+                online=True,
+                connection_status="connected",
+                software_version="RoomOS 11.20",
+            ),
+            OrganizationDeviceRecord(
+                device_id="device-navigator",
+                display_name="Touch Panel",
+                product="Cisco Room Navigator",
+                online=False,
+                connection_status="disconnected",
+            ),
+        ],
+        "allowed",
+    )
+
+    assert "Executive Room (Cisco Room Bar)" in rendered
+    assert "지원 기능: 오디오, 카메라, 디스플레이, 레이아웃, 미팅, 프레젠테이션, 셀프뷰, 스탠바이" in rendered
+    assert "Touch Panel (Cisco Room Navigator)" in rendered
+    assert "지원 기능:" not in rendered.split("Touch Panel (Cisco Room Navigator)", 1)[1]
+    assert "software=RoomOS 11.20" in rendered
+
+
+def test_status_response_is_detailed_korean_sections() -> None:
+    from assistant_app.approval_manager import ApprovalManager
+    from assistant_app.memory_store import InMemorySessionStore
+    from assistant_app.mode_router import ModeRouter
+    from assistant_app.orchestrator import Orchestrator
+    from assistant_app.policy_evaluator import PolicyEvaluator
+    from assistant_app.providers.rule_based import RuleBasedProvider
+    from assistant_app.state_store import InMemoryStateStore
+    from shared.contracts import (
+        DeviceStatusSnapshot,
+        ExecutionMode,
+        ExecutionResult,
+        ExecutionStatus,
+        Intent,
+    )
+
+    memory_store = InMemorySessionStore()
+    orchestrator = Orchestrator(
+        RuleBasedProvider(default_target_device=""),
+        memory_store,
+        PolicyEvaluator(default_mode=ExecutionMode.ALL_LLM),
+        cast(ModeRouter, cast(object, object())),
+        ApprovalManager(memory_store, InMemoryStateStore()),
+    )
+
+    rendered = orchestrator._format_execution_result(
+        ExecutionResult(
+            request_id="req-detailed-status",
+            intent=Intent.GET_STATUS,
+            execution_mode=ExecutionMode.ALL_LLM,
+            status=ExecutionStatus.SUCCESS,
+            message="Status for Executive Room.",
+            device_status=DeviceStatusSnapshot(
+                target_device="Executive Room",
+                source="webex",
+                device_id="device-room-bar",
+                display_name="Executive Room",
+                product="Cisco Room Bar",
+                place="HQ 7F",
+                software_version="RoomOS 11.20",
+                serial_number="SERIAL1",
+                online=True,
+                connection_status="connected",
+                system_state="Initialized",
+                active_interface="Ethernet",
+                ipv4_address="192.0.2.10",
+                volume=55,
+                volume_muted=False,
+                microphones_muted=True,
+                call_active=False,
+                active_call_count=0,
+                presentation_active=True,
+                selfview_mode="On",
+                speakertrack_state="Active",
+                standby_state="Off",
+            ),
+        ),
+        "allowed",
+    )
+
+    assert "**상태 상세**" in rendered
+    assert "장치: Executive Room (Cisco Room Bar)" in rendered
+    assert "연결: online=True, connection=connected, system=Initialized" in rendered
+    assert "네트워크: interface=Ethernet, ipv4=192.0.2.10" in rendered
+    assert "오디오: volume=55, muted=False, microphones_muted=True" in rendered
+    assert "통화/공유: call_active=False, active_call_count=0, presentation_active=True" in rendered
+    assert "카메라/화면: selfview=On, speakertrack=Active" in rendered
+
+
+
+def test_korean_selfview_keyword_starts_device_then_option_flow() -> None:
+    from assistant_app.approval_manager import ApprovalManager
+    from assistant_app.memory_store import InMemorySessionStore
+    from assistant_app.mode_router import ModeRouter
+    from assistant_app.orchestrator import Orchestrator
+    from assistant_app.policy_evaluator import PolicyEvaluator
+    from assistant_app.providers.rule_based import RuleBasedProvider
+    from assistant_app.state_store import InMemoryStateStore
+    from shared.contracts import (
+        ExecutionMode,
+        InboundUserMessage,
+        MessageSource,
+        OrganizationDeviceRecord,
+    )
+
+    async def list_devices() -> list[OrganizationDeviceRecord]:
+        return [
+            OrganizationDeviceRecord(
+                device_id="device-room-bar",
+                display_name="Room Bar",
+                product="Cisco Room Bar",
+                place="HQ 7F",
+                online=True,
+            )
+        ]
+
+    class UnusedModeRouter:
+        async def execute(self, *args: object, **kwargs: object) -> object:
+            raise AssertionError("execute should not be called before device and option selection")
+
+        async def execute_request(self, execution_request: object) -> object:
+            raise AssertionError("execute_request should not be called before device and option selection")
+
+        def build_request(self, *args: object, **kwargs: object) -> object:
+            raise AssertionError("build_request should not be called before device and option selection")
+
+    memory_store = InMemorySessionStore()
+    orchestrator = Orchestrator(
+        RuleBasedProvider(default_target_device=""),
+        memory_store,
+        PolicyEvaluator(default_mode=ExecutionMode.ALL_LLM),
+        cast(ModeRouter, cast(object, UnusedModeRouter())),
+        ApprovalManager(memory_store, InMemoryStateStore()),
+        device_lister=list_devices,
+    )
+
+    reply = asyncio.run(
+        orchestrator.handle_message(
+            InboundUserMessage(
+                session_id="korean-selfview-keyword-flow",
+                user_id="person-1",
+                text="셀프뷰",
+                source=MessageSource.WEBEX,
+                room_id="room-1",
+                preferred_mode=ExecutionMode.ALL_LLM,
+            )
+        )
+    )
+
+    assert reply.text != "What should I do next?"
+    assert len(reply.attachments) == 1
+    content = as_mapping(as_mapping(reply.attachments[0])["content"])
+    assert "장치" in json.dumps(content, ensure_ascii=False)
+    assert "Room Bar" in json.dumps(content, ensure_ascii=False)
+
+
+def test_setting_option_card_submit_uses_selected_value_as_setting_not_target() -> None:
+    from assistant_app.approval_manager import ApprovalManager
+    from assistant_app.memory_store import InMemorySessionStore
+    from assistant_app.mode_router import ModeRouter
+    from assistant_app.orchestrator import Orchestrator
+    from assistant_app.policy_evaluator import PolicyEvaluator
+    from assistant_app.providers.base import LLMProvider
+    from assistant_app.state_store import InMemoryStateStore
+    from shared.contracts import (
+        ActionProposal,
+        ApprovalState,
+        ExecutionMode,
+        ExecutionResult,
+        ExecutionStatus,
+        InboundUserMessage,
+        Intent,
+        OrchestrationDecision,
+        PendingActionProposal,
+        PolicyDecision,
+        ProviderSettings,
+        RiskLevel,
+        SessionContext,
+    )
+
+    class UnusedProvider(LLMProvider):
+        def bind_settings(self, settings: ProviderSettings) -> None:
+            _ = settings
+
+        async def analyze_message(
+            self, message: InboundUserMessage, session: SessionContext
+        ) -> OrchestrationDecision:
+            _ = message
+            _ = session
+            raise AssertionError("submission should resume pending action")
+
+        async def render_execution_reply(
+            self,
+            execution_result: object,
+            policy_reason: str,
+            canonical_text: str,
+        ) -> str | None:
+            _ = execution_result
+            _ = policy_reason
+            _ = canonical_text
+            return None
+
+    class CapturingModeRouter:
+        def __init__(self) -> None:
+            self.proposal: ActionProposal | None = None
+
+        def build_request(self, *args: object, **kwargs: object) -> object:
+            raise AssertionError("approval should not be required")
+
+        async def execute(self, message: InboundUserMessage, proposal: ActionProposal, policy_decision: object) -> ExecutionResult:
+            _ = message
+            _ = policy_decision
+            self.proposal = proposal
+            return ExecutionResult(
+                request_id="setting-selected-value-result",
+                intent=Intent.SET_SELFVIEW,
+                execution_mode=ExecutionMode.ALL_LLM,
+                status=ExecutionStatus.SUCCESS,
+                message="Selfview enabled on Room Bar.",
+            )
+
+    class NoApprovalPolicyEvaluator(PolicyEvaluator):
+        def evaluate(self, proposal: object, preferred_mode: object = None) -> PolicyDecision:
+            _ = proposal
+            _ = preferred_mode
+            return PolicyDecision(
+                selected_mode=ExecutionMode.ALL_LLM,
+                allowed_modes=[ExecutionMode.ALL_LLM],
+                risk_level=RiskLevel.LOW,
+                approval_state=ApprovalState.NOT_REQUIRED,
+                reason="Test bypasses approval.",
+            )
+
+    memory_store = InMemorySessionStore()
+    pending_action = PendingActionProposal(
+        intent=Intent.SET_SELFVIEW,
+        summary="Selfview setting.",
+        target_device="Room Bar",
+    )
+    memory_store.set_pending_action("setting-selected-value", "person-1", pending_action)
+    mode_router = CapturingModeRouter()
+    orchestrator = Orchestrator(
+        UnusedProvider(),
+        memory_store,
+        NoApprovalPolicyEvaluator(default_mode=ExecutionMode.ALL_LLM),
+        cast(ModeRouter, cast(object, mode_router)),
+        ApprovalManager(memory_store, InMemoryStateStore()),
+    )
+
+    reply, handled = asyncio.run(
+        orchestrator.resume_pending_action_selection(
+            pending_action.pending_action_id,
+            "setting_value",
+            "true",
+            "person-1",
+            "room-1",
+            setting_field_name="enabled",
+        )
+    )
+
+    assert handled is True
+    assert "Selfview enabled on Room Bar" in reply.text
+    assert mode_router.proposal is not None
+    assert mode_router.proposal.set_selfview is not None
+    assert mode_router.proposal.set_selfview.target_device == "Room Bar"
+    assert mode_router.proposal.set_selfview.enabled is True
+
+
+
+def test_setting_option_card_submit_uses_setting_value_when_selected_value_missing() -> None:
+    from assistant_app.approval_manager import ApprovalManager
+    from assistant_app.memory_store import InMemorySessionStore
+    from assistant_app.mode_router import ModeRouter
+    from assistant_app.orchestrator import Orchestrator
+    from assistant_app.policy_evaluator import PolicyEvaluator
+    from assistant_app.providers.base import LLMProvider
+    from assistant_app.state_store import InMemoryStateStore
+    from shared.contracts import (
+        ActionProposal,
+        ApprovalState,
+        ExecutionMode,
+        ExecutionResult,
+        ExecutionStatus,
+        InboundUserMessage,
+        Intent,
+        OrchestrationDecision,
+        PendingActionProposal,
+        PolicyDecision,
+        ProviderSettings,
+        RiskLevel,
+        SessionContext,
+    )
+
+    class UnusedProvider(LLMProvider):
+        def bind_settings(self, settings: ProviderSettings) -> None:
+            _ = settings
+
+        async def analyze_message(
+            self, message: InboundUserMessage, session: SessionContext
+        ) -> OrchestrationDecision:
+            _ = message
+            _ = session
+            raise AssertionError("submission should resume pending action")
+
+        async def render_execution_reply(
+            self,
+            execution_result: object,
+            policy_reason: str,
+            canonical_text: str,
+        ) -> str | None:
+            _ = execution_result
+            _ = policy_reason
+            _ = canonical_text
+            return None
+
+    class CapturingModeRouter:
+        def __init__(self) -> None:
+            self.proposal: ActionProposal | None = None
+
+        def build_request(self, *args: object, **kwargs: object) -> object:
+            raise AssertionError("approval should not be required")
+
+        async def execute(self, message: InboundUserMessage, proposal: ActionProposal, policy_decision: object) -> ExecutionResult:
+            _ = message
+            _ = policy_decision
+            self.proposal = proposal
+            return ExecutionResult(
+                request_id="setting-value-only-result",
+                intent=Intent.SET_MICROPHONE_MUTE,
+                execution_mode=ExecutionMode.ALL_LLM,
+                status=ExecutionStatus.SUCCESS,
+                message="Microphones muted on Room Bar.",
+            )
+
+    class NoApprovalPolicyEvaluator(PolicyEvaluator):
+        def evaluate(self, proposal: object, preferred_mode: object = None) -> PolicyDecision:
+            _ = proposal
+            _ = preferred_mode
+            return PolicyDecision(
+                selected_mode=ExecutionMode.ALL_LLM,
+                allowed_modes=[ExecutionMode.ALL_LLM],
+                risk_level=RiskLevel.LOW,
+                approval_state=ApprovalState.NOT_REQUIRED,
+                reason="Test bypasses approval.",
+            )
+
+    memory_store = InMemorySessionStore()
+    pending_action = PendingActionProposal(
+        intent=Intent.SET_MICROPHONE_MUTE,
+        summary="Microphone mute setting.",
+        target_device="Room Bar",
+    )
+    memory_store.set_pending_action("setting-value-only", "person-1", pending_action)
+    mode_router = CapturingModeRouter()
+    orchestrator = Orchestrator(
+        UnusedProvider(),
+        memory_store,
+        NoApprovalPolicyEvaluator(default_mode=ExecutionMode.ALL_LLM),
+        cast(ModeRouter, cast(object, mode_router)),
+        ApprovalManager(memory_store, InMemoryStateStore()),
+    )
+
+    reply, handled = asyncio.run(
+        orchestrator.resume_pending_action_selection(
+            pending_action.pending_action_id,
+            "setting_value",
+            None,
+            "person-1",
+            "room-1",
+            setting_field_name="muted",
+            setting_value="true",
+        )
+    )
+
+    assert handled is True
+    assert reply.attachments == []
+    assert "Microphones muted on Room Bar" in reply.text
+    assert mode_router.proposal is not None
+    assert mode_router.proposal.set_microphone_mute is not None
+    assert mode_router.proposal.set_microphone_mute.target_device == "Room Bar"
+    assert mode_router.proposal.set_microphone_mute.muted is True
+    assert memory_store.get_pending_action("setting-value-only", "person-1") is None
+
+
+def test_default_config_uses_ollama_for_llm_first_semantic_parsing() -> None:
+    from assistant_app.config import AppConfig
+    from assistant_app.ollama_support import DEFAULT_OLLAMA_BASE_URL, DEFAULT_OLLAMA_MODEL
+    from shared.contracts import ProviderKind
+
+    config = AppConfig.from_env()
+
+    assert config.default_provider == ProviderKind.OLLAMA
+    assert config.default_provider_model == DEFAULT_OLLAMA_MODEL
+    assert config.default_provider_base_url == DEFAULT_OLLAMA_BASE_URL
+
+
+def test_in_memory_state_store_defaults_to_ollama_provider_settings() -> None:
+    from assistant_app.ollama_support import DEFAULT_OLLAMA_BASE_URL, DEFAULT_OLLAMA_MODEL
+    from assistant_app.state_store import InMemoryStateStore
+    from shared.contracts import ProviderKind
+
+    settings = InMemoryStateStore().get_provider_settings()
+
+    assert settings.provider == ProviderKind.OLLAMA
+    assert settings.model == DEFAULT_OLLAMA_MODEL
+    assert settings.base_url == DEFAULT_OLLAMA_BASE_URL
+
+
+def test_ollama_prompt_exposes_all_roomos_actions_and_llm_first_semantic_contract() -> None:
+    from assistant_app.providers.ollama import OllamaProvider
+    from shared.contracts import InboundUserMessage, Intent, MessageSource, SessionContext
+
+    provider = OllamaProvider(default_target_device="")
+    messages = provider._build_messages(
+        InboundUserMessage(
+            session_id="semantic-contract",
+            user_id="person-1",
+            text="룸바 화면 공유 시작해줘",
+            source=MessageSource.WEBEX,
+        ),
+        SessionContext(session_id="semantic-contract", turns=[]),
+    )
+
+    system_prompt = messages[0]["content"]
+    assert "semantic interpretation" in system_prompt
+    assert "Korean or English" in system_prompt
+    assert "Do not depend on fixed command phrases" in system_prompt
+    for intent in Intent:
+        if intent in {Intent.CHAT, Intent.RESET_CONTEXT}:
+            continue
+        assert f'"{intent.value}"' in system_prompt
+
+
+def test_ollama_provider_accepts_semantic_korean_payloads_for_every_roomos_action(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from assistant_app.providers.ollama import OllamaProvider
+    from shared.contracts import (
+        InboundUserMessage,
+        Intent,
+        MessageSource,
+        ProviderKind,
+        ProviderSettings,
+        SessionContext,
+    )
+
+    cases: list[tuple[str, str, dict[str, object]]] = [
+        ("get_status", "룸바 상태 알려줘", {"target_device": "Room Bar", "include_metrics": True}),
+        ("get_environment_info", "룸바 온도와 습도 알려줘", {"target_device": "Room Bar"}),
+        ("get_camera_mode", "룸바 카메라 모드 알려줘", {"target_device": "Room Bar"}),
+        ("get_room_booking", "룸바 다음 회의 예약 알려줘", {"target_device": "Room Bar"}),
+        ("list_devices", "온라인 장비 목록 보여줘", {"limit": 10, "online_only": True}),
+        ("webex_join", "룸바로 25565427373 회의 참가해줘", {"target_device": "Room Bar", "meeting_identifier": "25565427373"}),
+        ("join_obtp", "룸바 다음 예약 회의 참가해줘", {"target_device": "Room Bar"}),
+        ("dial", "룸바에서 young@example.com으로 전화해줘", {"target_device": "Room Bar", "address": "young@example.com"}),
+        ("hang_up", "룸바 통화 종료해줘", {"target_device": "Room Bar", "call_id": None}),
+        ("send_dtmf", "룸바에서 123# 톤 보내줘", {"target_device": "Room Bar", "tones": "123#", "call_id": None}),
+        ("set_microphone_mute", "룸바 마이크 음소거 해줘", {"target_device": "Room Bar", "muted": True}),
+        ("set_microphone_mode", "룸바 마이크 노이즈 제거 모드로 해줘", {"target_device": "Room Bar", "mode": "noise-reduction"}),
+        ("set_volume", "룸바 소리를 35로 맞춰줘", {"target_device": "Room Bar", "level": 35}),
+        ("set_video_mute", "룸바 카메라 꺼줘", {"target_device": "Room Bar", "muted": True}),
+        ("set_selfview", "룸바 화면에 내 모습 나오게 해줘", {"target_device": "Room Bar", "enabled": True}),
+        ("set_camera_mode", "룸바 카메라를 수동 모드로 바꿔줘", {"target_device": "Room Bar", "mode": "Manual"}),
+        ("set_layout", "룸바 레이아웃을 크게 보기로 바꿔줘", {"target_device": "Room Bar", "layout_name": "Prominent"}),
+        ("set_presentation", "룸바 화면 공유 시작해줘", {"target_device": "Room Bar", "enabled": True}),
+        ("switch_input_source", "룸바 입력 소스를 HDMI1로 바꿔줘", {"target_device": "Room Bar", "source_id": "HDMI1"}),
+        ("assign_matrix", "룸바 매트릭스 출력 1에 소스 2를 할당해줘", {"target_device": "Room Bar", "output": "1", "mode": "Replace", "layout": "Equal", "source_id": "2", "remote_main": None}),
+        ("unassign_matrix", "룸바 매트릭스 출력 1 소스 2 해제해줘", {"target_device": "Room Bar", "output": "1", "source_id": "2", "remote_main": None}),
+        ("swap_matrix", "룸바 매트릭스 출력 1과 출력 2를 바꿔줘", {"target_device": "Room Bar", "output_a": "1", "output_b": "2"}),
+        ("set_display_mode", "룸바 디스플레이를 왼쪽 영상 오른쪽 발표 모드로 해줘", {"target_device": "Room Bar", "mode": "left-video-right-presentation"}),
+        ("set_display_role", "룸바 커넥터 2를 프레젠테이션 전용으로 설정해줘", {"target_device": "Room Bar", "connector_id": 2, "role": "presentation-only"}),
+        ("activate_camera_preset", "룸바 카메라 프리셋 3 실행해줘", {"target_device": "Room Bar", "preset_id": "3"}),
+        ("adjust_camera_position", "룸바 카메라 1을 왼쪽으로 조금 움직여줘", {"target_device": "Room Bar", "camera_id": "1", "pan": 1000, "tilt": None, "zoom": None}),
+        ("set_speakertrack", "룸바 스피커트랙 켜줘", {"target_device": "Room Bar", "enabled": True}),
+        ("set_standby", "룸바 대기모드로 전환해줘", {"target_device": "Room Bar", "enabled": True}),
+        ("reboot", "룸바 재부팅해줘", {"target_device": "Room Bar"}),
+        ("factory_reset", "룸바 공장초기화 확인하고 진행해줘", {"target_device": "Room Bar", "acknowledged": True}),
+    ]
+
+    for intent_value, user_text, payload in cases:
+        llm_client = QueuedAsyncClient()
+        llm_client.responses.append(
+            make_response(
+                "POST",
+                "/chat",
+                200,
+                {
+                    "message": {
+                        "content": json.dumps(
+                            {
+                                "reply_text": None,
+                                "action_proposal": {
+                                    "intent": intent_value,
+                                    "summary": f"Semantic Korean request for {intent_value}.",
+                                    "confidence": 0.95,
+                                    intent_value: payload,
+                                },
+                            }
+                        )
+                    }
+                },
+            )
+        )
+        class FakeAsyncClient:
+            def __init__(self, *args: object, **kwargs: object) -> None:
+                _ = args
+                _ = kwargs
+
+            async def __aenter__(self) -> QueuedAsyncClient:
+                return llm_client
+
+            async def __aexit__(
+                self,
+                exc_type: object,
+                exc: object,
+                tb: object,
+            ) -> None:
+                _ = exc_type
+                _ = exc
+                _ = tb
+
+        monkeypatch.setattr("assistant_app.providers.ollama.OLLAMA_ASYNC_CLIENT", FakeAsyncClient)
+
+        provider = OllamaProvider(default_target_device="__no_rule_based_default__")
+        provider._fallback_provider.analyze_message = _no_rule_based_match  # type: ignore[method-assign]
+        provider.bind_settings(
+            ProviderSettings(
+                provider=ProviderKind.OLLAMA,
+                model="test-model",
+                base_url="http://ollama.local/api",
+                enabled=True,
+            )
+        )
+
+        decision = asyncio.run(
+            provider.analyze_message(
+                InboundUserMessage(
+                    session_id=f"semantic-korean-{intent_value}",
+                    user_id="person-1",
+                    text=user_text,
+                    source=MessageSource.WEBEX,
+                ),
+                SessionContext(session_id=f"semantic-korean-{intent_value}", turns=[]),
+            )
+        )
+
+        assert len(llm_client.requests) == 1
+        assert decision.action_proposal is not None, user_text
+        assert decision.action_proposal.intent == Intent(intent_value)
+
+
+async def _no_rule_based_match(message: object, session: object) -> object:
+    from shared.contracts import OrchestrationDecision
+
+    _ = message
+    _ = session
+    return OrchestrationDecision(reply_text="no deterministic fallback")

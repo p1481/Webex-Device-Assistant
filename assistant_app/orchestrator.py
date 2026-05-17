@@ -42,6 +42,153 @@ from shared.contracts import (
 
 
 class Orchestrator:
+    _CAPABILITY_ORDER: tuple[tuple[str, str], ...] = (
+        ("audio", "오디오"),
+        ("camera", "카메라"),
+        ("display", "디스플레이"),
+        ("layout", "레이아웃"),
+        ("meeting", "미팅"),
+        ("presentation", "프레젠테이션"),
+        ("selfview", "셀프뷰"),
+        ("standby", "스탠바이"),
+        ("speakertrack", "SpeakerTrack"),
+        ("environment", "환경 센서"),
+    )
+
+    _PRODUCT_CAPABILITIES: dict[str, set[str]] = {
+        "room bar": {
+            "audio",
+            "camera",
+            "display",
+            "layout",
+            "meeting",
+            "presentation",
+            "selfview",
+            "standby",
+            "speakertrack",
+            "environment",
+        },
+        "cisco room bar": {
+            "audio",
+            "camera",
+            "display",
+            "layout",
+            "meeting",
+            "presentation",
+            "selfview",
+            "standby",
+            "speakertrack",
+            "environment",
+        },
+        "room bar pro": {
+            "audio",
+            "camera",
+            "display",
+            "layout",
+            "meeting",
+            "presentation",
+            "selfview",
+            "standby",
+            "speakertrack",
+            "environment",
+        },
+        "cisco room bar pro": {
+            "audio",
+            "camera",
+            "display",
+            "layout",
+            "meeting",
+            "presentation",
+            "selfview",
+            "standby",
+            "speakertrack",
+            "environment",
+        },
+        "board pro": {
+            "audio",
+            "camera",
+            "display",
+            "layout",
+            "meeting",
+            "presentation",
+            "selfview",
+            "standby",
+            "speakertrack",
+            "environment",
+        },
+        "cisco board pro": {
+            "audio",
+            "camera",
+            "display",
+            "layout",
+            "meeting",
+            "presentation",
+            "selfview",
+            "standby",
+            "speakertrack",
+            "environment",
+        },
+        "board pro 55": {
+            "audio",
+            "camera",
+            "display",
+            "layout",
+            "meeting",
+            "presentation",
+            "selfview",
+            "standby",
+            "speakertrack",
+            "environment",
+        },
+        "board pro 75": {
+            "audio",
+            "camera",
+            "display",
+            "layout",
+            "meeting",
+            "presentation",
+            "selfview",
+            "standby",
+            "speakertrack",
+            "environment",
+        },
+        "room navigator": set(),
+        "cisco room navigator": set(),
+        "navigator": set(),
+    }
+
+    _INTENT_CAPABILITIES: dict[Intent, set[str]] = {
+        Intent.GET_STATUS: {"audio", "camera", "display", "meeting", "presentation", "selfview", "standby"},
+        Intent.GET_ENVIRONMENT_INFO: {"environment"},
+        Intent.GET_CAMERA_MODE: {"camera"},
+        Intent.GET_ROOM_BOOKING: {"meeting"},
+        Intent.WEBEX_JOIN: {"meeting"},
+        Intent.JOIN_OBTP: {"meeting"},
+        Intent.DIAL: {"meeting"},
+        Intent.HANG_UP: {"meeting"},
+        Intent.SEND_DTMF: {"meeting"},
+        Intent.SET_MICROPHONE_MUTE: {"audio"},
+        Intent.SET_MICROPHONE_MODE: {"audio"},
+        Intent.SET_VOLUME: {"audio"},
+        Intent.SET_VIDEO_MUTE: {"camera"},
+        Intent.SET_SELFVIEW: {"selfview"},
+        Intent.SET_CAMERA_MODE: {"camera"},
+        Intent.SET_LAYOUT: {"layout"},
+        Intent.SET_PRESENTATION: {"presentation"},
+        Intent.SWITCH_INPUT_SOURCE: {"presentation", "display"},
+        Intent.ASSIGN_MATRIX: {"display"},
+        Intent.UNASSIGN_MATRIX: {"display"},
+        Intent.SWAP_MATRIX: {"display"},
+        Intent.SET_DISPLAY_MODE: {"display"},
+        Intent.SET_DISPLAY_ROLE: {"display"},
+        Intent.ACTIVATE_CAMERA_PRESET: {"camera"},
+        Intent.ADJUST_CAMERA_POSITION: {"camera"},
+        Intent.SET_SPEAKERTRACK: {"speakertrack", "camera"},
+        Intent.SET_STANDBY: {"standby"},
+        Intent.REBOOT: {"standby"},
+        Intent.FACTORY_RESET: {"standby"},
+    }
+
     def __init__(
         self,
         provider: LLMProvider,
@@ -351,9 +498,41 @@ class Orchestrator:
             )
             return reply, True
 
+        if (
+            field_name == "setting_value"
+            and (not isinstance(setting_value, str) or not setting_value.strip())
+            and isinstance(selected_value, str)
+            and selected_value.strip()
+        ):
+            setting_value = selected_value.strip()
+            selected_value = pending_action.target_device
+
+        if (
+            field_name == "setting_value"
+            and isinstance(setting_value, str)
+            and setting_value.strip()
+            and (
+                not isinstance(selected_value, str) or not selected_value.strip()
+            )
+        ):
+            selected_value = pending_action.target_device
+
         if not isinstance(selected_value, str) or not selected_value.strip():
             fallback_text = self._build_follow_up_question(pending_action)
-            reply = OutboundReply(text=fallback_text, room_id=room_id)
+            if field_name == "setting_value":
+                reply = await self._build_setting_option_selection_reply(
+                    InboundUserMessage(
+                        session_id=session_id,
+                        user_id=user_id,
+                        text="",
+                        source=MessageSource.WEBEX,
+                        room_id=room_id,
+                        person_email=person_email,
+                    ),
+                    pending_action,
+                )
+            else:
+                reply = OutboundReply(text=fallback_text, room_id=room_id)
             _ = self.memory_store.append_assistant_turn(
                 session_id,
                 reply.text,
@@ -365,6 +544,15 @@ class Orchestrator:
         if field_name == "setting_value":
             if isinstance(selected_value, str) and selected_value.strip():
                 updated_pending_action.target_device = selected_value.strip()
+            if setting_field_name is None and setting_value is None:
+                proposal = updated_pending_action.action_proposal
+                if proposal is not None:
+                    proposal_setting = self._get_proposal_setting_field_and_value(
+                        proposal
+                    )
+                    if proposal_setting is not None:
+                        setting_field_name, setting_value = proposal_setting
+                        updated_pending_action.action_proposal = None
             if not self._apply_pending_setting_selection(
                 updated_pending_action,
                 setting_field_name,
@@ -417,6 +605,8 @@ class Orchestrator:
                     updated_pending_action.action_proposal,
                     updated_pending_action.target_device,
                 )
+            if self._intent_needs_setting_option_selection(updated_pending_action.intent):
+                _ = self._clear_proposal_target_setting_value(updated_pending_action)
 
         synthetic_message = InboundUserMessage(
             session_id=session_id,
@@ -464,6 +654,12 @@ class Orchestrator:
     ) -> OutboundReply:
         next_missing_field = self._next_missing_pending_field(pending_action)
         fallback_text = self._build_follow_up_question(pending_action)
+        if next_missing_field == "setting_value":
+            return await self._build_setting_option_selection_reply(
+                message,
+                pending_action,
+            )
+
         if (
             message.source == MessageSource.WEBEX
             and self._pending_action_needs_target_device(pending_action)
@@ -602,7 +798,7 @@ class Orchestrator:
                 }
             )
         else:
-            device_choices = await self._load_device_choices()
+            device_choices = await self._load_device_choices_for_intent(pending_action.intent)
             if device_choices:
                 body.append(
                     {
@@ -665,6 +861,48 @@ class Orchestrator:
         )
 
     async def _load_device_choices(self) -> list[dict[str, str]]:
+        return await self._load_device_choices_for_intent(None)
+
+    def _normalize_capability_product(self, product: str | None) -> str:
+        if not isinstance(product, str):
+            return ""
+        normalized = product.casefold().replace("cisco ", "")
+        normalized = re.sub(r"\s+", " ", normalized).strip()
+        return normalized
+
+    def _device_capabilities(self, device: OrganizationDeviceRecord) -> set[str]:
+        candidates = [device.product, device.display_name]
+        for candidate in candidates:
+            normalized = self._normalize_capability_product(candidate)
+            if not normalized:
+                continue
+            if normalized in self._PRODUCT_CAPABILITIES:
+                return set(self._PRODUCT_CAPABILITIES[normalized])
+            for product_name, capabilities in self._PRODUCT_CAPABILITIES.items():
+                if product_name and product_name in normalized:
+                    return set(capabilities)
+        return {capability for capability, _label in self._CAPABILITY_ORDER}
+
+    def _capability_labels(self, capabilities: set[str]) -> list[str]:
+        return [
+            label
+            for capability, label in self._CAPABILITY_ORDER
+            if capability in capabilities
+        ]
+
+    def _device_supports_intent(
+        self, device: OrganizationDeviceRecord, intent: Intent | None
+    ) -> bool:
+        if intent is None:
+            return True
+        required_capabilities = self._INTENT_CAPABILITIES.get(intent)
+        if not required_capabilities:
+            return True
+        return bool(self._device_capabilities(device) & required_capabilities)
+
+    async def _load_device_choices_for_intent(
+        self, intent: Intent | None
+    ) -> list[dict[str, str]]:
         if self.device_lister is None:
             return []
         try:
@@ -673,6 +911,8 @@ class Orchestrator:
             return []
         choices: list[dict[str, str]] = []
         for device in devices[:10]:
+            if not self._device_supports_intent(device, intent):
+                continue
             value = device.display_name.strip()
             if not value:
                 continue
@@ -684,6 +924,9 @@ class Orchestrator:
             ]
             if subtitle_parts:
                 title_parts.append(f"({' / '.join(subtitle_parts)})")
+            capabilities = self._capability_labels(self._device_capabilities(device))
+            if capabilities:
+                title_parts.append(f"- {', '.join(capabilities)}")
             choices.append({"title": " ".join(title_parts), "value": value})
         return choices
 
@@ -798,7 +1041,7 @@ class Orchestrator:
         ):
             return None
 
-        choices = await self._load_device_choices()
+        choices = await self._load_device_choices_for_intent(pending_action.intent)
 
         if not choices:
             return None
@@ -1137,11 +1380,18 @@ class Orchestrator:
     def _next_missing_pending_field(
         self, pending_action: PendingActionProposal
     ) -> str | None:
-        if (
-            pending_action.action_proposal is not None
-            and self._proposal_has_missing_target_device(pending_action.action_proposal)
-        ):
-            return "target_device"
+        if pending_action.action_proposal is not None:
+            if self._proposal_has_missing_target_device(
+                pending_action.action_proposal
+            ):
+                return "target_device"
+            if (
+                self._intent_needs_setting_option_selection(pending_action.intent)
+                and self._get_proposal_setting_field_and_value(
+                    pending_action.action_proposal
+                ) is None
+            ):
+                return "setting_value"
 
         if pending_action.intent == Intent.WEBEX_JOIN:
             if pending_action.meeting_identifier is None:
@@ -1226,6 +1476,47 @@ class Orchestrator:
         payload = self._get_action_payload(pending_action.action_proposal)
         value = getattr(payload, field_name, None) if payload is not None else None
         return value if isinstance(value, bool) else None
+
+    def _intent_needs_setting_option_selection(self, intent: Intent) -> bool:
+        return intent in self._setting_option_specs()
+
+    def _get_proposal_setting_field_and_value(
+        self, proposal: ActionProposal
+    ) -> tuple[str, str] | None:
+        payload = self._get_action_payload(proposal)
+        if payload is None:
+            return None
+        spec = self._setting_option_specs().get(proposal.intent)
+        if spec is None:
+            return None
+        field_name = str(spec["field"])
+        raw_value = getattr(payload, field_name, None)
+        if isinstance(raw_value, bool):
+            return field_name, "true" if raw_value else "false"
+        if isinstance(raw_value, MicrophoneProcessingMode):
+            return field_name, raw_value.value
+        if isinstance(raw_value, str):
+            return field_name, raw_value
+        return None
+
+    def _clear_proposal_target_setting_value(
+        self, pending_action: PendingActionProposal
+    ) -> bool:
+        proposal = pending_action.action_proposal
+        if proposal is None:
+            return False
+        payload = self._get_action_payload(proposal)
+        spec = self._setting_option_specs().get(proposal.intent)
+        if payload is None or spec is None:
+            return False
+        field_name = str(spec["field"])
+        if not hasattr(payload, field_name):
+            return False
+        try:
+            setattr(payload, field_name, None)
+        except Exception:
+            return False
+        return True
 
     def _pending_action_needs_target_device(
         self, pending_action: PendingActionProposal
@@ -2011,39 +2302,10 @@ class Orchestrator:
             execution_result.status == ExecutionStatus.SUCCESS
             and execution_result.device_status is not None
         ):
-            status = execution_result.device_status
-            metadata_parts = [f"online={status.online}"]
-            for label, value in (
-                ("display_name", status.display_name),
-                ("product", status.product),
-                ("product_platform", status.product_platform),
-                ("place", status.place),
-                ("software_version", status.software_version),
-                ("software_display_name", status.software_display_name),
-                ("serial_number", status.serial_number),
-                ("connection_status", status.connection_status),
-                ("system_state", status.system_state),
-                ("active_interface", status.active_interface),
-                ("ipv4_address", status.ipv4_address),
-                ("wifi_status", status.wifi_status),
-                ("volume", status.volume),
-                ("volume_muted", status.volume_muted),
-                ("microphones_muted", status.microphones_muted),
-                ("call_active", status.call_active),
-                ("active_call_count", status.active_call_count),
-                ("presentation_active", status.presentation_active),
-                ("presentation_mode", status.presentation_mode),
-                ("selfview_mode", status.selfview_mode),
-                ("selfview_fullscreen", status.selfview_fullscreen),
-                ("speakertrack_state", status.speakertrack_state),
-                ("presentertrack_status", status.presentertrack_status),
-                ("standby_state", status.standby_state),
-            ):
-                if value is not None:
-                    metadata_parts.append(f"{label}={value}")
-            return (
-                f"{execution_result.message} "
-                f"{', '.join(metadata_parts)}. Policy: {policy_reason}"
+            return self._format_device_status_detail(
+                execution_result.device_status,
+                execution_result.message,
+                policy_reason,
             )
 
         if (
@@ -2185,6 +2447,108 @@ class Orchestrator:
 
         return f"Execution failed: {execution_result.message}"
 
+    def _format_device_status_detail(
+        self,
+        status: object,
+        message: str,
+        policy_reason: str,
+    ) -> str:
+        display_name = getattr(status, "display_name", None) or getattr(
+            status, "target_device", "장치"
+        )
+        product = getattr(status, "product", None)
+        device_label = f"{display_name} ({product})" if product else str(display_name)
+        lines = ["**상태 상세**", f"장치: {device_label}"]
+        if message:
+            lines.append(f"요약: {message}")
+        identity_parts = []
+        for label, value in (
+            ("display_name", getattr(status, "display_name", None)),
+            ("product", getattr(status, "product", None)),
+            ("product_platform", getattr(status, "product_platform", None)),
+            ("place", getattr(status, "place", None)),
+            ("software_version", getattr(status, "software_version", None)),
+            ("software_display_name", getattr(status, "software_display_name", None)),
+            ("serial_number", getattr(status, "serial_number", None)),
+            ("device_id", getattr(status, "device_id", None)),
+        ):
+            if value is not None:
+                identity_parts.append(f"{label}={value}")
+        if identity_parts:
+            lines.append("식별: " + ", ".join(identity_parts))
+        connection_parts = [f"online={getattr(status, 'online', None)}"]
+        for label, value in (
+            ("connection", getattr(status, "connection_status", None)),
+            ("system", getattr(status, "system_state", None)),
+            ("standby", getattr(status, "standby_state", None)),
+        ):
+            if value is not None:
+                connection_parts.append(f"{label}={value}")
+        lines.append("연결: " + ", ".join(connection_parts))
+        network_parts = []
+        for label, value in (
+            ("interface", getattr(status, "active_interface", None)),
+            ("ipv4", getattr(status, "ipv4_address", None)),
+            ("wifi", getattr(status, "wifi_status", None)),
+        ):
+            if value is not None:
+                network_parts.append(f"{label}={value}")
+        if network_parts:
+            lines.append("네트워크: " + ", ".join(network_parts))
+        audio_parts = []
+        for label, value in (
+            ("volume", getattr(status, "volume", None)),
+            ("volume_muted", getattr(status, "volume_muted", None)),
+            ("microphones_muted", getattr(status, "microphones_muted", None)),
+        ):
+            if value is not None:
+                audio_parts.append(f"{label}={value}")
+        if audio_parts:
+            audio_line = "오디오: " + ", ".join(audio_parts)
+            if "volume_muted=" in audio_line:
+                audio_line += " (muted=" + str(getattr(status, "volume_muted", None)) + ")"
+                audio_line += "\n오디오: volume=" + str(getattr(status, "volume", None))
+                audio_line += ", muted=" + str(getattr(status, "volume_muted", None))
+                if getattr(status, "microphones_muted", None) is not None:
+                    audio_line += ", microphones_muted=" + str(getattr(status, "microphones_muted", None))
+            lines.append(audio_line)
+        call_parts = []
+        for label, value in (
+            ("call_active", getattr(status, "call_active", None)),
+            ("active_call_count", getattr(status, "active_call_count", None)),
+            ("presentation_active", getattr(status, "presentation_active", None)),
+            ("presentation_mode", getattr(status, "presentation_mode", None)),
+        ):
+            if value is not None:
+                call_parts.append(f"{label}={value}")
+        if call_parts:
+            lines.append("통화/공유: " + ", ".join(call_parts))
+        camera_parts = []
+        for label, value in (
+            ("selfview_mode", getattr(status, "selfview_mode", None)),
+            ("selfview_fullscreen", getattr(status, "selfview_fullscreen", None)),
+            ("speakertrack_state", getattr(status, "speakertrack_state", None)),
+            ("presentertrack", getattr(status, "presentertrack_status", None)),
+        ):
+            if value is not None:
+                camera_parts.append(f"{label}={value}")
+        if camera_parts:
+            camera_line = "카메라/화면: " + ", ".join(camera_parts)
+            if getattr(status, "selfview_mode", None) is not None or getattr(status, "speakertrack_state", None) is not None:
+                compat_parts = []
+                if getattr(status, "selfview_mode", None) is not None:
+                    compat_parts.append("selfview=" + str(getattr(status, "selfview_mode", None)))
+                if getattr(status, "speakertrack_state", None) is not None:
+                    compat_parts.append("speakertrack=" + str(getattr(status, "speakertrack_state", None)))
+                if compat_parts:
+                    camera_line += "\n카메라/화면: " + ", ".join(compat_parts)
+            lines.append(camera_line)
+        detail = getattr(status, "detail", None)
+        if detail is not None:
+            lines.append(f"상세: {detail}")
+        lines.append(f"Policy: {policy_reason}")
+        return "\n".join(lines)
+
     def _format_device_list(
         self, devices: list[OrganizationDeviceRecord], policy_reason: str
     ) -> str:
@@ -2207,8 +2571,17 @@ class Orchestrator:
                 if device.connection_status is not None
                 else ""
             )
+            details: list[str] = []
+            if device.software_version:
+                details.append(f"software={device.software_version}")
+            if device.serial_number:
+                details.append(f"serial={device.serial_number}")
+            capabilities = self._capability_labels(self._device_capabilities(device))
+            if capabilities:
+                details.append("지원 기능: " + ", ".join(capabilities[:8]))
+            detail_text = f"; {'; '.join(details)}" if details else ""
             lines.append(
-                f"- {device.display_name}{product} - {status}{place}{connection}"
+                f"- {device.display_name}{product} - {status}{place}{connection}{detail_text}"
             )
         return "\n".join(lines) + f"\n\nPolicy: {policy_reason}"
 

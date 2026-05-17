@@ -148,6 +148,11 @@ class RuleBasedProvider:
                 ),
             )
 
+        target_device = self._extract_target_device(text, message.target_device)
+        mentioned_target_device = self._extract_mentioned_target_device(
+            text, message.target_device
+        )
+
         if self._is_list_devices_request(lowered):
             return OrchestrationDecision(
                 action_proposal=ActionProposal(
@@ -159,11 +164,6 @@ class RuleBasedProvider:
                     ),
                 )
             )
-
-        target_device = self._extract_target_device(text, message.target_device)
-        mentioned_target_device = self._extract_mentioned_target_device(
-            text, message.target_device
-        )
 
         if self._is_get_environment_info_request(lowered):
             return OrchestrationDecision(
@@ -497,6 +497,13 @@ class RuleBasedProvider:
                         ),
                     )
                 )
+            return OrchestrationDecision(
+                pending_action=PendingActionProposal(
+                    intent=Intent.SET_SELFVIEW,
+                    summary="Change selfview state.",
+                    target_device=mentioned_target_device or message.target_device,
+                )
+            )
 
         if "presentation" in lowered or "share" in lowered:
             enabled = self._extract_toggle_state(
@@ -809,6 +816,8 @@ class RuleBasedProvider:
         return OrchestrationDecision(reply_text=fallback)
 
     def _is_list_devices_request(self, lowered_text: str) -> bool:
+        if lowered_text.strip().endswith(" drop"):
+            return False
         return any(
             phrase in lowered_text
             for phrase in {

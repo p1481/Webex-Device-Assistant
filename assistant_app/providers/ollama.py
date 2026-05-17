@@ -59,6 +59,9 @@ from shared.contracts import (
 )
 
 
+OLLAMA_ASYNC_CLIENT = httpx.AsyncClient
+
+
 class OllamaProvider:
     CAMERA_MODE_LAYOUT_ALIASES = {
         "manual": WritableCameraMode.MANUAL,
@@ -110,7 +113,7 @@ class OllamaProvider:
         }
 
         try:
-            async with httpx.AsyncClient(
+            async with OLLAMA_ASYNC_CLIENT(
                 base_url=self.settings.base_url or DEFAULT_OLLAMA_BASE_URL,
                 timeout=60.0,
             ) as client:
@@ -140,11 +143,15 @@ class OllamaProvider:
 
         raw_message = raw.get("message")
         if not isinstance(raw_message, dict):
+            if fallback.action_proposal is not None or fallback.pending_action is not None:
+                return fallback
             return OrchestrationDecision(
                 reply_text="Ollama chat response was missing the assistant message."
             )
         content = raw_message.get("content")
         if not isinstance(content, str) or not content.strip():
+            if fallback.action_proposal is not None or fallback.pending_action is not None:
+                return fallback
             return OrchestrationDecision(
                 reply_text="Ollama did not return assistant content."
             )
@@ -160,6 +167,9 @@ class OllamaProvider:
         if fallback.action_proposal is not None or fallback.pending_action is not None:
             return fallback
 
+        if self._looks_like_device_action(message.text):
+            return fallback
+
         if self._looks_like_structured_output(content):
             if fallback.action_proposal is not None or fallback.pending_action is not None:
                 return fallback
@@ -170,6 +180,76 @@ class OllamaProvider:
                 )
             )
         return OrchestrationDecision(reply_text=content.strip())
+
+    def _looks_like_device_action(self, text: str) -> bool:
+        lowered = text.lower()
+        device_action_keywords = (
+            "status",
+            "environment",
+            "temperature",
+            "humidity",
+            "booking",
+            "obtp",
+            "device",
+            "devices",
+            "join",
+            "dial",
+            "call",
+            "hang up",
+            "hangup",
+            "drop",
+            "dtmf",
+            "mute",
+            "unmute",
+            "microphone",
+            "volume",
+            "selfview",
+            "self view",
+            "camera",
+            "layout",
+            "presentation",
+            "share",
+            "input",
+            "source",
+            "matrix",
+            "display",
+            "preset",
+            "speakertrack",
+            "speaker track",
+            "standby",
+            "reboot",
+            "factory reset",
+            "상태",
+            "온도",
+            "습도",
+            "환경",
+            "예약",
+            "회의",
+            "장비",
+            "디바이스",
+            "참가",
+            "전화",
+            "통화",
+            "종료",
+            "마이크",
+            "음소거",
+            "소리",
+            "볼륨",
+            "카메라",
+            "레이아웃",
+            "공유",
+            "발표",
+            "입력",
+            "소스",
+            "매트릭스",
+            "디스플레이",
+            "프리셋",
+            "스피커트랙",
+            "대기",
+            "재부팅",
+            "공장초기화",
+        )
+        return any(keyword in lowered for keyword in device_action_keywords)
 
     def _is_non_action_chat_decision(self, decision: OrchestrationDecision) -> bool:
         proposal = decision.action_proposal
@@ -187,6 +267,9 @@ class OllamaProvider:
         policy_reason: str,
         canonical_text: str,
     ) -> str | None:
+        if not self.settings.render_execution_replies:
+            return None
+
         payload = {
             "model": self.settings.model or DEFAULT_OLLAMA_MODEL,
             "stream": False,
@@ -196,7 +279,7 @@ class OllamaProvider:
         }
 
         try:
-            async with httpx.AsyncClient(
+            async with OLLAMA_ASYNC_CLIENT(
                 base_url=self.settings.base_url or DEFAULT_OLLAMA_BASE_URL,
                 timeout=30.0,
             ) as client:
