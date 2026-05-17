@@ -48,3 +48,4 @@ ignore = ["E501"]  # line-length handled by formatter
 "tests/**/*.py" = ["B011", "B017", "SIM117"]
 # FastAPI Depends() in default args is the documented pattern; B008 false-positive
 "assistant_app/main.py" = ["B008"]
+"assistant_app/routes/*.py" = ["B008"]

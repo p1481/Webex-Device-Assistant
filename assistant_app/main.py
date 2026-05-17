@@ -4,26 +4,13 @@ import logging
 import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime, timedelta
 from typing import ClassVar, cast
-from uuid import uuid4
 
-from fastapi import (
-    Depends,
-    FastAPI,
-    HTTPException,
-    Request,
-    Response,
-)
+from fastapi import FastAPI
 from pydantic import BaseModel, ConfigDict
 
 from admin_page import router as admin_page_router
 from assistant_app.action_registry import build_default_action_registry
-from assistant_app.admin_auth import (
-    attach_admin_session_cookie,
-    clear_admin_session_cookie,
-    get_authenticated_admin_session,
-)
 from assistant_app.admin_service import AdminService
 from assistant_app.agentic_tool_runtime import AllLlmToolRuntime
 from assistant_app.approval_manager import ApprovalManager
@@ -33,6 +20,7 @@ from assistant_app.mode_router import ModeRouter
 from assistant_app.orchestrator import Orchestrator
 from assistant_app.policy_evaluator import PolicyEvaluator
 from assistant_app.provider_registry import ProviderRegistry
+from assistant_app.routes.admin import router as admin_router
 from assistant_app.routes.debug import router as debug_router
 from assistant_app.routes.health import router as health_router
 from assistant_app.routes.webhooks import router as webhooks_router
@@ -46,32 +34,14 @@ from device_executor.handlers import ExecutionHandlers
 from direct_tool_adapter.adapter import DirectToolAdapter
 from direct_tool_adapter.tools import DirectToolSet
 from shared.contracts import (
-    AdminAuthRequest,
-    AdminAuthSession,
-    AdminAuthStartResponse,
-    AdminAuthStatusResponse,
-    CommandPolicy,
-    InboundUserMessage,
-    Intent,
     MaskedSecret,
-    MessageSource,
     ProviderKind,
     ProviderSettings,
     RuntimeAdminSettings,
-    RuntimeAdminSettingsUpdate,
     StartupConfigStatus,
 )
 
 logger = logging.getLogger(__name__)
-
-
-def _is_allowed_admin_login(runtime_settings: RuntimeAdminSettings, email: str) -> bool:
-    if email in runtime_settings.allowed_admin_emails:
-        return True
-    return (
-        not runtime_settings.allowed_admin_emails
-        and email == runtime_settings.default_user_email
-    )
 
 
 class AppServices(BaseModel):
@@ -85,6 +55,8 @@ class AppServices(BaseModel):
     admin_service: AdminService
     state_store: InMemoryStateStore
     provider_registry: ProviderRegistry
+    device_client: DeviceClient
+    all_llm_tool_runtime: AllLlmToolRuntime
 
 
 def _serialize_provider_settings(settings: ProviderSettings) -> dict[str, object]:
@@ -263,6 +235,8 @@ def build_app() -> FastAPI:
         admin_service=admin_service,
         state_store=state_store,
         provider_registry=provider_registry,
+        device_client=device_client,
+        all_llm_tool_runtime=all_llm_tool_runtime,
     )
 
     @asynccontextmanager
@@ -298,211 +272,7 @@ def build_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(webhooks_router)
     app.include_router(debug_router)
-
-    def require_admin_session(request: Request) -> AdminAuthSession:
-        return get_authenticated_admin_session(request)
-
-    @app.post("/admin/auth/start")
-    async def admin_auth_start(payload: AdminAuthRequest) -> dict[str, object]:
-        runtime_settings = admin_service.get_runtime_admin_settings()
-        if not _is_allowed_admin_login(runtime_settings, payload.email):
-            raise HTTPException(status_code=403, detail="Admin email is not allowed.")
-
-        auth_session = admin_service.create_admin_auth_session(
-            AdminAuthSession(
-                session_id=str(uuid4()),
-                email=payload.email,
-                approval_request_id="",
-                expires_at=datetime.now(UTC) + timedelta(minutes=10),
-            )
-        )
-        approval_request = approval_manager.create_admin_auth_request(
-            InboundUserMessage(
-                session_id=f"admin-auth:{auth_session.session_id}",
-                user_id=payload.email,
-                person_email=payload.email,
-                text="admin login",
-                source=MessageSource.WEBEX,
-                room_id=None,
-            ),
-            admin_session_id=auth_session.session_id,
-        )
-        auth_session.approval_request_id = approval_request.request_id
-        _ = admin_service.update_admin_auth_session(auth_session)
-        await webex_gateway.send_direct_card_to_email(
-            payload.email,
-            approval_request.title,
-            approval_request.prompt,
-            approval_request.request_id,
-            auth_session.session_id,
-        )
-        return AdminAuthStartResponse(
-            session_id=auth_session.session_id,
-            status="pending",
-        ).model_dump()
-
-    @app.get("/admin/auth/status/{session_id}")
-    async def admin_auth_status(
-        session_id: str,
-        request: Request,
-        response: Response,
-    ) -> dict[str, object]:
-        auth_session = admin_service.get_admin_auth_session(session_id)
-        if auth_session is None:
-            raise HTTPException(status_code=404, detail="Admin auth session not found.")
-        if (
-            auth_session.expires_at is not None
-            and auth_session.expires_at <= datetime.now(UTC)
-        ):
-            admin_service.delete_admin_auth_session(session_id)
-            clear_admin_session_cookie(response)
-            return AdminAuthStatusResponse(
-                session_id=session_id,
-                status="expired",
-                email=auth_session.email,
-            ).model_dump()
-
-        approval = state_store.get_approval_request(auth_session.approval_request_id)
-        if approval is None:
-            raise HTTPException(status_code=404, detail="Approval request not found.")
-        status = approval.status.value
-        if status in {"approved", "executed"}:
-            if not auth_session.approved:
-                auth_session.approved = True
-                auth_session.approved_at = datetime.now(UTC)
-                _ = admin_service.update_admin_auth_session(auth_session)
-            attach_admin_session_cookie(response, request, auth_session.session_id)
-        return AdminAuthStatusResponse(
-            session_id=session_id,
-            status=status,
-            email=auth_session.email,
-        ).model_dump()
-
-    @app.post("/admin/auth/logout")
-    async def admin_auth_logout(request: Request, response: Response) -> dict[str, str]:
-        try:
-            auth_session = get_authenticated_admin_session(request)
-        except HTTPException:
-            auth_session = None
-        if auth_session is not None:
-            admin_service.delete_admin_auth_session(auth_session.session_id)
-        clear_admin_session_cookie(response)
-        return {"status": "logged_out"}
-
-    @app.get("/admin/providers")
-    async def list_provider_descriptors(
-        _admin_session: AdminAuthSession = Depends(require_admin_session),
-    ) -> dict[str, object]:
-        return {
-            "providers": [
-                descriptor.model_dump()
-                for descriptor in admin_service.list_provider_descriptors()
-            ],
-            "active": _serialize_provider_settings(
-                admin_service.get_provider_settings()
-            ),
-        }
-
-    @app.get("/admin/settings")
-    async def get_admin_settings(
-        _admin_session: AdminAuthSession = Depends(require_admin_session),
-    ) -> dict[str, object]:
-        return {
-            "runtime": admin_service.get_runtime_admin_settings().model_dump(),
-            "startup": admin_service.get_startup_config_status().model_dump(),
-        }
-
-    @app.put("/admin/settings")
-    async def update_admin_settings(
-        payload: RuntimeAdminSettingsUpdate,
-        _admin_session: AdminAuthSession = Depends(require_admin_session),
-    ) -> dict[str, object]:
-        updated = admin_service.update_runtime_admin_settings(payload)
-        return {"runtime": updated.model_dump()}
-
-    @app.put("/admin/providers")
-    async def update_provider_settings(
-        payload: ProviderSettings,
-        _admin_session: AdminAuthSession = Depends(require_admin_session),
-    ) -> dict[str, object]:
-        can_apply, reason = await admin_service.can_apply_provider_live(payload)
-        if not can_apply:
-            raise HTTPException(status_code=409, detail=reason)
-        updated = admin_service.update_provider_settings(payload)
-        new_provider = provider_registry.build_analysis_provider(updated)
-        orchestrator.provider = new_provider
-        all_llm_tool_runtime.provider = provider_registry.build_chat_provider(updated)
-        all_llm_tool_runtime.model = (
-            updated.model or config.default_provider_model or "rule-based-default"
-        )
-        return {"provider": _serialize_provider_settings(updated)}
-
-    @app.get("/admin/policies")
-    async def list_policies(
-        _admin_session: AdminAuthSession = Depends(require_admin_session),
-    ) -> dict[str, object]:
-        return {
-            "policies": {
-                intent.value: policy.model_dump()
-                for intent, policy in admin_service.list_policies().items()
-            }
-        }
-
-    @app.put("/admin/policies/{intent_name}")
-    async def update_policy(
-        intent_name: str,
-        payload: CommandPolicy,
-        _admin_session: AdminAuthSession = Depends(require_admin_session),
-    ) -> dict[str, object]:
-        intent = Intent(intent_name)
-        updated = admin_service.update_policy(intent, payload)
-        return {"intent": intent.value, "policy": updated.model_dump()}
-
-    @app.get("/admin/approvals")
-    async def list_approvals(
-        _admin_session: AdminAuthSession = Depends(require_admin_session),
-    ) -> dict[str, object]:
-        return {
-            "approvals": [
-                request.model_dump()
-                for request in admin_service.list_approval_requests()
-            ]
-        }
-
-    @app.get("/admin/audit")
-    async def list_audit(
-        _admin_session: AdminAuthSession = Depends(require_admin_session),
-    ) -> dict[str, object]:
-        return {
-            "audit": [
-                record.model_dump() for record in state_store.list_audit_records()
-            ]
-        }
-
-    @app.get("/admin/actions")
-    async def list_actions(
-        _admin_session: AdminAuthSession = Depends(require_admin_session),
-    ) -> dict[str, object]:
-        return {
-            "actions": [
-                action.model_dump() for action in admin_service.list_action_registry()
-            ]
-        }
-
-    @app.get("/admin/devices")
-    async def list_devices(
-        _admin_session: AdminAuthSession = Depends(require_admin_session),
-    ) -> dict[str, object]:
-        devices = await device_client.list_devices()
-        stored = state_store.set_organization_devices(devices)
-        return {"devices": [device.model_dump() for device in stored]}
-
-    @app.get("/admin/stats")
-    async def get_stats(
-        _admin_session: AdminAuthSession = Depends(require_admin_session),
-    ) -> dict[str, object]:
-        return {"stats": admin_service.get_stats().model_dump()}
-
+    app.include_router(admin_router)
     app.include_router(admin_page_router)
 
     return app
