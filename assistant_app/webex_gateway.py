@@ -3,11 +3,12 @@ from __future__ import annotations
 import logging
 from base64 import b64decode
 from typing import ClassVar, cast
-from urllib.parse import parse_qsl, quote
+from urllib.parse import quote
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
+from assistant_app import webex_webhooks
 from assistant_app.config import AppConfig
 from assistant_app.token_provider import WebexTokenProvider
 from shared.contracts import InboundUserMessage, MessageSource, OutboundReply
@@ -176,54 +177,10 @@ class WebexGateway:
         return identity
 
     def desired_messages_webhooks(self) -> list[WebexWebhookRegistration]:
-        if not self.config.webex_webhook_target_url:
-            raise RuntimeError(
-                "WEBEX_WEBHOOK_TARGET_URL is required for webhook lifecycle operations."
-            )
-        if not self.config.webex_webhook_secret:
-            raise RuntimeError(
-                "WEBEX_WEBHOOK_SECRET is required for webhook lifecycle operations."
-            )
-        return [
-            WebexWebhookRegistration(
-                name=self.config.webex_webhook_direct_name,
-                targetUrl=self.config.webex_webhook_target_url,
-                resource=self.config.webex_webhook_resource,
-                event=self.config.webex_webhook_event,
-                filter=self.DIRECT_WEBHOOK_FILTER,
-                secret=self.config.webex_webhook_secret,
-            ),
-            WebexWebhookRegistration(
-                name=self.config.webex_webhook_group_name,
-                targetUrl=self.config.webex_webhook_target_url,
-                resource=self.config.webex_webhook_resource,
-                event=self.config.webex_webhook_event,
-                filter=self.GROUP_WEBHOOK_FILTER,
-                secret=self.config.webex_webhook_secret,
-            ),
-        ]
+        return webex_webhooks.desired_messages_webhooks(self)
 
     def desired_attachment_action_webhook(self) -> WebexWebhookRegistration:
-        if not self.config.webex_webhook_target_url:
-            raise RuntimeError(
-                "WEBEX_WEBHOOK_TARGET_URL is required for webhook lifecycle operations."
-            )
-        if not self.config.webex_webhook_secret:
-            raise RuntimeError(
-                "WEBEX_WEBHOOK_SECRET is required for webhook lifecycle operations."
-            )
-        attachment_target_url = self.config.webex_webhook_target_url.replace(
-            "/webhooks/webex/messages",
-            "/webhooks/webex/attachment-actions",
-        )
-        return WebexWebhookRegistration(
-            name=self.ATTACHMENT_ACTIONS_WEBHOOK_NAME,
-            targetUrl=attachment_target_url,
-            resource="attachmentActions",
-            event="created",
-            filter=None,
-            secret=self.config.webex_webhook_secret,
-        )
+        return webex_webhooks.desired_attachment_action_webhook(self)
 
     async def _resolve_bearer_token(self) -> str:
         if self._token_provider is not None:
@@ -242,222 +199,53 @@ class WebexGateway:
         return {"Authorization": f"Bearer {token}"}
 
     async def list_webhooks(self) -> list[WebexWebhookRecord]:
-        if self.config.webex_mock_mode:
-            return []
-
-        async with httpx.AsyncClient(
-            base_url=self.config.webex_api_base, timeout=10.0
-        ) as client:
-            response = await client.get("/webhooks", headers=await self._auth_headers())
-            _ = response.raise_for_status()
-
-        response_payload = cast(object, response.json())
-        if not isinstance(response_payload, dict):
-            raise RuntimeError("Unexpected Webex webhooks response shape.")
-
-        response_payload_dict = cast(dict[str, object], response_payload)
-        items = response_payload_dict.get("items", [])
-        if not isinstance(items, list):
-            raise RuntimeError("Unexpected Webex webhooks response shape.")
-        item_list = cast(list[object], items)
-
-        records: list[WebexWebhookRecord] = []
-        for raw_item in item_list:
-            if not isinstance(raw_item, dict):
-                raise RuntimeError("Unexpected Webex webhooks response shape.")
-            item_dict = cast(dict[str, object], raw_item)
-            records.append(WebexWebhookRecord.model_validate(item_dict))
-
-        return records
+        return await webex_webhooks.list_webhooks(self)
 
     async def create_webhook(
         self, registration: WebexWebhookRegistration
     ) -> WebexWebhookRecord:
-        if self.config.webex_mock_mode:
-            raise RuntimeError(
-                "Webhook lifecycle operations are disabled in mock mode."
-            )
-
-        async with httpx.AsyncClient(
-            base_url=self.config.webex_api_base, timeout=10.0
-        ) as client:
-            response = await client.post(
-                "/webhooks",
-                headers=await self._auth_headers(),
-                json=registration.model_dump(by_alias=True, exclude_none=True),
-            )
-            _ = response.raise_for_status()
-
-        return WebexWebhookRecord.model_validate(response.json())
+        return await webex_webhooks.create_webhook(self, registration)
 
     async def ensure_webhook(
         self,
         desired: WebexWebhookRegistration,
         owned_candidates: list[WebexWebhookRecord],
     ) -> WebexWebhookRecord:
-        current = next(
-            (
-                webhook
-                for webhook in owned_candidates
-                if self._webhook_matches(webhook, desired)
-            ),
-            None,
-        )
-        if current is not None:
-            return current
-
-        for stale in owned_candidates:
-            await self.delete_webhook(stale.id)
-
-        try:
-            return await self.create_webhook(desired)
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code != 409:
-                raise
-
-        refreshed = await self.list_webhooks()
-        refreshed_candidates = [
-            webhook
-            for webhook in refreshed
-            if webhook.resource == desired.resource
-            and webhook.event == desired.event
-            and self._filters_match(webhook.filter, desired.filter)
-            and self._webhook_looks_app_owned(webhook, desired)
-        ]
-        recovered = next(
-            (
-                webhook
-                for webhook in refreshed_candidates
-                if self._webhook_matches(webhook, desired)
-            ),
-            None,
-        )
-        if recovered is not None:
-            return recovered
-
-        raise RuntimeError(
-            "Webhook reconciliation hit a conflict and could not recover the desired webhook state."
-        )
+        return await webex_webhooks.ensure_webhook(self, desired, owned_candidates)
 
     async def delete_webhook(self, webhook_id: str) -> None:
-        if self.config.webex_mock_mode:
-            raise RuntimeError(
-                "Webhook lifecycle operations are disabled in mock mode."
-            )
-
-        async with httpx.AsyncClient(
-            base_url=self.config.webex_api_base, timeout=10.0
-        ) as client:
-            response = await client.delete(
-                f"/webhooks/{webhook_id}", headers=await self._auth_headers()
-            )
-            _ = response.raise_for_status()
+        await webex_webhooks.delete_webhook(self, webhook_id)
 
     async def reconcile_messages_webhooks(self) -> list[WebexWebhookRecord]:
-        if (
-            self.config.webex_mock_mode
-            or not self.config.webex_webhook_reconcile_on_startup
-        ):
-            return []
-
-        desired_webhooks = self.desired_messages_webhooks()
-        existing = await self.list_webhooks()
-        matching = [
-            webhook
-            for webhook in existing
-            if webhook.resource == self.config.webex_webhook_resource
-            and webhook.event == self.config.webex_webhook_event
-        ]
-        reconciled: list[WebexWebhookRecord] = []
-        owned_by_filter = {
-            desired.filter: [
-                webhook
-                for webhook in matching
-                if self._filters_match(webhook.filter, desired.filter)
-                and self._webhook_looks_app_owned(webhook, desired)
-            ]
-            for desired in desired_webhooks
-        }
-
-        for desired in desired_webhooks:
-            reconciled.append(
-                await self.ensure_webhook(
-                    desired, owned_by_filter.get(desired.filter, [])
-                )
-            )
-
-        return reconciled
+        return await webex_webhooks.reconcile_messages_webhooks(self)
 
     async def reconcile_attachment_action_webhook(self) -> WebexWebhookRecord | None:
-        if (
-            self.config.webex_mock_mode
-            or not self.config.webex_webhook_reconcile_on_startup
-        ):
-            return None
-
-        desired = self.desired_attachment_action_webhook()
-        existing = await self.list_webhooks()
-        owned_candidates = [
-            webhook
-            for webhook in existing
-            if webhook.resource == desired.resource
-            and webhook.event == desired.event
-            and self._webhook_looks_app_owned(webhook, desired)
-        ]
-        return await self.ensure_webhook(desired, owned_candidates)
+        return await webex_webhooks.reconcile_attachment_action_webhook(self)
 
     async def reconcile_messages_webhook(self) -> WebexWebhookRecord | None:
-        reconciled = await self.reconcile_messages_webhooks()
-        return reconciled[0] if reconciled else None
+        return await webex_webhooks.reconcile_messages_webhook(self)
 
     def _webhook_matches(
         self,
         current: WebexWebhookRecord,
         desired: WebexWebhookRegistration,
     ) -> bool:
-        secret_matches = current.secret in {None, desired.secret}
-        return (
-            current.name == desired.name
-            and current.target_url == desired.target_url
-            and current.resource == desired.resource
-            and current.event == desired.event
-            and self._filters_match(current.filter, desired.filter)
-            and secret_matches
-        )
+        return webex_webhooks.webhook_matches(self, current, desired)
 
     def _filters_match(self, current: str | None, desired: str | None) -> bool:
-        return self._normalize_filter(current) == self._normalize_filter(desired)
+        return webex_webhooks.filters_match(self, current, desired)
 
     def _normalize_filter(
         self, raw_filter: str | None
     ) -> tuple[tuple[str, str], ...] | None:
-        if raw_filter is None:
-            return None
-
-        normalized_pairs: list[tuple[str, str]] = []
-        for key, value in parse_qsl(raw_filter, keep_blank_values=True):
-            if key == "mentionedPeople" and value == "me":
-                value = self.bot_person_id or self.config.webex_bot_person_id or value
-            normalized_pairs.append((key, value))
-        normalized_pairs.sort()
-        return tuple(normalized_pairs)
+        return webex_webhooks.normalize_filter(self, raw_filter)
 
     def _webhook_looks_app_owned(
         self,
         webhook: WebexWebhookRecord,
         desired: WebexWebhookRegistration | None = None,
     ) -> bool:
-        target_name = desired.name if desired is not None else None
-        return (
-            webhook.name
-            in {
-                self.config.webex_webhook_name,
-                self.config.webex_webhook_direct_name,
-                self.config.webex_webhook_group_name,
-                target_name,
-            }
-            or webhook.target_url == self.config.webex_webhook_target_url
-        )
+        return webex_webhooks.webhook_looks_app_owned(self, webhook, desired)
 
     async def fetch_inbound_message(
         self, envelope: WebexWebhookEnvelope
