@@ -303,12 +303,12 @@ def test_debug_get_room_booking_in_all_llm_mode() -> None:
     assert "None" not in text
 
 
-def test_set_camera_mode_creates_approval_reply() -> None:
+def test_set_camera_mode_executes_without_approval() -> None:
     response = client.post(
         "/debug/messages",
         json={
             "text": "set camera mode to frames on Board Pro",
-            "session_id": "camera-mode-approval-case",
+            "session_id": "camera-mode-direct-case",
         },
     )
     assert response.status_code == 200
@@ -316,10 +316,9 @@ def test_set_camera_mode_creates_approval_reply() -> None:
     body = as_mapping(payload)
     reply = as_mapping(body["reply"])
     text = reply["text"]
-    attachments = as_sequence(reply["attachments"])
     assert isinstance(text, str)
-    assert "Approval required" in text
-    assert len(attachments) == 1
+    assert "Approval required" not in text
+    assert "Mock camera mode set to Frames" in text
 
 
 def test_join_obtp_creates_approval_reply() -> None:
@@ -802,20 +801,19 @@ def test_reset_command_clears_session() -> None:
     assert "cleared the session context" in text
 
 
-def test_set_volume_creates_approval_reply() -> None:
+def test_set_volume_executes_without_approval() -> None:
     response = client.post(
         "/debug/messages",
-        json={"text": "set volume to 35 on Board Pro", "session_id": "approval-case"},
+        json={"text": "set volume to 35 on Board Pro", "session_id": "volume-direct-case"},
     )
     assert response.status_code == 200
     payload = cast(object, response.json())
     body = as_mapping(payload)
     reply = as_mapping(body["reply"])
     text = reply["text"]
-    attachments = as_sequence(reply["attachments"])
     assert isinstance(text, str)
-    assert "Approval required" in text
-    assert len(attachments) == 1
+    assert "Approval required" not in text
+    assert "Mock volume set to 35" in text
 
 
 def test_debug_mutating_command_success_is_not_rendered_as_failure() -> None:
@@ -3020,23 +3018,21 @@ def test_missing_volume_level_asks_follow_up_then_resume() -> None:
     second_text = second_reply["text"]
 
     assert isinstance(second_text, str)
-    assert "Approval required" in second_text
+    assert "Approval required" not in second_text
+    assert "Mock volume set to 35" in second_text
+    assert "Board Pro" in second_text
 
     approvals_response = scoped_client.get("/admin/approvals")
     assert approvals_response.status_code == 200
     approvals_payload = cast(object, approvals_response.json())
     approvals_body = as_mapping(approvals_payload)
     approvals = as_sequence(approvals_body["approvals"])
-    pending = next(
+    matching = [
         approval
         for approval in approvals
         if as_mapping(approval)["session_id"] == "followup-volume"
-    )
-    execution_request = as_mapping(as_mapping(pending)["execution_request"])
-    set_volume = as_mapping(execution_request["set_volume"])
-
-    assert set_volume["level"] == 35
-    assert set_volume["target_device"] == "Board Pro"
+    ]
+    assert matching == []
 
 
 def test_ollama_fallback_preserves_pending_follow_up() -> None:
@@ -5478,7 +5474,7 @@ def test_debug_approval_endpoint_resolves_request() -> None:
     approval_response = client.post(
         "/debug/messages",
         json={
-            "text": "set volume to 35 on Board Pro",
+            "text": "dial youngcle@cisco.com on Board Pro",
             "session_id": "resolve-approval-case",
         },
     )
@@ -5600,7 +5596,7 @@ def test_persisted_admin_runtime_state_survives_restart(tmp_path: Path) -> None:
         approval_response = first_client.post(
             "/debug/messages",
             json={
-                "text": "set volume to 35 on Board Pro",
+                "text": "dial youngcle@cisco.com on Board Pro",
                 "session_id": "persisted-approval-case",
             },
         )
@@ -5773,7 +5769,7 @@ def test_persisted_approval_can_be_resolved_after_restart(tmp_path: Path) -> Non
         approval_response = first_client.post(
             "/debug/messages",
             json={
-                "text": "set volume to 35 on Board Pro",
+                "text": "dial youngcle@cisco.com on Board Pro",
                 "session_id": "restart-approval-case",
             },
         )

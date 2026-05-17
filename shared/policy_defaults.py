@@ -72,8 +72,11 @@ DEFAULT_COMMAND_POLICIES: dict[Intent, CommandPolicy] = {
     Intent.SET_MICROPHONE_MUTE: CommandPolicy(
         allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
         risk_level=RiskLevel.LOW,
-        approval_state=ApprovalState.REQUIRED,
-        reason="Audio input changes should require explicit approval by default.",
+        approval_state=ApprovalState.NOT_REQUIRED,
+        reason=(
+            "Mic mute is a binary toggle that is fully reversible. "
+            "User intent and target value are unambiguous, so we execute immediately."
+        ),
     ),
     Intent.SET_MICROPHONE_MODE: CommandPolicy(
         allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
@@ -84,14 +87,20 @@ DEFAULT_COMMAND_POLICIES: dict[Intent, CommandPolicy] = {
     Intent.SET_VOLUME: CommandPolicy(
         allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
         risk_level=RiskLevel.LOW,
-        approval_state=ApprovalState.REQUIRED,
-        reason="Mutating device settings should require an explicit approval flow.",
+        approval_state=ApprovalState.NOT_REQUIRED,
+        reason=(
+            "Volume affects only the local speaker output and is trivially reversible. "
+            "Explicit numeric level from user is unambiguous, so we execute immediately."
+        ),
     ),
     Intent.SET_VIDEO_MUTE: CommandPolicy(
         allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
         risk_level=RiskLevel.LOW,
-        approval_state=ApprovalState.REQUIRED,
-        reason="Camera mute changes should require explicit approval by default.",
+        approval_state=ApprovalState.NOT_REQUIRED,
+        reason=(
+            "Video mute is a binary on/off toggle that is fully reversible. "
+            "User intent is unambiguous, so we execute immediately."
+        ),
     ),
     Intent.SET_SELFVIEW: CommandPolicy(
         allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
@@ -106,14 +115,20 @@ DEFAULT_COMMAND_POLICIES: dict[Intent, CommandPolicy] = {
     Intent.SET_CAMERA_MODE: CommandPolicy(
         allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
         risk_level=RiskLevel.LOW,
-        approval_state=ApprovalState.REQUIRED,
-        reason="Camera mode changes should require explicit approval by default.",
+        approval_state=ApprovalState.NOT_REQUIRED,
+        reason=(
+            "Camera mode (Manual/Dynamic/BestOverview/Closeup/Frames/GroupAndSpeaker) "
+            "is a reversible framing preference with no external impact."
+        ),
     ),
     Intent.SET_LAYOUT: CommandPolicy(
         allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
         risk_level=RiskLevel.LOW,
-        approval_state=ApprovalState.REQUIRED,
-        reason="Layout changes should require explicit approval by default.",
+        approval_state=ApprovalState.NOT_REQUIRED,
+        reason=(
+            "Layout is a local view preference, fully reversible by selecting another. "
+            "Executed immediately when the user names a layout."
+        ),
     ),
     Intent.SET_PRESENTATION: CommandPolicy(
         allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
@@ -172,8 +187,10 @@ DEFAULT_COMMAND_POLICIES: dict[Intent, CommandPolicy] = {
     Intent.SET_SPEAKERTRACK: CommandPolicy(
         allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
         risk_level=RiskLevel.LOW,
-        approval_state=ApprovalState.REQUIRED,
-        reason="SpeakerTrack changes should require explicit approval by default.",
+        approval_state=ApprovalState.NOT_REQUIRED,
+        reason=(
+            "SpeakerTrack is a reversible camera-tracking toggle with no external impact."
+        ),
     ),
     Intent.SET_STANDBY: CommandPolicy(
         allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
