@@ -32,9 +32,7 @@ class WebhookController:
         self.memory_store: InMemorySessionStore = memory_store
         self.processed_event_store: InMemoryStateStore | None = processed_event_store
 
-    def prepare_event(
-        self, raw_body: bytes, signature: str | None
-    ) -> dict[str, object]:
+    def prepare_event(self, raw_body: bytes, signature: str | None) -> dict[str, object]:
         self._verify_signature(raw_body, signature)
         payload = json.loads(raw_body.decode("utf-8"))
         if not isinstance(payload, dict):
@@ -129,9 +127,7 @@ class WebhookController:
 
             phase = "fetch_person_email"
             try:
-                decided_by_email = await self.gateway.fetch_person_email(
-                    details.personId
-                )
+                decided_by_email = await self.gateway.fetch_person_email(details.personId)
             except Exception:
                 logger.exception(
                     "Failed to fetch person email for attachment action raw_event_id=%s action_id=%s person_id=%s",
@@ -149,19 +145,14 @@ class WebhookController:
                 selected_value = details.inputs.get("selectedValue")
                 setting_field_name = details.inputs.get("settingFieldName")
                 setting_value = details.inputs.get("settingValue")
-                if not isinstance(pending_action_id, str) or not isinstance(
-                    field_name, str
-                ):
+                if not isinstance(pending_action_id, str) or not isinstance(field_name, str):
                     raise ValueError(
                         "Entity selection inputs must include pendingActionId and fieldName."
                     )
                 phase = "resume_selection"
-                selected_value_arg = (
-                    selected_value if isinstance(selected_value, str) else None
-                )
+                selected_value_arg = selected_value if isinstance(selected_value, str) else None
                 cancel_selection = (
-                    isinstance(selection_decision, str)
-                    and selection_decision.lower() == "cancel"
+                    isinstance(selection_decision, str) and selection_decision.lower() == "cancel"
                 )
                 if isinstance(setting_field_name, str) or isinstance(setting_value, str):
                     (
@@ -178,9 +169,7 @@ class WebhookController:
                         setting_field_name=setting_field_name
                         if isinstance(setting_field_name, str)
                         else None,
-                        setting_value=setting_value
-                        if isinstance(setting_value, str)
-                        else None,
+                        setting_value=setting_value if isinstance(setting_value, str) else None,
                     )
                 else:
                     (
@@ -214,9 +203,7 @@ class WebhookController:
             decision = details.inputs.get("decision")
             admin_session_id = details.inputs.get("adminSessionId")
             if not isinstance(request_id, str) or not isinstance(decision, str):
-                raise ValueError(
-                    "Attachment action inputs must include requestId and decision."
-                )
+                raise ValueError("Attachment action inputs must include requestId and decision.")
 
             phase = "resolve_approval"
             resolved = self.approval_manager.approve_or_reject(
@@ -284,9 +271,7 @@ class WebhookController:
         if not signature:
             raise ValueError("Missing X-Spark-Signature header.")
 
-        digest = hmac.new(
-            self.webhook_secret.encode("utf-8"), raw_body, hashlib.sha1
-        ).hexdigest()
+        digest = hmac.new(self.webhook_secret.encode("utf-8"), raw_body, hashlib.sha1).hexdigest()
         if not hmac.compare_digest(digest, signature):
             raise ValueError("Invalid X-Spark-Signature header.")
 

@@ -107,14 +107,17 @@ def build_setting_option_card_pending_action(
     for intent, spec in setting_option_specs().items():
         keywords = tuple(str(keyword).casefold() for keyword in spec["keywords"])  # type: ignore[index]
         verbs = tuple(str(verb).casefold() for verb in spec["verbs"])  # type: ignore[index]
-        if not any(keyword in normalized or re.sub(r"\s+", "", keyword) in compact for keyword in keywords):
+        if not any(
+            keyword in normalized or re.sub(r"\s+", "", keyword) in compact for keyword in keywords
+        ):
             continue
         if not any(verb in normalized or re.sub(r"\s+", "", verb) in compact for verb in verbs):
             continue
         return PendingActionProposal(
             intent=intent,
             summary=str(spec["title"]),
-            target_device=orchestrator._extract_trailing_target_device(message.text) or message.target_device,
+            target_device=orchestrator._extract_trailing_target_device(message.text)
+            or message.target_device,
         )
     return None
 
@@ -228,9 +231,7 @@ def normalize_capability_product(product: str | None) -> str:
     return normalized
 
 
-def device_capabilities(
-    orchestrator: Orchestrator, device: OrganizationDeviceRecord
-) -> set[str]:
+def device_capabilities(orchestrator: Orchestrator, device: OrganizationDeviceRecord) -> set[str]:
     candidates = [device.product, device.display_name]
     for candidate in candidates:
         normalized = normalize_capability_product(candidate)
@@ -244,13 +245,9 @@ def device_capabilities(
     return {capability for capability, _label in orchestrator._CAPABILITY_ORDER}
 
 
-def capability_labels(
-    orchestrator: Orchestrator, capabilities: set[str]
-) -> list[str]:
+def capability_labels(orchestrator: Orchestrator, capabilities: set[str]) -> list[str]:
     return [
-        label
-        for capability, label in orchestrator._CAPABILITY_ORDER
-        if capability in capabilities
+        label for capability, label in orchestrator._CAPABILITY_ORDER if capability in capabilities
     ]
 
 
@@ -289,15 +286,11 @@ async def load_device_choices_for_intent(
             continue
         title_parts = [value]
         subtitle_parts = [
-            part
-            for part in (device.product, device.place)
-            if isinstance(part, str) and part
+            part for part in (device.product, device.place) if isinstance(part, str) and part
         ]
         if subtitle_parts:
             title_parts.append(f"({' / '.join(subtitle_parts)})")
-        capabilities = capability_labels(
-            orchestrator, device_capabilities(orchestrator, device)
-        )
+        capabilities = capability_labels(orchestrator, device_capabilities(orchestrator, device))
         if capabilities:
             title_parts.append(f"- {', '.join(capabilities)}")
         choices.append({"title": " ".join(title_parts), "value": value})
@@ -417,9 +410,7 @@ def build_display_mode_card_pending_action(
     normalized = message.text.strip().lower()
     compact = re.sub(r"\s+", "", normalized)
     if not (
-        "디스플레이모드" in compact
-        or "displaymode" in compact
-        or "display mode" in normalized
+        "디스플레이모드" in compact or "displaymode" in compact or "display mode" in normalized
     ):
         return None
     if not any(keyword in compact for keyword in ("설정", "변경", "선택", "set")):
@@ -517,11 +508,7 @@ def build_camera_mode_card_pending_action(
 ) -> PendingActionProposal | None:
     normalized = message.text.strip().lower()
     compact = re.sub(r"\s+", "", normalized)
-    if not (
-        "카메라모드" in compact
-        or "cameramode" in compact
-        or "camera mode" in normalized
-    ):
+    if not ("카메라모드" in compact or "cameramode" in compact or "camera mode" in normalized):
         return None
     if not any(keyword in compact for keyword in ("변경", "설정", "선택", "set")):
         return None

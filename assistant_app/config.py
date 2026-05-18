@@ -71,9 +71,7 @@ class AppConfig:
     webex_token_manager_api_key: str | None = None
     webex_webhook_name: str = "webex-device-assistant-messages-created"
     webex_webhook_direct_name: str = "webex-device-assistant-messages-created-direct"
-    webex_webhook_group_name: str = (
-        "webex-device-assistant-messages-created-group-mention"
-    )
+    webex_webhook_group_name: str = "webex-device-assistant-messages-created-group-mention"
     webex_webhook_resource: str = "messages"
     webex_webhook_event: str = "created"
     webex_webhook_filter: str | None = None
@@ -92,15 +90,11 @@ class AppConfig:
         _require_env("WEBEX_BOT_PERSON_ID", self.webex_bot_person_id)
         _require_env("WEBEX_WEBHOOK_SECRET", self.webex_webhook_secret)
         _require_env("ADMIN_COOKIE_SECRET", self.admin_cookie_secret)
-        _require_literal(
-            "WEBEX_WEBHOOK_RESOURCE", self.webex_webhook_resource, "messages"
-        )
+        _require_literal("WEBEX_WEBHOOK_RESOURCE", self.webex_webhook_resource, "messages")
         _require_literal("WEBEX_WEBHOOK_EVENT", self.webex_webhook_event, "created")
 
         if self.webex_webhook_target_url is not None:
-            _validate_https_url(
-                "WEBEX_WEBHOOK_TARGET_URL", self.webex_webhook_target_url
-            )
+            _validate_https_url("WEBEX_WEBHOOK_TARGET_URL", self.webex_webhook_target_url)
 
         if self.webex_webhook_reconcile_on_startup:
             _require_env("WEBEX_WEBHOOK_TARGET_URL", self.webex_webhook_target_url)
@@ -127,9 +121,7 @@ class AppConfig:
     def from_env(cls) -> AppConfig:
         config = cls(
             admin_state_path=_env_text("ADMIN_STATE_PATH"),
-            default_provider=ProviderKind(
-                os.getenv("DEFAULT_PROVIDER", ProviderKind.OLLAMA.value)
-            ),
+            default_provider=ProviderKind(os.getenv("DEFAULT_PROVIDER", ProviderKind.OLLAMA.value)),
             default_provider_model=os.getenv(
                 "DEFAULT_PROVIDER_MODEL",
                 DEFAULT_OLLAMA_MODEL
@@ -167,9 +159,7 @@ class AppConfig:
             webex_mock_mode=_env_flag("WEBEX_MOCK_MODE", True),
             device_mock_mode=_env_flag("DEVICE_MOCK_MODE", True),
             admin_cookie_secret=_env_text("ADMIN_COOKIE_SECRET"),
-            default_execution_mode=_env_mode(
-                "DEFAULT_EXECUTION_MODE", ExecutionMode.SEPARATED
-            ),
+            default_execution_mode=_env_mode("DEFAULT_EXECUTION_MODE", ExecutionMode.SEPARATED),
             default_target_device=os.getenv("DEFAULT_TARGET_DEVICE", ""),
         )
         if config.default_provider == ProviderKind.OLLAMA:

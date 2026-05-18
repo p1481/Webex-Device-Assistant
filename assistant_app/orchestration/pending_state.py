@@ -67,9 +67,7 @@ async def handle_pending_follow_up(
     message: InboundUserMessage,
     pending_action: PendingActionProposal,
 ) -> OutboundReply:
-    updated_pending_action = collect_pending_follow_up(
-        orchestrator, pending_action, message.text
-    )
+    updated_pending_action = collect_pending_follow_up(orchestrator, pending_action, message.text)
     next_missing_field = next_missing_pending_field(orchestrator, updated_pending_action)
     if next_missing_field is not None:
         _ = orchestrator.memory_store.set_pending_action(
@@ -85,9 +83,7 @@ async def handle_pending_follow_up(
         )
         return reply
 
-    _ = orchestrator.memory_store.clear_pending_action(
-        message.session_id, message.user_id
-    )
+    _ = orchestrator.memory_store.clear_pending_action(message.session_id, message.user_id)
     proposal = build_action_proposal_from_pending(orchestrator, updated_pending_action)
     if proposal is None:
         reply_text = "I couldn't determine the next action."
@@ -168,9 +164,7 @@ async def resume_pending_action_selection(
         field_name == "setting_value"
         and isinstance(setting_value, str)
         and setting_value.strip()
-        and (
-            not isinstance(selected_value, str) or not selected_value.strip()
-        )
+        and (not isinstance(selected_value, str) or not selected_value.strip())
     ):
         selected_value = pending_action.target_device
 
@@ -204,9 +198,7 @@ async def resume_pending_action_selection(
         if setting_field_name is None and setting_value is None:
             proposal = updated_pending_action.action_proposal
             if proposal is not None:
-                proposal_setting = get_proposal_setting_field_and_value(
-                    orchestrator, proposal
-                )
+                proposal_setting = get_proposal_setting_field_and_value(orchestrator, proposal)
                 if proposal_setting is not None:
                     setting_field_name, setting_value = proposal_setting
                     updated_pending_action.action_proposal = None
@@ -242,9 +234,7 @@ async def resume_pending_action_selection(
             return reply, False
     elif field_name == "camera_mode":
         try:
-            updated_pending_action.camera_mode = WritableCameraMode(
-                selected_value.strip()
-            )
+            updated_pending_action.camera_mode = WritableCameraMode(selected_value.strip())
         except ValueError:
             reply = OutboundReply(
                 text="That camera mode selection is no longer valid.",
@@ -274,9 +264,7 @@ async def resume_pending_action_selection(
                 is not None
             )
             if not already_has_value:
-                _ = clear_proposal_target_setting_value(
-                    orchestrator, updated_pending_action
-                )
+                _ = clear_proposal_target_setting_value(orchestrator, updated_pending_action)
 
     synthetic_message = InboundUserMessage(
         session_id=session_id,
@@ -332,9 +320,8 @@ async def build_pending_reply(
             pending_action,
         )
 
-    if (
-        message.source == MessageSource.WEBEX
-        and pending_action_needs_target_device(orchestrator, pending_action)
+    if message.source == MessageSource.WEBEX and pending_action_needs_target_device(
+        orchestrator, pending_action
     ):
         fallback_text = orchestrator._build_target_device_follow_up_text(
             message,
@@ -367,9 +354,8 @@ def next_missing_pending_field(
             return "target_device"
         if (
             intent_needs_setting_option_selection(orchestrator, pending_action.intent)
-            and get_proposal_setting_field_and_value(
-                orchestrator, pending_action.action_proposal
-            ) is None
+            and get_proposal_setting_field_and_value(orchestrator, pending_action.action_proposal)
+            is None
         ):
             return "setting_value"
 
@@ -409,11 +395,8 @@ def collect_pending_follow_up(
     updated_pending_action = pending_action.model_copy(deep=True)
     trailing_target_device = orchestrator._extract_trailing_target_device(text)
 
-    if (
-        updated_pending_action.action_proposal is not None
-        and proposal_has_missing_target_device(
-            orchestrator, updated_pending_action.action_proposal
-        )
+    if updated_pending_action.action_proposal is not None and proposal_has_missing_target_device(
+        orchestrator, updated_pending_action.action_proposal
     ):
         target_device = resolve_pending_target_device_response(
             orchestrator,
@@ -430,9 +413,7 @@ def collect_pending_follow_up(
         return updated_pending_action
 
     if updated_pending_action.intent == Intent.WEBEX_JOIN:
-        meeting_identifier_was_missing = (
-            updated_pending_action.meeting_identifier is None
-        )
+        meeting_identifier_was_missing = updated_pending_action.meeting_identifier is None
         if updated_pending_action.meeting_identifier is None:
             updated_pending_action.meeting_identifier = (
                 orchestrator._extract_follow_up_webex_meeting_identifier(text)
@@ -441,53 +422,43 @@ def collect_pending_follow_up(
             if trailing_target_device is not None:
                 updated_pending_action.target_device = trailing_target_device
             elif not meeting_identifier_was_missing:
-                updated_pending_action.target_device = (
-                    resolve_pending_target_device_response(
-                        orchestrator,
-                        updated_pending_action.intent,
-                        text,
-                        trailing_target_device,
-                    )
+                updated_pending_action.target_device = resolve_pending_target_device_response(
+                    orchestrator,
+                    updated_pending_action.intent,
+                    text,
+                    trailing_target_device,
                 )
         return updated_pending_action
 
     if updated_pending_action.intent == Intent.DIAL:
         address_was_missing = updated_pending_action.address is None
         if updated_pending_action.address is None:
-            updated_pending_action.address = orchestrator._extract_follow_up_dial_address(
-                text
-            )
+            updated_pending_action.address = orchestrator._extract_follow_up_dial_address(text)
         if updated_pending_action.target_device is None:
             if trailing_target_device is not None:
                 updated_pending_action.target_device = trailing_target_device
             elif not address_was_missing:
-                updated_pending_action.target_device = (
-                    resolve_pending_target_device_response(
-                        orchestrator,
-                        updated_pending_action.intent,
-                        text,
-                        trailing_target_device,
-                    )
+                updated_pending_action.target_device = resolve_pending_target_device_response(
+                    orchestrator,
+                    updated_pending_action.intent,
+                    text,
+                    trailing_target_device,
                 )
         return updated_pending_action
 
     if updated_pending_action.intent == Intent.SET_VOLUME:
         level_was_missing = updated_pending_action.level is None
         if updated_pending_action.level is None:
-            updated_pending_action.level = orchestrator._extract_follow_up_volume_level(
-                text
-            )
+            updated_pending_action.level = orchestrator._extract_follow_up_volume_level(text)
         if updated_pending_action.target_device is None:
             if trailing_target_device is not None:
                 updated_pending_action.target_device = trailing_target_device
             elif not level_was_missing:
-                updated_pending_action.target_device = (
-                    resolve_pending_target_device_response(
-                        orchestrator,
-                        updated_pending_action.intent,
-                        text,
-                        trailing_target_device,
-                    )
+                updated_pending_action.target_device = resolve_pending_target_device_response(
+                    orchestrator,
+                    updated_pending_action.intent,
+                    text,
+                    trailing_target_device,
                 )
         return updated_pending_action
 
@@ -498,9 +469,7 @@ def pending_action_needs_target_device(
     orchestrator: Orchestrator, pending_action: PendingActionProposal
 ) -> bool:
     if pending_action.action_proposal is not None:
-        return proposal_has_missing_target_device(
-            orchestrator, pending_action.action_proposal
-        )
+        return proposal_has_missing_target_device(orchestrator, pending_action.action_proposal)
     return pending_action.target_device is None and intent_requires_target_device(
         pending_action.intent
     )
@@ -518,9 +487,7 @@ def get_pending_bool_value(
     return value if isinstance(value, bool) else None
 
 
-def intent_needs_setting_option_selection(
-    orchestrator: Orchestrator, intent: Intent
-) -> bool:
+def intent_needs_setting_option_selection(orchestrator: Orchestrator, intent: Intent) -> bool:
     return intent in orchestrator._setting_option_specs()
 
 
@@ -647,7 +614,11 @@ def apply_pending_setting_selection(
     else:
         bool_value = None
     try:
-        if pending_action.intent == Intent.SET_MICROPHONE_MUTE and setting_field_name == "muted" and bool_value is not None:
+        if (
+            pending_action.intent == Intent.SET_MICROPHONE_MUTE
+            and setting_field_name == "muted"
+            and bool_value is not None
+        ):
             pending_action.action_proposal = ActionProposal(
                 intent=Intent.SET_MICROPHONE_MUTE,
                 summary=pending_action.summary,
@@ -658,7 +629,11 @@ def apply_pending_setting_selection(
                 ),
             )
             return True
-        if pending_action.intent == Intent.SET_VIDEO_MUTE and setting_field_name == "muted" and bool_value is not None:
+        if (
+            pending_action.intent == Intent.SET_VIDEO_MUTE
+            and setting_field_name == "muted"
+            and bool_value is not None
+        ):
             pending_action.action_proposal = ActionProposal(
                 intent=Intent.SET_VIDEO_MUTE,
                 summary=pending_action.summary,
@@ -669,7 +644,11 @@ def apply_pending_setting_selection(
                 ),
             )
             return True
-        if pending_action.intent == Intent.SET_SELFVIEW and setting_field_name == "enabled" and bool_value is not None:
+        if (
+            pending_action.intent == Intent.SET_SELFVIEW
+            and setting_field_name == "enabled"
+            and bool_value is not None
+        ):
             pending_action.action_proposal = ActionProposal(
                 intent=Intent.SET_SELFVIEW,
                 summary=pending_action.summary,
@@ -680,7 +659,11 @@ def apply_pending_setting_selection(
                 ),
             )
             return True
-        if pending_action.intent == Intent.SET_SPEAKERTRACK and setting_field_name == "enabled" and bool_value is not None:
+        if (
+            pending_action.intent == Intent.SET_SPEAKERTRACK
+            and setting_field_name == "enabled"
+            and bool_value is not None
+        ):
             pending_action.action_proposal = ActionProposal(
                 intent=Intent.SET_SPEAKERTRACK,
                 summary=pending_action.summary,
@@ -691,7 +674,11 @@ def apply_pending_setting_selection(
                 ),
             )
             return True
-        if pending_action.intent == Intent.SET_STANDBY and setting_field_name == "enabled" and bool_value is not None:
+        if (
+            pending_action.intent == Intent.SET_STANDBY
+            and setting_field_name == "enabled"
+            and bool_value is not None
+        ):
             pending_action.action_proposal = ActionProposal(
                 intent=Intent.SET_STANDBY,
                 summary=pending_action.summary,
@@ -702,7 +689,11 @@ def apply_pending_setting_selection(
                 ),
             )
             return True
-        if pending_action.intent == Intent.SET_PRESENTATION and setting_field_name == "enabled" and bool_value is not None:
+        if (
+            pending_action.intent == Intent.SET_PRESENTATION
+            and setting_field_name == "enabled"
+            and bool_value is not None
+        ):
             pending_action.action_proposal = ActionProposal(
                 intent=Intent.SET_PRESENTATION,
                 summary=pending_action.summary,
@@ -735,9 +726,7 @@ def build_action_proposal_from_pending(
     if pending_action.action_proposal is not None:
         return (
             pending_action.action_proposal
-            if not proposal_has_missing_target_device(
-                orchestrator, pending_action.action_proposal
-            )
+            if not proposal_has_missing_target_device(orchestrator, pending_action.action_proposal)
             else None
         )
 
@@ -964,10 +953,7 @@ def with_target_device(proposal: ActionProposal, target_device: str) -> ActionPr
                 )
             }
         )
-    if (
-        payload_name == "get_environment_info"
-        and proposal.get_environment_info is not None
-    ):
+    if payload_name == "get_environment_info" and proposal.get_environment_info is not None:
         return proposal.model_copy(
             update={
                 "get_environment_info": proposal.get_environment_info.model_copy(
@@ -1002,39 +988,24 @@ def with_target_device(proposal: ActionProposal, target_device: str) -> ActionPr
     if payload_name == "join_obtp" and proposal.join_obtp is not None:
         return proposal.model_copy(
             update={
-                "join_obtp": proposal.join_obtp.model_copy(
-                    update={"target_device": target_device}
-                )
+                "join_obtp": proposal.join_obtp.model_copy(update={"target_device": target_device})
             }
         )
     if payload_name == "dial" and proposal.dial is not None:
         return proposal.model_copy(
-            update={
-                "dial": proposal.dial.model_copy(
-                    update={"target_device": target_device}
-                )
-            }
+            update={"dial": proposal.dial.model_copy(update={"target_device": target_device})}
         )
     if payload_name == "hang_up" and proposal.hang_up is not None:
         return proposal.model_copy(
-            update={
-                "hang_up": proposal.hang_up.model_copy(
-                    update={"target_device": target_device}
-                )
-            }
+            update={"hang_up": proposal.hang_up.model_copy(update={"target_device": target_device})}
         )
     if payload_name == "send_dtmf" and proposal.send_dtmf is not None:
         return proposal.model_copy(
             update={
-                "send_dtmf": proposal.send_dtmf.model_copy(
-                    update={"target_device": target_device}
-                )
+                "send_dtmf": proposal.send_dtmf.model_copy(update={"target_device": target_device})
             }
         )
-    if (
-        payload_name == "set_microphone_mute"
-        and proposal.set_microphone_mute is not None
-    ):
+    if payload_name == "set_microphone_mute" and proposal.set_microphone_mute is not None:
         return proposal.model_copy(
             update={
                 "set_microphone_mute": proposal.set_microphone_mute.model_copy(
@@ -1042,10 +1013,7 @@ def with_target_device(proposal: ActionProposal, target_device: str) -> ActionPr
                 )
             }
         )
-    if (
-        payload_name == "set_microphone_mode"
-        and proposal.set_microphone_mode is not None
-    ):
+    if payload_name == "set_microphone_mode" and proposal.set_microphone_mode is not None:
         return proposal.model_copy(
             update={
                 "set_microphone_mode": proposal.set_microphone_mode.model_copy(
@@ -1101,10 +1069,7 @@ def with_target_device(proposal: ActionProposal, target_device: str) -> ActionPr
                 )
             }
         )
-    if (
-        payload_name == "switch_input_source"
-        and proposal.switch_input_source is not None
-    ):
+    if payload_name == "switch_input_source" and proposal.switch_input_source is not None:
         return proposal.model_copy(
             update={
                 "switch_input_source": proposal.switch_input_source.model_copy(
@@ -1152,10 +1117,7 @@ def with_target_device(proposal: ActionProposal, target_device: str) -> ActionPr
                 )
             }
         )
-    if (
-        payload_name == "activate_camera_preset"
-        and proposal.activate_camera_preset is not None
-    ):
+    if payload_name == "activate_camera_preset" and proposal.activate_camera_preset is not None:
         return proposal.model_copy(
             update={
                 "activate_camera_preset": proposal.activate_camera_preset.model_copy(
@@ -1163,10 +1125,7 @@ def with_target_device(proposal: ActionProposal, target_device: str) -> ActionPr
                 )
             }
         )
-    if (
-        payload_name == "adjust_camera_position"
-        and proposal.adjust_camera_position is not None
-    ):
+    if payload_name == "adjust_camera_position" and proposal.adjust_camera_position is not None:
         return proposal.model_copy(
             update={
                 "adjust_camera_position": proposal.adjust_camera_position.model_copy(
@@ -1192,11 +1151,7 @@ def with_target_device(proposal: ActionProposal, target_device: str) -> ActionPr
         )
     if payload_name == "reboot" and proposal.reboot is not None:
         return proposal.model_copy(
-            update={
-                "reboot": proposal.reboot.model_copy(
-                    update={"target_device": target_device}
-                )
-            }
+            update={"reboot": proposal.reboot.model_copy(update={"target_device": target_device})}
         )
     if payload_name == "factory_reset" and proposal.factory_reset is not None:
         return proposal.model_copy(

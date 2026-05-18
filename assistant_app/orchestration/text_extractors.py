@@ -133,9 +133,7 @@ def extract_camera_mode_target_device(message: InboundUserMessage) -> str | None
         return trailing_target
     lowered = message.text.lower()
     markers = ["카메라모드", "카메라 모드", "camera mode", "cameramode"]
-    marker_positions = [
-        lowered.find(marker) for marker in markers if lowered.find(marker) > 0
-    ]
+    marker_positions = [lowered.find(marker) for marker in markers if lowered.find(marker) > 0]
     if marker_positions:
         candidate = message.text[: min(marker_positions)].strip(" ,:：-–—")
         if candidate:
@@ -149,9 +147,7 @@ def extract_display_mode_target_device(message: InboundUserMessage) -> str | Non
         return trailing_target
     lowered = message.text.lower()
     markers = ["디스플레이모드", "디스플레이 모드", "display mode", "displaymode"]
-    marker_positions = [
-        lowered.find(marker) for marker in markers if lowered.find(marker) > 0
-    ]
+    marker_positions = [lowered.find(marker) for marker in markers if lowered.find(marker) > 0]
     if marker_positions:
         candidate = message.text[: min(marker_positions)].strip(" ,:：-–—")
         if candidate:

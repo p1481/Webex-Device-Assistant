@@ -1,4 +1,5 @@
 """Webex webhook routes."""
+
 from __future__ import annotations
 
 from typing import Annotated
@@ -12,9 +13,7 @@ router = APIRouter(prefix="/webhooks/webex")
 async def webex_messages(
     request: Request,
     background_tasks: BackgroundTasks,
-    x_spark_signature: Annotated[
-        str | None, Header(alias="X-Spark-Signature")
-    ] = None,
+    x_spark_signature: Annotated[str | None, Header(alias="X-Spark-Signature")] = None,
 ) -> dict[str, str]:
     services = request.app.state.services
     webhook_controller = services.webhook_controller
@@ -28,9 +27,7 @@ async def webex_messages(
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
-    background_tasks.add_task(
-        webhook_controller.process_message_event, prepared_event
-    )
+    background_tasks.add_task(webhook_controller.process_message_event, prepared_event)
     return {"status": "accepted", "event_id": prepared_event.id}
 
 
@@ -38,9 +35,7 @@ async def webex_messages(
 async def webex_attachment_actions(
     request: Request,
     background_tasks: BackgroundTasks,
-    x_spark_signature: Annotated[
-        str | None, Header(alias="X-Spark-Signature")
-    ] = None,
+    x_spark_signature: Annotated[str | None, Header(alias="X-Spark-Signature")] = None,
 ) -> dict[str, str]:
     services = request.app.state.services
     webhook_controller = services.webhook_controller
@@ -51,9 +46,7 @@ async def webex_attachment_actions(
         raise HTTPException(status_code=401, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    background_tasks.add_task(
-        webhook_controller.process_attachment_action_event, payload
-    )
+    background_tasks.add_task(webhook_controller.process_attachment_action_event, payload)
     raw_event_id = payload.get("id")
     event_id = raw_event_id if isinstance(raw_event_id, str) else "unknown"
     return {"status": "accepted", "event_id": event_id}

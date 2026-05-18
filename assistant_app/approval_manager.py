@@ -80,9 +80,7 @@ class ApprovalManager:
         )
         if normalized_email is None and message.source.value == "debug":
             runtime_email = (
-                self.state_store.get_runtime_admin_settings()
-                .default_user_email.strip()
-                .lower()
+                self.state_store.get_runtime_admin_settings().default_user_email.strip().lower()
             )
             normalized_email = runtime_email or None
         if normalized_email is None:
@@ -184,14 +182,12 @@ class ApprovalManager:
     ) -> bool:
         requested_email = (
             request.requested_by_email.strip().lower()
-            if isinstance(request.requested_by_email, str)
-            and request.requested_by_email.strip()
+            if isinstance(request.requested_by_email, str) and request.requested_by_email.strip()
             else None
         )
         decided_email = (
             decision.decided_by_email.strip().lower()
-            if isinstance(decision.decided_by_email, str)
-            and decision.decided_by_email.strip()
+            if isinstance(decision.decided_by_email, str) and decision.decided_by_email.strip()
             else None
         )
         if requested_email is None or decided_email is None:

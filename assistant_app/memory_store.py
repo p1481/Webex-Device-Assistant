@@ -39,9 +39,7 @@ class InMemorySessionStore:
         session.turns.append(ConversationTurn(role="system", text=text))
         return session
 
-    def get_pending_action(
-        self, session_id: str, user_id: str
-    ) -> PendingActionProposal | None:
+    def get_pending_action(self, session_id: str, user_id: str) -> PendingActionProposal | None:
         return self._pending_actions.get((session_id, user_id))
 
     def set_pending_action(
@@ -57,9 +55,7 @@ class InMemorySessionStore:
         )
         return pending_action
 
-    def clear_pending_action(
-        self, session_id: str, user_id: str
-    ) -> PendingActionProposal | None:
+    def clear_pending_action(self, session_id: str, user_id: str) -> PendingActionProposal | None:
         pending_action = self._pending_actions.pop((session_id, user_id), None)
         if pending_action is not None:
             _ = self._pending_action_index.pop(pending_action.pending_action_id, None)
@@ -81,14 +77,10 @@ class InMemorySessionStore:
     def reset(self, session_id: str, user_id: str | None = None) -> None:
         self._sessions[session_id] = SessionContext(session_id=session_id)
         if user_id is None:
-            pending_keys = [
-                key for key in self._pending_actions if key[0] == session_id
-            ]
+            pending_keys = [key for key in self._pending_actions if key[0] == session_id]
             for key in pending_keys:
                 pending_action = self._pending_actions.pop(key)
-                _ = self._pending_action_index.pop(
-                    pending_action.pending_action_id, None
-                )
+                _ = self._pending_action_index.pop(pending_action.pending_action_id, None)
             return
         _ = self.clear_pending_action(session_id, user_id)
 

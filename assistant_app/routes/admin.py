@@ -1,4 +1,5 @@
 """Admin API routes."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -32,8 +33,7 @@ def _is_allowed_admin_login(runtime_settings: RuntimeAdminSettings, email: str) 
     if email in runtime_settings.allowed_admin_emails:
         return True
     return (
-        not runtime_settings.allowed_admin_emails
-        and email == runtime_settings.default_user_email
+        not runtime_settings.allowed_admin_emails and email == runtime_settings.default_user_email
     )
 
 
@@ -48,9 +48,7 @@ def require_admin_session(request: Request) -> AdminAuthSession:
 
 
 @router.post("/admin/auth/start")
-async def admin_auth_start(
-    payload: AdminAuthRequest, request: Request
-) -> dict[str, object]:
+async def admin_auth_start(payload: AdminAuthRequest, request: Request) -> dict[str, object]:
     services = request.app.state.services
     admin_service = services.admin_service
     approval_manager = services.approval_manager
@@ -107,10 +105,7 @@ async def admin_auth_status(
     auth_session = admin_service.get_admin_auth_session(session_id)
     if auth_session is None:
         raise HTTPException(status_code=404, detail="Admin auth session not found.")
-    if (
-        auth_session.expires_at is not None
-        and auth_session.expires_at <= datetime.now(UTC)
-    ):
+    if auth_session.expires_at is not None and auth_session.expires_at <= datetime.now(UTC):
         admin_service.delete_admin_auth_session(session_id)
         clear_admin_session_cookie(response)
         return AdminAuthStatusResponse(
@@ -158,12 +153,9 @@ async def list_provider_descriptors(
     admin_service = request.app.state.services.admin_service
     return {
         "providers": [
-            descriptor.model_dump()
-            for descriptor in admin_service.list_provider_descriptors()
+            descriptor.model_dump() for descriptor in admin_service.list_provider_descriptors()
         ],
-        "active": _serialize_provider_settings(
-            admin_service.get_provider_settings()
-        ),
+        "active": _serialize_provider_settings(admin_service.get_provider_settings()),
     }
 
 
@@ -249,11 +241,7 @@ async def list_approvals(
     _admin_session: AdminAuthSession = Depends(require_admin_session),
 ) -> dict[str, object]:
     admin_service = request.app.state.services.admin_service
-    return {
-        "approvals": [
-            req.model_dump() for req in admin_service.list_approval_requests()
-        ]
-    }
+    return {"approvals": [req.model_dump() for req in admin_service.list_approval_requests()]}
 
 
 @router.get("/admin/audit")
@@ -262,11 +250,7 @@ async def list_audit(
     _admin_session: AdminAuthSession = Depends(require_admin_session),
 ) -> dict[str, object]:
     state_store = request.app.state.services.state_store
-    return {
-        "audit": [
-            record.model_dump() for record in state_store.list_audit_records()
-        ]
-    }
+    return {"audit": [record.model_dump() for record in state_store.list_audit_records()]}
 
 
 @router.get("/admin/actions")
@@ -275,11 +259,7 @@ async def list_actions(
     _admin_session: AdminAuthSession = Depends(require_admin_session),
 ) -> dict[str, object]:
     admin_service = request.app.state.services.admin_service
-    return {
-        "actions": [
-            action.model_dump() for action in admin_service.list_action_registry()
-        ]
-    }
+    return {"actions": [action.model_dump() for action in admin_service.list_action_registry()]}
 
 
 @router.get("/admin/devices")

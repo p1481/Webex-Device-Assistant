@@ -1,4 +1,5 @@
 """Debug routes for development and manual testing."""
+
 from __future__ import annotations
 
 from uuid import uuid4
@@ -48,13 +49,9 @@ async def debug_webex_runtime(request: Request) -> dict[str, object]:
         "webex_webhook_target_url": config.webex_webhook_target_url,
         "webex_webhook_reconcile_on_startup": config.webex_webhook_reconcile_on_startup,
         "webex_token_manager_base_url": config.webex_token_manager_base_url,
-        "webex_token_manager_api_key_present": bool(
-            config.webex_token_manager_api_key
-        ),
+        "webex_token_manager_api_key_present": bool(config.webex_token_manager_api_key),
         "default_user_email": runtime_settings.default_user_email,
-        "allowed_webex_user_emails": list(
-            runtime_settings.allowed_webex_user_emails
-        ),
+        "allowed_webex_user_emails": list(runtime_settings.allowed_webex_user_emails),
     }
 
 
@@ -89,9 +86,7 @@ async def debug_webex_simulate_message(
         prepared_event = webex_gateway.parse_webhook_payload(envelope_payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    background_tasks.add_task(
-        webhook_controller.process_message_event, prepared_event
-    )
+    background_tasks.add_task(webhook_controller.process_message_event, prepared_event)
     return {
         "status": "accepted",
         "event_id": prepared_event.id,
@@ -102,13 +97,9 @@ async def debug_webex_simulate_message(
 
 
 @router.post("/debug/messages")
-async def debug_message(
-    request: Request, payload: DebugMessageRequest
-) -> dict[str, object]:
+async def debug_message(request: Request, payload: DebugMessageRequest) -> dict[str, object]:
     orchestrator = request.app.state.services.orchestrator
-    source = (
-        MessageSource.WEBEX if payload.target_device is not None else MessageSource.DEBUG
-    )
+    source = MessageSource.WEBEX if payload.target_device is not None else MessageSource.DEBUG
     inbound = InboundUserMessage(
         session_id=payload.session_id,
         user_id=payload.user_id,

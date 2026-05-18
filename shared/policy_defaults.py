@@ -188,9 +188,7 @@ DEFAULT_COMMAND_POLICIES: dict[Intent, CommandPolicy] = {
         allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],
         risk_level=RiskLevel.LOW,
         approval_state=ApprovalState.NOT_REQUIRED,
-        reason=(
-            "SpeakerTrack is a reversible camera-tracking toggle with no external impact."
-        ),
+        reason=("SpeakerTrack is a reversible camera-tracking toggle with no external impact."),
     ),
     Intent.SET_STANDBY: CommandPolicy(
         allowed_modes=[ExecutionMode.SEPARATED, ExecutionMode.ALL_LLM],

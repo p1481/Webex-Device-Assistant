@@ -197,14 +197,10 @@ class AdjustCameraPositionParams(TargetDeviceParams):
     def validate_adjustment(self) -> AdjustCameraPositionParams:
         normalized_camera_id = self.camera_id.strip()
         if not normalized_camera_id.isdigit() or int(normalized_camera_id) <= 0:
-            raise ValueError(
-                "adjust_camera_position requires a positive decimal camera_id"
-            )
+            raise ValueError("adjust_camera_position requires a positive decimal camera_id")
         self.camera_id = normalized_camera_id
         if self.pan is None and self.tilt is None and self.zoom is None:
-            raise ValueError(
-                "adjust_camera_position requires pan, tilt, or zoom parameters"
-            )
+            raise ValueError("adjust_camera_position requires pan, tilt, or zoom parameters")
         return self
 
 
@@ -339,9 +335,7 @@ class ActionProposal(BaseModel):
     def validate_payload(self) -> ActionProposal:
         payload_name = get_action_payload_field(self.intent)
         if payload_name is not None and getattr(self, payload_name) is None:
-            raise ValueError(
-                f"{self.intent.value} proposal requires {payload_name} parameters"
-            )
+            raise ValueError(f"{self.intent.value} proposal requires {payload_name} parameters")
         return self
 
 
@@ -366,14 +360,8 @@ class OrchestrationDecision(BaseModel):
 
     @model_validator(mode="after")
     def validate_decision(self) -> OrchestrationDecision:
-        if (
-            self.reply_text is None
-            and self.action_proposal is None
-            and self.pending_action is None
-        ):
-            raise ValueError(
-                "decision requires reply_text, action_proposal, or pending_action"
-            )
+        if self.reply_text is None and self.action_proposal is None and self.pending_action is None:
+            raise ValueError("decision requires reply_text, action_proposal, or pending_action")
         return self
 
 

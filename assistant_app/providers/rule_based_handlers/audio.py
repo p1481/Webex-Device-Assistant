@@ -79,11 +79,7 @@ def handle(
                 )
             )
 
-    if (
-        "set volume" in lowered
-        or lowered.startswith("volume ")
-        or "볼륨" in lowered
-    ):
+    if "set volume" in lowered or lowered.startswith("volume ") or "볼륨" in lowered:
         level = provider._extract_volume_level(lowered)
         if level is not None:
             if mentioned_target_device is None:
@@ -98,9 +94,7 @@ def handle(
                 action_proposal=ActionProposal(
                     intent=Intent.SET_VOLUME,
                     summary="Set device volume.",
-                    set_volume=SetVolumeParams(
-                        target_device=target_device, level=level
-                    ),
+                    set_volume=SetVolumeParams(target_device=target_device, level=level),
                 )
             )
         return OrchestrationDecision(

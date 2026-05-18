@@ -51,9 +51,8 @@ class DirectToolAdapter:
         )
 
     async def execute(self, request: ExecutionRequest) -> ExecutionResult:
-        if (
-            request.approval_state == ApprovalState.REQUIRED
-            and not self._allowed_without_approval(request)
+        if request.approval_state == ApprovalState.REQUIRED and not self._allowed_without_approval(
+            request
         ):
             return ExecutionResult(
                 request_id=request.request_id,
@@ -66,9 +65,7 @@ class DirectToolAdapter:
 
         if request.intent == Intent.GET_STATUS and request.get_status is not None:
             try:
-                status_snapshot = await self.tools.get_status(
-                    request.get_status.target_device
-                )
+                status_snapshot = await self.tools.get_status(request.get_status.target_device)
             except Exception as exc:
                 return self._error_result(request, exc)
 
@@ -106,10 +103,7 @@ class DirectToolAdapter:
                 environment_info_status=environment_info_status,
             )
 
-        if (
-            request.intent == Intent.GET_CAMERA_MODE
-            and request.get_camera_mode is not None
-        ):
+        if request.intent == Intent.GET_CAMERA_MODE and request.get_camera_mode is not None:
             try:
                 camera_mode_status = await self.tools.get_camera_mode(
                     request.get_camera_mode.target_device
@@ -129,10 +123,7 @@ class DirectToolAdapter:
                 camera_mode_status=camera_mode_status,
             )
 
-        if (
-            request.intent == Intent.GET_ROOM_BOOKING
-            and request.get_room_booking is not None
-        ):
+        if request.intent == Intent.GET_ROOM_BOOKING and request.get_room_booking is not None:
             try:
                 room_booking_status = await self.tools.get_room_booking(
                     request.get_room_booking.target_device
@@ -255,10 +246,7 @@ class DirectToolAdapter:
                 approval_request_id=request.approval_request_id,
             )
 
-        if (
-            request.intent == Intent.SET_MICROPHONE_MUTE
-            and request.set_microphone_mute is not None
-        ):
+        if request.intent == Intent.SET_MICROPHONE_MUTE and request.set_microphone_mute is not None:
             try:
                 message = await self.tools.set_microphone_mute(
                     request.set_microphone_mute.target_device,
@@ -275,10 +263,7 @@ class DirectToolAdapter:
                 approval_request_id=request.approval_request_id,
             )
 
-        if (
-            request.intent == Intent.SET_MICROPHONE_MODE
-            and request.set_microphone_mode is not None
-        ):
+        if request.intent == Intent.SET_MICROPHONE_MODE and request.set_microphone_mode is not None:
             try:
                 message = await self.tools.set_microphone_mode(
                     request.set_microphone_mode.target_device,
@@ -312,10 +297,7 @@ class DirectToolAdapter:
                 approval_request_id=request.approval_request_id,
             )
 
-        if (
-            request.intent == Intent.SET_VIDEO_MUTE
-            and request.set_video_mute is not None
-        ):
+        if request.intent == Intent.SET_VIDEO_MUTE and request.set_video_mute is not None:
             try:
                 message = await self.tools.set_video_mute(
                     request.set_video_mute.target_device,
@@ -349,10 +331,7 @@ class DirectToolAdapter:
                 approval_request_id=request.approval_request_id,
             )
 
-        if (
-            request.intent == Intent.SET_CAMERA_MODE
-            and request.set_camera_mode is not None
-        ):
+        if request.intent == Intent.SET_CAMERA_MODE and request.set_camera_mode is not None:
             try:
                 message = await self.tools.set_camera_mode(
                     request.set_camera_mode.target_device,
@@ -386,10 +365,7 @@ class DirectToolAdapter:
                 approval_request_id=request.approval_request_id,
             )
 
-        if (
-            request.intent == Intent.SET_PRESENTATION
-            and request.set_presentation is not None
-        ):
+        if request.intent == Intent.SET_PRESENTATION and request.set_presentation is not None:
             try:
                 message = await self.tools.set_presentation(
                     request.set_presentation.target_device,
@@ -406,10 +382,7 @@ class DirectToolAdapter:
                 approval_request_id=request.approval_request_id,
             )
 
-        if (
-            request.intent == Intent.SWITCH_INPUT_SOURCE
-            and request.switch_input_source is not None
-        ):
+        if request.intent == Intent.SWITCH_INPUT_SOURCE and request.switch_input_source is not None:
             try:
                 message = await self.tools.switch_input_source(
                     request.switch_input_source.target_device,
@@ -447,10 +420,7 @@ class DirectToolAdapter:
                 approval_request_id=request.approval_request_id,
             )
 
-        if (
-            request.intent == Intent.UNASSIGN_MATRIX
-            and request.unassign_matrix is not None
-        ):
+        if request.intent == Intent.UNASSIGN_MATRIX and request.unassign_matrix is not None:
             try:
                 message = await self.tools.unassign_matrix(
                     request.unassign_matrix.target_device,
@@ -487,10 +457,7 @@ class DirectToolAdapter:
                 approval_request_id=request.approval_request_id,
             )
 
-        if (
-            request.intent == Intent.SET_DISPLAY_MODE
-            and request.set_display_mode is not None
-        ):
+        if request.intent == Intent.SET_DISPLAY_MODE and request.set_display_mode is not None:
             try:
                 message = await self.tools.set_display_mode(
                     request.set_display_mode.target_device,
@@ -507,10 +474,7 @@ class DirectToolAdapter:
                 approval_request_id=request.approval_request_id,
             )
 
-        if (
-            request.intent == Intent.SET_DISPLAY_ROLE
-            and request.set_display_role is not None
-        ):
+        if request.intent == Intent.SET_DISPLAY_ROLE and request.set_display_role is not None:
             try:
                 message = await self.tools.set_display_role(
                     request.set_display_role.target_device,
@@ -571,10 +535,7 @@ class DirectToolAdapter:
                 approval_request_id=request.approval_request_id,
             )
 
-        if (
-            request.intent == Intent.SET_SPEAKERTRACK
-            and request.set_speakertrack is not None
-        ):
+        if request.intent == Intent.SET_SPEAKERTRACK and request.set_speakertrack is not None:
             try:
                 message = await self.tools.set_speakertrack(
                     request.set_speakertrack.target_device,
@@ -591,10 +552,7 @@ class DirectToolAdapter:
                 approval_request_id=request.approval_request_id,
             )
 
-        if (
-            request.intent == Intent.SET_DISPLAY_MODE
-            and request.set_display_mode is not None
-        ):
+        if request.intent == Intent.SET_DISPLAY_MODE and request.set_display_mode is not None:
             try:
                 message = await self.tools.set_display_mode(
                     request.set_display_mode.target_device,
@@ -611,10 +569,7 @@ class DirectToolAdapter:
                 approval_request_id=request.approval_request_id,
             )
 
-        if (
-            request.intent == Intent.SET_DISPLAY_ROLE
-            and request.set_display_role is not None
-        ):
+        if request.intent == Intent.SET_DISPLAY_ROLE and request.set_display_role is not None:
             try:
                 message = await self.tools.set_display_role(
                     request.set_display_role.target_device,

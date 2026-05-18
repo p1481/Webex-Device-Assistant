@@ -51,9 +51,7 @@ async def fetch_inbound_message(
         if not is_allowed_webex_sender(gateway, envelope.data.personEmail):
             return None
         return InboundUserMessage(
-            session_id=envelope.data.roomId
-            or envelope.data.personId
-            or envelope.id,
+            session_id=envelope.data.roomId or envelope.data.personId or envelope.id,
             user_id=envelope.data.personId or "mock-user",
             text=text,
             source=MessageSource.WEBEX,
@@ -62,9 +60,7 @@ async def fetch_inbound_message(
             event_id=envelope.id,
         )
 
-    async with httpx.AsyncClient(
-        base_url=gateway.config.webex_api_base, timeout=10.0
-    ) as client:
+    async with httpx.AsyncClient(base_url=gateway.config.webex_api_base, timeout=10.0) as client:
         response = await client.get(
             f"/messages/{envelope.data.id}",
             headers=await gateway._auth_headers(),
@@ -172,9 +168,7 @@ async def send_reply(gateway: WebexGateway, reply: OutboundReply) -> None:
         len(reply.attachments),
     )
 
-    async with httpx.AsyncClient(
-        base_url=gateway.config.webex_api_base, timeout=10.0
-    ) as client:
+    async with httpx.AsyncClient(base_url=gateway.config.webex_api_base, timeout=10.0) as client:
         response = await client.post(
             "/messages",
             headers=await gateway._auth_headers(),
@@ -203,9 +197,7 @@ async def fetch_attachment_action_details(
             inputs={},
         )
 
-    async with httpx.AsyncClient(
-        base_url=gateway.config.webex_api_base, timeout=10.0
-    ) as client:
+    async with httpx.AsyncClient(base_url=gateway.config.webex_api_base, timeout=10.0) as client:
         response = await client.get(
             f"/attachment/actions/{action_id}",
             headers=await gateway._auth_headers(),
@@ -264,9 +256,7 @@ async def send_direct_card_to_email(
         "markdown": f"**Approval required**\n\n{prompt}",
         "attachments": [card],
     }
-    async with httpx.AsyncClient(
-        base_url=gateway.config.webex_api_base, timeout=10.0
-    ) as client:
+    async with httpx.AsyncClient(base_url=gateway.config.webex_api_base, timeout=10.0) as client:
         response = await client.post(
             "/messages",
             headers=await gateway._auth_headers(),
@@ -278,9 +268,7 @@ async def send_direct_card_to_email(
 async def fetch_person_email(gateway: WebexGateway, person_id: str) -> str | None:
     if gateway.config.webex_mock_mode:
         return None
-    async with httpx.AsyncClient(
-        base_url=gateway.config.webex_api_base, timeout=10.0
-    ) as client:
+    async with httpx.AsyncClient(base_url=gateway.config.webex_api_base, timeout=10.0) as client:
         response = await client.get(
             f"/people/{quote(person_id, safe='')}",
             headers=await gateway._auth_headers(),
@@ -303,9 +291,7 @@ async def delete_message(gateway: WebexGateway, message_id: str) -> None:
         logger.info("Mock Webex delete message: %s", message_id)
         return
 
-    async with httpx.AsyncClient(
-        base_url=gateway.config.webex_api_base, timeout=10.0
-    ) as client:
+    async with httpx.AsyncClient(base_url=gateway.config.webex_api_base, timeout=10.0) as client:
         response = await client.delete(
             f"/messages/{message_id}",
             headers=await gateway._auth_headers(),
@@ -352,9 +338,7 @@ def is_self_authored(
     return bool(gateway.bot_emails.intersection(candidate_emails))
 
 
-def is_allowed_webex_sender(
-    gateway: WebexGateway, person_email: str | None
-) -> bool:
+def is_allowed_webex_sender(gateway: WebexGateway, person_email: str | None) -> bool:
     runtime_settings_provider = gateway._runtime_settings_provider
     if not callable(runtime_settings_provider):
         return True
@@ -364,6 +348,4 @@ def is_allowed_webex_sender(
         return True
     if not isinstance(person_email, str) or not person_email.strip():
         return False
-    return person_email.strip().lower() in {
-        email for email in allowed if isinstance(email, str)
-    }
+    return person_email.strip().lower() in {email for email in allowed if isinstance(email, str)}

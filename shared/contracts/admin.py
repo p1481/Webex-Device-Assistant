@@ -46,9 +46,7 @@ class RuntimeAdminSettings(BaseModel):
 
     @model_validator(mode="after")
     def normalize_lists(self) -> RuntimeAdminSettings:
-        self.allowed_webex_user_emails = _normalize_email_list(
-            self.allowed_webex_user_emails
-        )
+        self.allowed_webex_user_emails = _normalize_email_list(self.allowed_webex_user_emails)
         self.allowed_admin_emails = _normalize_email_list(self.allowed_admin_emails)
         self.default_user_email = self.default_user_email.strip().lower()
         return self
@@ -71,9 +69,7 @@ class RuntimeAdminSettingsUpdate(BaseModel):
         if self.default_user_email is not None:
             self.default_user_email = self.default_user_email.strip().lower()
         if self.allowed_webex_user_emails is not None:
-            self.allowed_webex_user_emails = _normalize_email_list(
-                self.allowed_webex_user_emails
-            )
+            self.allowed_webex_user_emails = _normalize_email_list(self.allowed_webex_user_emails)
         if self.allowed_admin_emails is not None:
             self.allowed_admin_emails = _normalize_email_list(self.allowed_admin_emails)
         return self

@@ -45,9 +45,7 @@ def format_device_status_detail(
     message: str,
     policy_reason: str,
 ) -> str:
-    display_name = getattr(status, "display_name", None) or getattr(
-        status, "target_device", "장치"
-    )
+    display_name = getattr(status, "display_name", None) or getattr(status, "target_device", "장치")
     product = getattr(status, "product", None)
     device_label = f"{display_name} ({product})" if product else str(display_name)
     lines = ["**상태 상세**", f"장치: {device_label}"]
@@ -102,7 +100,9 @@ def format_device_status_detail(
             audio_line += "\n오디오: volume=" + str(getattr(status, "volume", None))
             audio_line += ", muted=" + str(getattr(status, "volume_muted", None))
             if getattr(status, "microphones_muted", None) is not None:
-                audio_line += ", microphones_muted=" + str(getattr(status, "microphones_muted", None))
+                audio_line += ", microphones_muted=" + str(
+                    getattr(status, "microphones_muted", None)
+                )
         lines.append(audio_line)
     call_parts = []
     for label, value in (
@@ -126,12 +126,17 @@ def format_device_status_detail(
             camera_parts.append(f"{label}={value}")
     if camera_parts:
         camera_line = "카메라/화면: " + ", ".join(camera_parts)
-        if getattr(status, "selfview_mode", None) is not None or getattr(status, "speakertrack_state", None) is not None:
+        if (
+            getattr(status, "selfview_mode", None) is not None
+            or getattr(status, "speakertrack_state", None) is not None
+        ):
             compat_parts = []
             if getattr(status, "selfview_mode", None) is not None:
                 compat_parts.append("selfview=" + str(getattr(status, "selfview_mode", None)))
             if getattr(status, "speakertrack_state", None) is not None:
-                compat_parts.append("speakertrack=" + str(getattr(status, "speakertrack_state", None)))
+                compat_parts.append(
+                    "speakertrack=" + str(getattr(status, "speakertrack_state", None))
+                )
             if compat_parts:
                 camera_line += "\n카메라/화면: " + ", ".join(compat_parts)
         lines.append(camera_line)
@@ -154,13 +159,7 @@ def format_device_list(
 
     lines = [f"**디바이스 목록** ({len(devices)}대)"]
     for device in devices[:10]:
-        status = (
-            "online"
-            if device.online
-            else "offline"
-            if device.online is False
-            else "unknown"
-        )
+        status = "online" if device.online else "offline" if device.online is False else "unknown"
         product = f" ({device.product})" if device.product else ""
         place = f" [{device.place}]" if device.place else ""
         connection = (
@@ -177,9 +176,7 @@ def format_device_list(
         if capabilities:
             details.append("지원 기능: " + ", ".join(capabilities[:8]))
         detail_text = f"; {'; '.join(details)}" if details else ""
-        lines.append(
-            f"- {device.display_name}{product} - {status}{place}{connection}{detail_text}"
-        )
+        lines.append(f"- {device.display_name}{product} - {status}{place}{connection}{detail_text}")
     return "\n".join(lines) + f"\n\nPolicy: {policy_reason}"
 
 
@@ -199,13 +196,7 @@ def format_device_resolution_failure(
 
     lines = [title, "다음 디바이스 중 하나로 다시 요청해 주세요:"]
     for device in candidate_devices[:10]:
-        status = (
-            "online"
-            if device.online
-            else "offline"
-            if device.online is False
-            else "unknown"
-        )
+        status = "online" if device.online else "offline" if device.online is False else "unknown"
         product = f" ({device.product})" if device.product else ""
         lines.append(f"- {device.display_name}{product} - {status}")
     return "\n".join(lines) + f"\n\nPolicy: {policy_reason}"
@@ -235,19 +226,11 @@ def format_execution_result(
         camera_mode_status = execution_result.camera_mode_status
         camera_metadata_parts: list[str] = []
         if camera_mode_status.display_name is not None:
-            camera_metadata_parts.append(
-                f"display_name={camera_mode_status.display_name}"
-            )
+            camera_metadata_parts.append(f"display_name={camera_mode_status.display_name}")
         if camera_mode_status.device_id is not None:
-            camera_metadata_parts.append(
-                f"device_id={camera_mode_status.device_id}"
-            )
-        camera_metadata_parts.append(
-            f"current_mode={camera_mode_status.current_mode}"
-        )
-        camera_metadata_parts.append(
-            f"effective_mode={camera_mode_status.effective_mode}"
-        )
+            camera_metadata_parts.append(f"device_id={camera_mode_status.device_id}")
+        camera_metadata_parts.append(f"current_mode={camera_mode_status.current_mode}")
+        camera_metadata_parts.append(f"effective_mode={camera_mode_status.effective_mode}")
         camera_metadata_parts.append(
             "available_modes=" + ",".join(camera_mode_status.available_modes)
             if camera_mode_status.available_modes
@@ -272,9 +255,7 @@ def format_execution_result(
         elif booking_status.is_booked_now is False:
             current_parts.append("Available now")
         if booking_status.current_booking_id is not None:
-            current_parts.append(
-                f"current booking ID {booking_status.current_booking_id}"
-            )
+            current_parts.append(f"current booking ID {booking_status.current_booking_id}")
         if current_parts:
             lines.append("Current: " + ", ".join(current_parts) + ".")
 
@@ -301,9 +282,7 @@ def format_execution_result(
             lines.append("Join: " + ", ".join(obtp_parts) + ".")
 
         if booking_status.availability_status is not None:
-            availability_line = (
-                f"Availability: {booking_status.availability_status}"
-            )
+            availability_line = f"Availability: {booking_status.availability_status}"
             if booking_status.availability_timestamp is not None:
                 availability_line += f" at {booking_status.availability_timestamp}"
             lines.append(availability_line + ".")
@@ -320,25 +299,16 @@ def format_execution_result(
             metadata_parts.append(f"display_name={environment_info.display_name}")
         if environment_info.device_id is not None:
             metadata_parts.append(f"device_id={environment_info.device_id}")
-        metadata_parts.append(
-            f"temperature_celsius={environment_info.temperature_celsius}"
-        )
+        metadata_parts.append(f"temperature_celsius={environment_info.temperature_celsius}")
         metadata_parts.append(
             f"relative_humidity_percent={environment_info.relative_humidity_percent}"
         )
-        metadata_parts.append(
-            f"ambient_noise_db={environment_info.ambient_noise_db}"
-        )
+        metadata_parts.append(f"ambient_noise_db={environment_info.ambient_noise_db}")
         metadata_parts.append(f"people_count={environment_info.people_count}")
-        metadata_parts.append(
-            f"air_quality_index={environment_info.air_quality_index}"
-        )
+        metadata_parts.append(f"air_quality_index={environment_info.air_quality_index}")
         if environment_info.detail is not None:
             metadata_parts.append(f"detail={environment_info.detail}")
-        return (
-            f"{execution_result.message} "
-            f"{', '.join(metadata_parts)}. Policy: {policy_reason}"
-        )
+        return f"{execution_result.message} {', '.join(metadata_parts)}. Policy: {policy_reason}"
 
     if (
         execution_result.status == ExecutionStatus.SUCCESS

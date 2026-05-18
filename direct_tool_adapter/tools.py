@@ -119,12 +119,8 @@ class DirectToolSet:
     async def set_display_mode(self, target_device: str, mode: str) -> str:
         return await self.device_client.set_display_mode(target_device, mode)
 
-    async def set_display_role(
-        self, target_device: str, connector_id: int, role: str
-    ) -> str:
-        return await self.device_client.set_display_role(
-            target_device, connector_id, role
-        )
+    async def set_display_role(self, target_device: str, connector_id: int, role: str) -> str:
+        return await self.device_client.set_display_role(target_device, connector_id, role)
 
     async def activate_camera_preset(self, target_device: str, preset_id: str) -> str:
         return await self.device_client.activate_camera_preset(target_device, preset_id)

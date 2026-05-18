@@ -56,9 +56,7 @@ def handle_early(
             action_proposal=ActionProposal(
                 intent=Intent.GET_ENVIRONMENT_INFO,
                 summary="Get the current environment sensor information.",
-                get_environment_info=GetEnvironmentInfoParams(
-                    target_device=target_device
-                ),
+                get_environment_info=GetEnvironmentInfoParams(target_device=target_device),
             )
         )
 
@@ -98,9 +96,7 @@ def handle_late(
                 summary="Factory reset the target device.",
                 factory_reset=FactoryResetParams(
                     target_device=target_device,
-                    acknowledged=(
-                        "confirm" in lowered or "yes" in lowered or "ack" in lowered
-                    ),
+                    acknowledged=("confirm" in lowered or "yes" in lowered or "ack" in lowered),
                 ),
             )
         )

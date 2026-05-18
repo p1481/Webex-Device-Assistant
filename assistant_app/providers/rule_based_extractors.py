@@ -192,18 +192,15 @@ def is_webex_join_request(lowered_text: str) -> bool:
         return True
     if lowered_text.strip() in {"join meeting", "join a meeting", "join the meeting"}:
         return True
-    return (
-        ("미팅" in lowered_text or "회의" in lowered_text or "meeting" in lowered_text)
-        and any(
-            phrase in lowered_text
-            for phrase in {
-                "참여",
-                "참가",
-                "입장",
-                "조인",
-                "join",
-            }
-        )
+    return ("미팅" in lowered_text or "회의" in lowered_text or "meeting" in lowered_text) and any(
+        phrase in lowered_text
+        for phrase in {
+            "참여",
+            "참가",
+            "입장",
+            "조인",
+            "join",
+        }
     )
 
 
@@ -261,9 +258,7 @@ def extract_target_device(
     return default_target_device
 
 
-def extract_mentioned_target_device(
-    text: str, explicit_target: str | None
-) -> str | None:
+def extract_mentioned_target_device(text: str, explicit_target: str | None) -> str | None:
     if explicit_target:
         return explicit_target
 
@@ -315,7 +310,7 @@ def extract_turn_toggle_target_device(text: str) -> str | None:
         prefix = f"{action} "
         if not lowered.startswith(prefix):
             continue
-        candidate = text[len(prefix):].strip().rstrip("?.!")
+        candidate = text[len(prefix) :].strip().rstrip("?.!")
         normalized_candidate = " ".join(candidate.casefold().split())
         if normalized_candidate in TOGGLE_ACTION_NAMES:
             return None
@@ -396,10 +391,7 @@ def extract_volume_level(text: str) -> int | None:
         level = int(match.group(1))
         return level if 0 <= level <= 100 else None
     lowered = text.lower()
-    if any(
-        token in lowered
-        for token in {"volume up", "increase volume", "볼륨 올", "볼륨 높"}
-    ):
+    if any(token in lowered for token in {"volume up", "increase volume", "볼륨 올", "볼륨 높"}):
         return None
     if any(
         token in lowered
@@ -442,9 +434,7 @@ def extract_dial_address(text: str) -> str | None:
         re.IGNORECASE,
     )
     if not match:
-        fallback_match = re.search(
-            r"([A-Za-z0-9._+-]+@[A-Za-z0-9.-]+)", stripped_text
-        )
+        fallback_match = re.search(r"([A-Za-z0-9._+-]+@[A-Za-z0-9.-]+)", stripped_text)
         if not fallback_match:
             return None
         return fallback_match.group(1).strip().rstrip("?.!")
@@ -567,11 +557,7 @@ def extract_matrix_assign(text: str) -> MatrixAssignMatch | None:
         "output": match.group(1).strip().rstrip("?.!"),
         "mode": match.group(2).strip().rstrip("?.!"),
         "layout": match.group(3).strip().rstrip("?.!"),
-        "source_id": (
-            match.group(4).strip().rstrip("?.!")
-            if match.group(4) is not None
-            else None
-        ),
+        "source_id": (match.group(4).strip().rstrip("?.!") if match.group(4) is not None else None),
         "remote_main": True if remote_main is not None else None,
     }
 
@@ -588,11 +574,7 @@ def extract_matrix_unassign(text: str) -> MatrixUnassignMatch | None:
     remote_main = match.group(3)
     return {
         "output": match.group(1).strip().rstrip("?.!"),
-        "source_id": (
-            match.group(2).strip().rstrip("?.!")
-            if match.group(2) is not None
-            else None
-        ),
+        "source_id": (match.group(2).strip().rstrip("?.!") if match.group(2) is not None else None),
         "remote_main": True if remote_main is not None else None,
     }
 

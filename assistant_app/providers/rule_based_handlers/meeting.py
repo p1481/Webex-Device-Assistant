@@ -74,10 +74,7 @@ def handle(
             )
         )
 
-    if any(
-        phrase in lowered
-        for phrase in {"dial ", "sip ", "call ", "join sip", "전화", "통화"}
-    ):
+    if any(phrase in lowered for phrase in {"dial ", "sip ", "call ", "join sip", "전화", "통화"}):
         address = provider._extract_dial_address(text)
         if address is not None:
             if mentioned_target_device is None:

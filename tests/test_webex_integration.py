@@ -73,9 +73,7 @@ class QueuedAsyncClient:
         return self.responses.pop(0)
 
 
-def make_response(
-    method: str, path: str, status_code: int, body: object
-) -> httpx.Response:
+def make_response(method: str, path: str, status_code: int, body: object) -> httpx.Response:
     return httpx.Response(
         status_code,
         json=body,
@@ -116,33 +114,39 @@ def clear_client_queue() -> Iterator[None]:
 
 
 def test_real_mode_requires_webex_bot_token() -> None:
-    with temporary_env(
-        {
-            "WEBEX_MOCK_MODE": "false",
-            "WEBEX_BOT_TOKEN": None,
-            "WEBEX_BOT_PERSON_ID": "bot-person-id",
-            "WEBEX_WEBHOOK_SECRET": "secret",
-            "ADMIN_COOKIE_SECRET": "test-cookie-secret",
-        }
-    ), pytest.raises(
-        ValueError,
-        match="WEBEX_BOT_TOKEN is required when WEBEX_MOCK_MODE=false.",
+    with (
+        temporary_env(
+            {
+                "WEBEX_MOCK_MODE": "false",
+                "WEBEX_BOT_TOKEN": None,
+                "WEBEX_BOT_PERSON_ID": "bot-person-id",
+                "WEBEX_WEBHOOK_SECRET": "secret",
+                "ADMIN_COOKIE_SECRET": "test-cookie-secret",
+            }
+        ),
+        pytest.raises(
+            ValueError,
+            match="WEBEX_BOT_TOKEN is required when WEBEX_MOCK_MODE=false.",
+        ),
     ):
         _ = AppConfig.from_env()
 
 
 def test_real_mode_requires_webhook_secret() -> None:
-    with temporary_env(
-        {
-            "WEBEX_MOCK_MODE": "false",
-            "WEBEX_BOT_TOKEN": "bot-token",
-            "WEBEX_BOT_PERSON_ID": "bot-person-id",
-            "WEBEX_WEBHOOK_SECRET": None,
-            "ADMIN_COOKIE_SECRET": "test-cookie-secret",
-        }
-    ), pytest.raises(
-        ValueError,
-        match="WEBEX_WEBHOOK_SECRET is required when WEBEX_MOCK_MODE=false.",
+    with (
+        temporary_env(
+            {
+                "WEBEX_MOCK_MODE": "false",
+                "WEBEX_BOT_TOKEN": "bot-token",
+                "WEBEX_BOT_PERSON_ID": "bot-person-id",
+                "WEBEX_WEBHOOK_SECRET": None,
+                "ADMIN_COOKIE_SECRET": "test-cookie-secret",
+            }
+        ),
+        pytest.raises(
+            ValueError,
+            match="WEBEX_WEBHOOK_SECRET is required when WEBEX_MOCK_MODE=false.",
+        ),
     ):
         _ = AppConfig.from_env()
 
@@ -160,9 +164,7 @@ def test_gateway_resolve_bot_identity_rejects_mismatched_config(
         )
     )
     _ = build_client_queue(identity_client)
-    monkeypatch.setattr(
-        "assistant_app.webex_gateway.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("assistant_app.webex_gateway.httpx.AsyncClient", async_client_factory)
 
     gateway = WebexGateway(
         AppConfig(
@@ -196,9 +198,7 @@ def test_gateway_resolve_bot_identity_accepts_application_and_people_forms(
         )
     )
     _ = build_client_queue(identity_client)
-    monkeypatch.setattr(
-        "assistant_app.webex_gateway.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("assistant_app.webex_gateway.httpx.AsyncClient", async_client_factory)
 
     gateway = WebexGateway(
         AppConfig(
@@ -229,7 +229,9 @@ def test_gateway_treats_application_and_people_ids_as_same_self_author(
             webex_webhook_secret="secret",
         )
     )
-    gateway.bot_person_id = "Y2lzY29zcGFyazovL3VzL1BFT1BMRS80Y2E3YTI1ZS1jOTFhLTQ3NjktOTAzMi1mOGJkODI3ZWZlODI"
+    gateway.bot_person_id = (
+        "Y2lzY29zcGFyazovL3VzL1BFT1BMRS80Y2E3YTI1ZS1jOTFhLTQ3NjktOTAzMi1mOGJkODI3ZWZlODI"
+    )
 
     event = gateway.parse_webhook_payload(
         {
@@ -260,7 +262,9 @@ def test_reconcile_matches_group_filter_with_people_and_me_forms() -> None:
             webex_webhook_reconcile_on_startup=True,
         ),
     )
-    gateway.bot_person_id = "Y2lzY29zcGFyazovL3VzL1BFT1BMRS80Y2E3YTI1ZS1jOTFhLTQ3NjktOTAzMi1mOGJkODI3ZWZlODI"
+    gateway.bot_person_id = (
+        "Y2lzY29zcGFyazovL3VzL1BFT1BMRS80Y2E3YTI1ZS1jOTFhLTQ3NjktOTAzMi1mOGJkODI3ZWZlODI"
+    )
 
     assert (
         gateway._filters_match(
@@ -305,64 +309,72 @@ def test_gateway_drops_self_authored_webhook_envelope(
 
 
 def test_reconcile_mode_requires_target_url() -> None:
-    with temporary_env(
-        {
-            "WEBEX_MOCK_MODE": "false",
-            "WEBEX_BOT_TOKEN": "bot-token",
-            "WEBEX_BOT_PERSON_ID": "bot-person-id",
-            "WEBEX_WEBHOOK_SECRET": "secret",
-            "ADMIN_COOKIE_SECRET": "test-cookie-secret",
-            "WEBEX_WEBHOOK_RECONCILE_ON_STARTUP": "true",
-            "WEBEX_WEBHOOK_TARGET_URL": None,
-        }
-    ), pytest.raises(
-        ValueError,
-        match="WEBEX_WEBHOOK_TARGET_URL is required when WEBEX_MOCK_MODE=false.",
+    with (
+        temporary_env(
+            {
+                "WEBEX_MOCK_MODE": "false",
+                "WEBEX_BOT_TOKEN": "bot-token",
+                "WEBEX_BOT_PERSON_ID": "bot-person-id",
+                "WEBEX_WEBHOOK_SECRET": "secret",
+                "ADMIN_COOKIE_SECRET": "test-cookie-secret",
+                "WEBEX_WEBHOOK_RECONCILE_ON_STARTUP": "true",
+                "WEBEX_WEBHOOK_TARGET_URL": None,
+            }
+        ),
+        pytest.raises(
+            ValueError,
+            match="WEBEX_WEBHOOK_TARGET_URL is required when WEBEX_MOCK_MODE=false.",
+        ),
     ):
         _ = AppConfig.from_env()
 
 
 def test_real_device_mode_requires_token_manager_api_key() -> None:
-    with temporary_env(
-        {
-            "DEVICE_MOCK_MODE": "false",
-            "WEBEX_TOKEN_MANAGER_API_KEY": None,
-        }
-    ), pytest.raises(
-        ValueError,
-        match="WEBEX_TOKEN_MANAGER_API_KEY is required when DEVICE_MOCK_MODE=false.",
+    with (
+        temporary_env(
+            {
+                "DEVICE_MOCK_MODE": "false",
+                "WEBEX_TOKEN_MANAGER_API_KEY": None,
+            }
+        ),
+        pytest.raises(
+            ValueError,
+            match="WEBEX_TOKEN_MANAGER_API_KEY is required when DEVICE_MOCK_MODE=false.",
+        ),
     ):
         _ = AppConfig.from_env()
 
 
 def test_real_mode_requires_https_target_url_when_provided() -> None:
-    with temporary_env(
-        {
-            "WEBEX_MOCK_MODE": "false",
-            "WEBEX_BOT_TOKEN": "bot-token",
-            "WEBEX_BOT_PERSON_ID": "bot-person-id",
-            "WEBEX_WEBHOOK_SECRET": "secret",
-            "ADMIN_COOKIE_SECRET": "test-cookie-secret",
-            "WEBEX_WEBHOOK_TARGET_URL": "http://example.com/webhooks/webex/messages",
-        }
-    ), pytest.raises(
-        ValueError, match="WEBEX_WEBHOOK_TARGET_URL must be a valid https URL."
+    with (
+        temporary_env(
+            {
+                "WEBEX_MOCK_MODE": "false",
+                "WEBEX_BOT_TOKEN": "bot-token",
+                "WEBEX_BOT_PERSON_ID": "bot-person-id",
+                "WEBEX_WEBHOOK_SECRET": "secret",
+                "ADMIN_COOKIE_SECRET": "test-cookie-secret",
+                "WEBEX_WEBHOOK_TARGET_URL": "http://example.com/webhooks/webex/messages",
+            }
+        ),
+        pytest.raises(ValueError, match="WEBEX_WEBHOOK_TARGET_URL must be a valid https URL."),
     ):
         _ = AppConfig.from_env()
 
 
 def test_real_mode_locks_webhook_subscription_to_messages_created() -> None:
-    with temporary_env(
-        {
-            "WEBEX_MOCK_MODE": "false",
-            "WEBEX_BOT_TOKEN": "bot-token",
-            "WEBEX_BOT_PERSON_ID": "bot-person-id",
-            "WEBEX_WEBHOOK_SECRET": "secret",
-            "ADMIN_COOKIE_SECRET": "test-cookie-secret",
-            "WEBEX_WEBHOOK_RESOURCE": "rooms",
-        }
-    ), pytest.raises(
-        ValueError, match="WEBEX_WEBHOOK_RESOURCE must be 'messages'."
+    with (
+        temporary_env(
+            {
+                "WEBEX_MOCK_MODE": "false",
+                "WEBEX_BOT_TOKEN": "bot-token",
+                "WEBEX_BOT_PERSON_ID": "bot-person-id",
+                "WEBEX_WEBHOOK_SECRET": "secret",
+                "ADMIN_COOKIE_SECRET": "test-cookie-secret",
+                "WEBEX_WEBHOOK_RESOURCE": "rooms",
+            }
+        ),
+        pytest.raises(ValueError, match="WEBEX_WEBHOOK_RESOURCE must be 'messages'."),
     ):
         _ = AppConfig.from_env()
 
@@ -407,13 +419,9 @@ def test_gateway_webhook_lifecycle_uses_official_endpoints(
         )
     )
     delete_client = QueuedAsyncClient()
-    delete_client.responses.append(
-        make_empty_response("DELETE", "/webhooks/hook-2", 204)
-    )
+    delete_client.responses.append(make_empty_response("DELETE", "/webhooks/hook-2", 204))
     _ = build_client_queue(list_client, create_client, delete_client)
-    monkeypatch.setattr(
-        "assistant_app.webex_gateway.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("assistant_app.webex_gateway.httpx.AsyncClient", async_client_factory)
 
     gateway = WebexGateway(
         AppConfig(
@@ -494,13 +502,9 @@ def test_gateway_fetches_message_details_and_posts_replies(
         )
     )
     send_client = QueuedAsyncClient()
-    send_client.responses.append(
-        make_response("POST", "/messages", 200, {"id": "reply-1"})
-    )
+    send_client.responses.append(make_response("POST", "/messages", 200, {"id": "reply-1"}))
     _ = build_client_queue(fetch_client, send_client)
-    monkeypatch.setattr(
-        "assistant_app.webex_gateway.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("assistant_app.webex_gateway.httpx.AsyncClient", async_client_factory)
 
     gateway = WebexGateway(
         AppConfig(
@@ -547,13 +551,9 @@ def test_gateway_fetches_message_details_and_posts_replies(
 
 def test_gateway_posts_card_attachments(monkeypatch: pytest.MonkeyPatch) -> None:
     send_client = QueuedAsyncClient()
-    send_client.responses.append(
-        make_response("POST", "/messages", 200, {"id": "reply-1"})
-    )
+    send_client.responses.append(make_response("POST", "/messages", 200, {"id": "reply-1"}))
     _ = build_client_queue(send_client)
-    monkeypatch.setattr(
-        "assistant_app.webex_gateway.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("assistant_app.webex_gateway.httpx.AsyncClient", async_client_factory)
 
     gateway = WebexGateway(
         AppConfig(
@@ -625,9 +625,7 @@ def test_gateway_fetches_attachment_action_details(
         )
     )
     _ = build_client_queue(client)
-    monkeypatch.setattr(
-        "assistant_app.webex_gateway.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("assistant_app.webex_gateway.httpx.AsyncClient", async_client_factory)
 
     gateway = WebexGateway(
         AppConfig(
@@ -655,15 +653,11 @@ def test_gateway_deletes_message(monkeypatch: pytest.MonkeyPatch) -> None:
     client.responses.append(
         httpx.Response(
             204,
-            request=httpx.Request(
-                "DELETE", "https://webexapis.com/v1/messages/message-1"
-            ),
+            request=httpx.Request("DELETE", "https://webexapis.com/v1/messages/message-1"),
         )
     )
     _ = build_client_queue(client)
-    monkeypatch.setattr(
-        "assistant_app.webex_gateway.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("assistant_app.webex_gateway.httpx.AsyncClient", async_client_factory)
 
     gateway = WebexGateway(
         AppConfig(
@@ -744,15 +738,11 @@ def test_attachment_action_webhook_resolves_admin_login_request(
         delete_client.responses.append(
             httpx.Response(
                 204,
-                request=httpx.Request(
-                    "DELETE", "https://webexapis.com/v1/messages/message-1"
-                ),
+                request=httpx.Request("DELETE", "https://webexapis.com/v1/messages/message-1"),
             )
         )
         _ = build_client_queue(fetch_client, person_lookup_client, delete_client)
-        monkeypatch.setattr(
-            "assistant_app.webex_gateway.httpx.AsyncClient", async_client_factory
-        )
+        monkeypatch.setattr("assistant_app.webex_gateway.httpx.AsyncClient", async_client_factory)
 
         client = TestClient(app)
         payload = {
@@ -773,9 +763,7 @@ def test_attachment_action_webhook_resolves_admin_login_request(
             },
         )
 
-        resolved = app.state.services.state_store.get_approval_request(
-            approval_request.request_id
-        )
+        resolved = app.state.services.state_store.get_approval_request(approval_request.request_id)
 
     assert response.status_code == 202
     assert resolved is not None
@@ -815,9 +803,7 @@ def test_attachment_action_webhook_executes_approved_action_request(
 
         approvals = app.state.services.state_store.list_approval_requests()
         approval_request = next(
-            request
-            for request in approvals
-            if request.session_id == "webex-approval-action"
+            request for request in approvals if request.session_id == "webex-approval-action"
         )
 
         fetch_client = QueuedAsyncClient()
@@ -843,9 +829,7 @@ def test_attachment_action_webhook_executes_approved_action_request(
         delete_client.responses.append(
             httpx.Response(
                 204,
-                request=httpx.Request(
-                    "DELETE", "https://webexapis.com/v1/messages/message-1"
-                ),
+                request=httpx.Request("DELETE", "https://webexapis.com/v1/messages/message-1"),
             )
         )
         person_lookup_client = QueuedAsyncClient()
@@ -858,15 +842,9 @@ def test_attachment_action_webhook_executes_approved_action_request(
             )
         )
         send_client = QueuedAsyncClient()
-        send_client.responses.append(
-            make_response("POST", "/messages", 200, {"id": "reply-2"})
-        )
-        _ = build_client_queue(
-            fetch_client, person_lookup_client, delete_client, send_client
-        )
-        monkeypatch.setattr(
-            "assistant_app.webex_gateway.httpx.AsyncClient", async_client_factory
-        )
+        send_client.responses.append(make_response("POST", "/messages", 200, {"id": "reply-2"}))
+        _ = build_client_queue(fetch_client, person_lookup_client, delete_client, send_client)
+        monkeypatch.setattr("assistant_app.webex_gateway.httpx.AsyncClient", async_client_factory)
 
         payload = {
             "id": "event-attachment-2",
@@ -886,9 +864,7 @@ def test_attachment_action_webhook_executes_approved_action_request(
             },
         )
 
-        resolved = app.state.services.state_store.get_approval_request(
-            approval_request.request_id
-        )
+        resolved = app.state.services.state_store.get_approval_request(approval_request.request_id)
 
     assert response.status_code == 202
     assert resolved is not None
@@ -951,9 +927,7 @@ def test_attachment_action_webhook_executes_approved_action_request_in_real_devi
 
         approvals = app.state.services.state_store.list_approval_requests()
         approval_request = next(
-            request
-            for request in approvals
-            if request.session_id == "webex-approval-action-real"
+            request for request in approvals if request.session_id == "webex-approval-action-real"
         )
 
         fetch_client = QueuedAsyncClient()
@@ -979,9 +953,7 @@ def test_attachment_action_webhook_executes_approved_action_request_in_real_devi
         delete_client.responses.append(
             httpx.Response(
                 204,
-                request=httpx.Request(
-                    "DELETE", "https://webexapis.com/v1/messages/message-1"
-                ),
+                request=httpx.Request("DELETE", "https://webexapis.com/v1/messages/message-1"),
             )
         )
         person_lookup_client = QueuedAsyncClient()
@@ -1007,9 +979,7 @@ def test_attachment_action_webhook_executes_approved_action_request_in_real_devi
             make_response("POST", "/xapi/command/Dial", 200, {"status": "OK"})
         )
         send_client = QueuedAsyncClient()
-        send_client.responses.append(
-            make_response("POST", "/messages", 200, {"id": "reply-3"})
-        )
+        send_client.responses.append(make_response("POST", "/messages", 200, {"id": "reply-3"}))
         token_client_one = QueuedAsyncClient()
         token_client_one.responses.append(
             make_response(
@@ -1038,15 +1008,9 @@ def test_attachment_action_webhook_executes_approved_action_request_in_real_devi
             token_client_two,
             send_client,
         )
-        monkeypatch.setattr(
-            "assistant_app.webex_gateway.httpx.AsyncClient", async_client_factory
-        )
-        monkeypatch.setattr(
-            "assistant_app.token_provider.httpx.AsyncClient", async_client_factory
-        )
-        monkeypatch.setattr(
-            "device_executor.device_client.httpx.AsyncClient", async_client_factory
-        )
+        monkeypatch.setattr("assistant_app.webex_gateway.httpx.AsyncClient", async_client_factory)
+        monkeypatch.setattr("assistant_app.token_provider.httpx.AsyncClient", async_client_factory)
+        monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
         payload = {
             "id": "event-attachment-3",
@@ -1066,9 +1030,7 @@ def test_attachment_action_webhook_executes_approved_action_request_in_real_devi
             },
         )
 
-        resolved = app.state.services.state_store.get_approval_request(
-            approval_request.request_id
-        )
+        resolved = app.state.services.state_store.get_approval_request(approval_request.request_id)
 
     assert response.status_code == 202
     assert resolved is not None
@@ -1111,9 +1073,7 @@ def test_attachment_action_webhook_executes_approved_action_request_in_real_devi
     ]
 
 
-def test_attachment_action_webhook_routes_entity_selection_without_approval_manager() -> (
-    None
-):
+def test_attachment_action_webhook_routes_entity_selection_without_approval_manager() -> None:
     from assistant_app.approval_manager import ApprovalManager
     from assistant_app.memory_store import InMemorySessionStore
     from assistant_app.orchestrator import Orchestrator
@@ -1219,9 +1179,7 @@ def test_attachment_action_webhook_routes_entity_selection_without_approval_mana
     assert [reply.text for reply in gateway.sent_replies] == ["Selection applied."]
 
 
-def test_attachment_action_webhook_entity_selection_survives_person_email_lookup_failure() -> (
-    None
-):
+def test_attachment_action_webhook_entity_selection_survives_person_email_lookup_failure() -> None:
     from assistant_app.approval_manager import ApprovalManager
     from assistant_app.memory_store import InMemorySessionStore
     from assistant_app.orchestrator import Orchestrator
@@ -1313,9 +1271,7 @@ def test_attachment_action_webhook_entity_selection_survives_person_email_lookup
     assert memory_store.has_processed_event("action-selection-email-failure") is True
 
 
-def test_attachment_action_webhook_keeps_selection_card_when_wrong_user_attempts_submit() -> (
-    None
-):
+def test_attachment_action_webhook_keeps_selection_card_when_wrong_user_attempts_submit() -> None:
     from assistant_app.approval_manager import ApprovalManager
     from assistant_app.memory_store import InMemorySessionStore
     from assistant_app.orchestrator import Orchestrator
@@ -1470,9 +1426,7 @@ def test_attachment_action_webhook_deletes_selection_card_on_cancel() -> None:
             assert room_id == "room-1"
             assert person_email == "user@example.com"
             assert cancel is True
-            return OutboundReply(
-                text="Okay, I cancelled that request.", room_id=room_id
-            ), True
+            return OutboundReply(text="Okay, I cancelled that request.", room_id=room_id), True
 
     class FailApprovalManager:
         def approve_or_reject(self, decision: object) -> object:
@@ -1495,9 +1449,7 @@ def test_attachment_action_webhook_deletes_selection_card_on_cancel() -> None:
     )
 
     assert gateway.deleted_message_ids == ["message-selection-cancel"]
-    assert [reply.text for reply in gateway.sent_replies] == [
-        "Okay, I cancelled that request."
-    ]
+    assert [reply.text for reply in gateway.sent_replies] == ["Okay, I cancelled that request."]
 
 
 def test_device_client_list_devices_filters_non_main_or_non_xapi_inventory(
@@ -1569,9 +1521,7 @@ def test_device_client_list_devices_filters_non_main_or_non_xapi_inventory(
         )
     )
     _ = build_client_queue(api_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     device_client = DeviceClient(
         AppConfig(
@@ -1648,9 +1598,7 @@ def test_device_resolution_candidates_exclude_accessories_and_non_xapi_inventory
         )
     )
     _ = build_client_queue(lookup_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     device_client = DeviceClient(
         AppConfig(
@@ -1666,9 +1614,7 @@ def test_device_resolution_candidates_exclude_accessories_and_non_xapi_inventory
         _ = asyncio.run(device_client.get_status("Unknown Room"))
 
     assert exc_info.value.reason == "not_found"
-    assert [device.display_name for device in exc_info.value.candidate_devices] == [
-        "Board Pro"
-    ]
+    assert [device.display_name for device in exc_info.value.candidate_devices] == ["Board Pro"]
 
 
 def test_device_client_prefers_webex_device_id_for_device_configuration_writes(
@@ -1696,13 +1642,9 @@ def test_device_client_prefers_webex_device_id_for_device_configuration_writes(
         )
     )
     config_client = QueuedAsyncClient()
-    config_client.responses.append(
-        make_response("PATCH", "/deviceConfigurations", 200, [])
-    )
+    config_client.responses.append(make_response("PATCH", "/deviceConfigurations", 200, []))
     _ = build_client_queue(resolve_client, config_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     device_client = DeviceClient(
         AppConfig(
@@ -1714,9 +1656,7 @@ def test_device_client_prefers_webex_device_id_for_device_configuration_writes(
         StaticTokenProvider(),
     )
 
-    result = asyncio.run(
-        device_client.set_display_role("Board Pro", 2, "presentation-only")
-    )
+    result = asyncio.run(device_client.set_display_role("Board Pro", 2, "presentation-only"))
 
     assert "Board Pro" in result
     assert config_client.requests == [
@@ -1769,9 +1709,7 @@ def test_device_client_resolves_home_office_alias(
         make_response("POST", "/xapi/command/Dial", 200, {"status": "OK"})
     )
     _ = build_client_queue(api_client, command_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     device_client = DeviceClient(
         AppConfig(
@@ -1859,9 +1797,7 @@ def test_device_client_get_camera_mode_uses_official_status_surfaces(
     )
     api_client.responses.append(make_response("GET", "/xapi/status", 200, {}))
     _ = build_client_queue(api_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     device_client = DeviceClient(
         AppConfig(
@@ -1945,9 +1881,7 @@ def test_device_client_set_camera_mode_group_and_speaker_uses_speakertrack_set_c
         make_response("POST", "/xapi/command/Cameras.SpeakerTrack.Set", 200, {"result": "OK"})
     )
     _ = build_client_queue(resolve_client, command_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     device_client = DeviceClient(
         AppConfig(
@@ -1997,9 +1931,7 @@ def test_device_client_set_camera_mode_frames_uses_speakertrack_set_command(
         make_response("POST", "/xapi/command/Cameras.SpeakerTrack.Set", 200, {"result": "OK"})
     )
     _ = build_client_queue(resolve_client, command_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     device_client = DeviceClient(
         AppConfig(
@@ -2014,8 +1946,7 @@ def test_device_client_set_camera_mode_frames_uses_speakertrack_set_command(
     result = asyncio.run(device_client.set_camera_mode("Board Pro", "frames"))
 
     assert result == (
-        "Set camera mode to Frames on Board Pro "
-        "(Cameras.SpeakerTrack.Set Behavior: Frames)."
+        "Set camera mode to Frames on Board Pro (Cameras.SpeakerTrack.Set Behavior: Frames)."
     )
     assert command_client.requests[0][2]["json"] == {
         "deviceId": "device-1",
@@ -2027,9 +1958,7 @@ def test_device_client_set_camera_mode_rejects_unsupported_mode_before_mutation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _ = build_client_queue()
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     device_client = DeviceClient(
         AppConfig(
@@ -2096,9 +2025,7 @@ def test_device_client_get_camera_mode_does_not_infer_effective_mode_when_nothin
     )
     api_client.responses.append(make_response("GET", "/xapi/status", 200, {}))
     _ = build_client_queue(api_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     device_client = DeviceClient(
         AppConfig(
@@ -2152,17 +2079,13 @@ def test_device_client_get_environment_info_uses_official_status_surfaces(
                     "PeopleCount": {"Current": 3},
                 },
                 "Peripherals": {
-                    "ConnectedDevice": [
-                        {"RoomAnalytics": {"AirQuality": {"Index": 79}}}
-                    ]
+                    "ConnectedDevice": [{"RoomAnalytics": {"AirQuality": {"Index": 79}}}]
                 },
             },
         )
     )
     _ = build_client_queue(api_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     device_client = DeviceClient(
         AppConfig(
@@ -2251,9 +2174,7 @@ def test_device_client_get_environment_info_uses_peripheral_fallbacks_for_temper
         )
     )
     _ = build_client_queue(api_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     client = DeviceClient(
         AppConfig(
@@ -2288,9 +2209,7 @@ def test_device_client_get_environment_info_returns_best_effort_none_for_missing
     )
     api_client.responses.append(make_response("GET", "/xapi/status", 200, {}))
     _ = build_client_queue(api_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     client = DeviceClient(
         AppConfig(
@@ -2363,9 +2282,7 @@ def test_device_client_get_room_booking_uses_official_status_and_list_surfaces(
         )
     )
     _ = build_client_queue(api_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     client = DeviceClient(
         AppConfig(
@@ -2447,9 +2364,7 @@ def test_device_client_get_room_booking_returns_best_effort_none_for_sparse_fiel
         )
     )
     _ = build_client_queue(api_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     client = DeviceClient(
         AppConfig(
@@ -2517,9 +2432,7 @@ def test_device_client_get_room_booking_keeps_next_meeting_when_joinability_is_u
         )
     )
     _ = build_client_queue(api_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     client = DeviceClient(
         AppConfig(
@@ -2574,9 +2487,7 @@ def test_device_client_get_room_booking_does_not_infer_joinability_from_title_on
         )
     )
     _ = build_client_queue(api_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     client = DeviceClient(
         AppConfig(
@@ -2631,9 +2542,7 @@ def test_device_client_join_obtp_fails_when_booking_has_ambiguous_explicit_join_
         )
     )
     _ = build_client_queue(api_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     client = DeviceClient(
         AppConfig(
@@ -2686,9 +2595,7 @@ def test_device_client_join_obtp_fails_when_no_confident_joinable_booking(
         )
     )
     _ = build_client_queue(api_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     client = DeviceClient(
         AppConfig(
@@ -2746,9 +2653,7 @@ def test_device_client_get_environment_info_retries_status_names_individually_af
             200,
             {
                 "Peripherals": {
-                    "ConnectedDevice": [
-                        {"RoomAnalytics": {"AirQuality": {"Index": 67}}}
-                    ]
+                    "ConnectedDevice": [{"RoomAnalytics": {"AirQuality": {"Index": 67}}}]
                 }
             },
         )
@@ -2756,9 +2661,7 @@ def test_device_client_get_environment_info_retries_status_names_individually_af
     api_client.responses.append(httpx.Response(400, request=batch_request, json={}))
     api_client.responses.append(httpx.Response(400, request=batch_request, json={}))
     _ = build_client_queue(api_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     client = DeviceClient(
         AppConfig(
@@ -3018,9 +2921,7 @@ def test_startup_reconcile_failure_does_not_block_app(
     async def fake_reconcile_attachment_actions(
         _self: WebexGateway,
     ) -> WebexWebhookRecord | None:
-        raise AssertionError(
-            "unexpected attachment-actions reconcile call after failure"
-        )
+        raise AssertionError("unexpected attachment-actions reconcile call after failure")
 
     monkeypatch.setattr(WebexGateway, "resolve_bot_identity", fake_resolve_identity)
     monkeypatch.setattr(WebexGateway, "reconcile_messages_webhooks", fake_reconcile)
@@ -3030,17 +2931,20 @@ def test_startup_reconcile_failure_does_not_block_app(
         fake_reconcile_attachment_actions,
     )
 
-    with temporary_env(
-        {
-            "WEBEX_MOCK_MODE": "false",
-            "WEBEX_BOT_TOKEN": "bot-token",
-            "WEBEX_BOT_PERSON_ID": "bot-person-id",
-            "WEBEX_WEBHOOK_SECRET": "secret",
-            "ADMIN_COOKIE_SECRET": "test-cookie-secret",
-            "WEBEX_WEBHOOK_RECONCILE_ON_STARTUP": "true",
-            "WEBEX_WEBHOOK_TARGET_URL": "https://example.com/webhooks/webex/messages",
-        }
-    ), TestClient(build_app()) as client:
+    with (
+        temporary_env(
+            {
+                "WEBEX_MOCK_MODE": "false",
+                "WEBEX_BOT_TOKEN": "bot-token",
+                "WEBEX_BOT_PERSON_ID": "bot-person-id",
+                "WEBEX_WEBHOOK_SECRET": "secret",
+                "ADMIN_COOKIE_SECRET": "test-cookie-secret",
+                "WEBEX_WEBHOOK_RECONCILE_ON_STARTUP": "true",
+                "WEBEX_WEBHOOK_TARGET_URL": "https://example.com/webhooks/webex/messages",
+            }
+        ),
+        TestClient(build_app()) as client,
+    ):
         response = client.get("/healthz")
 
     assert response.status_code == 200
@@ -3078,15 +2982,18 @@ def test_webhook_endpoint_verifies_signature_and_processes_message(
     monkeypatch.setattr(WebexGateway, "fetch_inbound_message", fake_fetch)
     monkeypatch.setattr(WebexGateway, "send_reply", fake_send)
 
-    with temporary_env(
-        {
-            "WEBEX_MOCK_MODE": "false",
-            "WEBEX_BOT_TOKEN": "bot-token",
-            "WEBEX_BOT_PERSON_ID": "bot-person-id",
-            "WEBEX_WEBHOOK_SECRET": "secret",
-            "ADMIN_COOKIE_SECRET": "test-cookie-secret",
-        }
-    ), TestClient(build_app()) as client:
+    with (
+        temporary_env(
+            {
+                "WEBEX_MOCK_MODE": "false",
+                "WEBEX_BOT_TOKEN": "bot-token",
+                "WEBEX_BOT_PERSON_ID": "bot-person-id",
+                "WEBEX_WEBHOOK_SECRET": "secret",
+                "ADMIN_COOKIE_SECRET": "test-cookie-secret",
+            }
+        ),
+        TestClient(build_app()) as client,
+    ):
         payload = {
             "id": "event-1",
             "resource": "messages",
@@ -3119,15 +3026,18 @@ def test_startup_identity_resolution_failure_does_not_block_app(
 
     monkeypatch.setattr(WebexGateway, "resolve_bot_identity", fake_resolve_identity)
 
-    with temporary_env(
-        {
-            "WEBEX_MOCK_MODE": "false",
-            "WEBEX_BOT_TOKEN": "bot-token",
-            "WEBEX_BOT_PERSON_ID": "bot-person-id",
-            "WEBEX_WEBHOOK_SECRET": "secret",
-            "ADMIN_COOKIE_SECRET": "test-cookie-secret",
-        }
-    ), TestClient(build_app()) as client:
+    with (
+        temporary_env(
+            {
+                "WEBEX_MOCK_MODE": "false",
+                "WEBEX_BOT_TOKEN": "bot-token",
+                "WEBEX_BOT_PERSON_ID": "bot-person-id",
+                "WEBEX_WEBHOOK_SECRET": "secret",
+                "ADMIN_COOKIE_SECRET": "test-cookie-secret",
+            }
+        ),
+        TestClient(build_app()) as client,
+    ):
         response = client.get("/healthz")
 
     assert response.status_code == 200
@@ -3141,15 +3051,18 @@ def test_startup_identity_mismatch_blocks_app(
 
     monkeypatch.setattr(WebexGateway, "resolve_bot_identity", fake_resolve_identity)
 
-    with temporary_env(
-        {
-            "WEBEX_MOCK_MODE": "false",
-            "WEBEX_BOT_TOKEN": "bot-token",
-            "WEBEX_BOT_PERSON_ID": "bot-person-id",
-            "WEBEX_WEBHOOK_SECRET": "secret",
-            "ADMIN_COOKIE_SECRET": "test-cookie-secret",
-        }
-    ), pytest.raises(WebexBotIdentityMismatchError, match="configured mismatch"):
+    with (
+        temporary_env(
+            {
+                "WEBEX_MOCK_MODE": "false",
+                "WEBEX_BOT_TOKEN": "bot-token",
+                "WEBEX_BOT_PERSON_ID": "bot-person-id",
+                "WEBEX_WEBHOOK_SECRET": "secret",
+                "ADMIN_COOKIE_SECRET": "test-cookie-secret",
+            }
+        ),
+        pytest.raises(WebexBotIdentityMismatchError, match="configured mismatch"),
+    ):
         with TestClient(build_app()):
             pass
 
@@ -3163,9 +3076,7 @@ def test_process_message_event_retries_same_event_after_send_failure() -> None:
 
     send_attempts: list[str] = []
 
-    async def fake_fetch(
-        _self: WebexGateway, envelope: WebexWebhookEnvelope
-    ) -> InboundUserMessage:
+    async def fake_fetch(_self: WebexGateway, envelope: WebexWebhookEnvelope) -> InboundUserMessage:
         return InboundUserMessage(
             session_id=envelope.data.roomId or envelope.id,
             user_id="person-1",
@@ -3182,9 +3093,7 @@ def test_process_message_event_retries_same_event_after_send_failure() -> None:
             raise RuntimeError("temporary send failure")
 
     monkeypatch = pytest.MonkeyPatch()
-    monkeypatch.setattr(
-        gateway, "fetch_inbound_message", fake_fetch.__get__(gateway, WebexGateway)
-    )
+    monkeypatch.setattr(gateway, "fetch_inbound_message", fake_fetch.__get__(gateway, WebexGateway))
     monkeypatch.setattr(gateway, "send_reply", fake_send.__get__(gateway, WebexGateway))
     try:
         event = gateway.parse_webhook_payload(
@@ -3215,9 +3124,7 @@ def test_process_message_event_uses_message_id_for_dedupe() -> None:
 
     send_attempts: list[str] = []
 
-    async def fake_fetch(
-        _self: WebexGateway, envelope: WebexWebhookEnvelope
-    ) -> InboundUserMessage:
+    async def fake_fetch(_self: WebexGateway, envelope: WebexWebhookEnvelope) -> InboundUserMessage:
         return InboundUserMessage(
             session_id=envelope.data.roomId or envelope.id,
             user_id=envelope.data.personId or "person-1",
@@ -3232,9 +3139,7 @@ def test_process_message_event_uses_message_id_for_dedupe() -> None:
         send_attempts.append(reply.text)
 
     monkeypatch = pytest.MonkeyPatch()
-    monkeypatch.setattr(
-        gateway, "fetch_inbound_message", fake_fetch.__get__(gateway, WebexGateway)
-    )
+    monkeypatch.setattr(gateway, "fetch_inbound_message", fake_fetch.__get__(gateway, WebexGateway))
     monkeypatch.setattr(gateway, "send_reply", fake_send.__get__(gateway, WebexGateway))
     try:
         first_event = gateway.parse_webhook_payload(
@@ -3281,9 +3186,7 @@ def test_gateway_drops_self_messages(monkeypatch: pytest.MonkeyPatch) -> None:
         )
     )
     _ = build_client_queue(fetch_client)
-    monkeypatch.setattr(
-        "assistant_app.webex_gateway.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("assistant_app.webex_gateway.httpx.AsyncClient", async_client_factory)
 
     gateway = WebexGateway(
         AppConfig(
@@ -3324,9 +3227,7 @@ def test_gateway_drops_empty_fetched_messages(monkeypatch: pytest.MonkeyPatch) -
         )
     )
     _ = build_client_queue(fetch_client)
-    monkeypatch.setattr(
-        "assistant_app.webex_gateway.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("assistant_app.webex_gateway.httpx.AsyncClient", async_client_factory)
 
     gateway = WebexGateway(
         AppConfig(
@@ -3398,9 +3299,7 @@ def test_reconcile_creates_both_desired_webhooks() -> None:
     assert [webhook.filter for webhook in reconciled] == created_filters
 
 
-def test_desired_attachment_action_webhook_targets_attachment_actions_endpoint() -> (
-    None
-):
+def test_desired_attachment_action_webhook_targets_attachment_actions_endpoint() -> None:
     gateway = WebexGateway(
         AppConfig(
             webex_mock_mode=False,
@@ -3418,10 +3317,7 @@ def test_desired_attachment_action_webhook_targets_attachment_actions_endpoint()
     assert registration.resource == "attachmentActions"
     assert registration.event == "created"
     assert registration.filter is None
-    assert (
-        registration.target_url
-        == "https://example.com/webhooks/webex/attachment-actions"
-    )
+    assert registration.target_url == "https://example.com/webhooks/webex/attachment-actions"
 
 
 def test_reconcile_creates_attachment_action_webhook() -> None:
@@ -3449,10 +3345,7 @@ def test_reconcile_creates_attachment_action_webhook() -> None:
         assert registration.resource == "attachmentActions"
         assert registration.event == "created"
         assert registration.filter is None
-        assert (
-            registration.target_url
-            == "https://example.com/webhooks/webex/attachment-actions"
-        )
+        assert registration.target_url == "https://example.com/webhooks/webex/attachment-actions"
         return WebexWebhookRecord(
             id="hook-attachment-actions",
             name=registration.name,
@@ -3533,9 +3426,7 @@ def test_device_client_fetches_webex_cloud_xapi_status(
                 ],
                 "Video": {"Selfview": {"Mode": "On", "FullscreenMode": "Current"}},
                 "Standby": {"State": "Off"},
-                "SystemUnit": {
-                    "State": {"NumberOfActiveCalls": 1, "System": "Available"}
-                },
+                "SystemUnit": {"State": {"NumberOfActiveCalls": 1, "System": "Available"}},
             },
         )
     )
@@ -3560,9 +3451,7 @@ def test_device_client_fetches_webex_cloud_xapi_status(
     )
     api_client.responses.append(make_response("GET", "/xapi/status", 200, {}))
     _ = build_client_queue(api_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     client = DeviceClient(
         AppConfig(
@@ -3693,9 +3582,7 @@ def test_device_client_returns_best_effort_none_for_missing_status_fields(
     api_client.responses.append(make_response("GET", "/xapi/status", 200, {}))
     api_client.responses.append(make_response("GET", "/xapi/status", 200, {}))
     _ = build_client_queue(api_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     client = DeviceClient(
         AppConfig(
@@ -3814,9 +3701,7 @@ def test_device_client_retries_status_names_individually_after_batch_400(
     api_client.responses.append(httpx.Response(400, request=batch_request, json={}))
     api_client.responses.append(httpx.Response(400, request=batch_request, json={}))
     _ = build_client_queue(api_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     client = DeviceClient(
         AppConfig(
@@ -3860,9 +3745,7 @@ def test_device_client_reraises_non_400_status_failures(
         )
     )
     _ = build_client_queue(api_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     client = DeviceClient(
         AppConfig(
@@ -3897,9 +3780,7 @@ def test_device_client_requires_exact_device_name_match(
         )
     )
     _ = build_client_queue(api_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     client = DeviceClient(
         AppConfig(
@@ -3950,9 +3831,7 @@ def test_device_client_raises_when_no_devices_match(
         )
     )
     _ = build_client_queue(api_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     client = DeviceClient(
         AppConfig(
@@ -3996,9 +3875,7 @@ def test_device_client_executes_set_volume_command(
         )
     )
     _ = build_client_queue(resolve_client, command_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     client = DeviceClient(
         AppConfig(
@@ -4063,9 +3940,7 @@ def test_device_client_lists_devices_with_token_provider(
         )
     )
     _ = build_client_queue(api_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     client = DeviceClient(AppConfig(device_mock_mode=False), StaticTokenProvider())
 
@@ -4086,9 +3961,7 @@ def test_device_client_lists_devices_with_token_provider(
 def test_device_client_requires_ack_for_factory_reset() -> None:
     client = DeviceClient(AppConfig(device_mock_mode=True), StaticTokenProvider())
 
-    with pytest.raises(
-        RuntimeError, match="Factory reset requires explicit acknowledgement."
-    ):
+    with pytest.raises(RuntimeError, match="Factory reset requires explicit acknowledgement."):
         _ = asyncio.run(client.factory_reset("Board Pro", acknowledged=False))
 
 
@@ -4362,13 +4235,9 @@ def test_device_client_executes_supported_cloud_xapi_commands(
             )
         )
     command_client = QueuedAsyncClient()
-    command_client.responses.append(
-        make_response("POST", expected_path, 200, {"status": "ok"})
-    )
+    command_client.responses.append(make_response("POST", expected_path, 200, {"status": "ok"}))
     _ = build_client_queue(resolve_client, command_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     device_client = DeviceClient(
         AppConfig(
@@ -4510,9 +4379,7 @@ def test_device_client_adjust_camera_position_retries_status_names_individually_
         make_response("POST", "/xapi/command/Camera.PositionSet", 200, {"status": "ok"})
     )
     _ = build_client_queue(resolve_client, command_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     device_client = DeviceClient(
         AppConfig(
@@ -4668,13 +4535,9 @@ def test_device_client_command_backed_microphone_modes_include_exact_config_guid
         )
     )
     command_client = QueuedAsyncClient()
-    command_client.responses.append(
-        make_response("POST", expected_path, 200, {"status": "ok"})
-    )
+    command_client.responses.append(make_response("POST", expected_path, 200, {"status": "ok"}))
     _ = build_client_queue(api_client, command_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     device_client = DeviceClient(
         AppConfig(
@@ -4754,15 +4617,11 @@ def test_device_client_accepts_object_response_from_device_configuration_patch(
         httpx.Response(
             200,
             json={"items": []},
-            request=httpx.Request(
-                "PATCH", "https://webexapis.com/v1/deviceConfigurations"
-            ),
+            request=httpx.Request("PATCH", "https://webexapis.com/v1/deviceConfigurations"),
         )
     )
     _ = build_client_queue(resolve_client, config_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
     device_client = DeviceClient(
         AppConfig(
             webex_mock_mode=False,
@@ -4864,9 +4723,7 @@ def test_device_client_patches_supported_device_configurations(
         )
     )
     _ = build_client_queue(resolve_client, config_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     device_client = DeviceClient(
         AppConfig(
@@ -4962,13 +4819,9 @@ def test_device_client_config_backed_microphone_mode_uses_exact_webex_values_bef
         )
     )
     config_client = QueuedAsyncClient()
-    config_client.responses.append(
-        make_response("PATCH", "/deviceConfigurations", 200, [])
-    )
+    config_client.responses.append(make_response("PATCH", "/deviceConfigurations", 200, []))
     _ = build_client_queue(api_client, config_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     device_client = DeviceClient(
         AppConfig(
@@ -4980,9 +4833,7 @@ def test_device_client_config_backed_microphone_mode_uses_exact_webex_values_bef
         StaticTokenProvider(),
     )
 
-    result = asyncio.run(
-        device_client.set_microphone_mode("Board Pro", "voice-optimized")
-    )
+    result = asyncio.run(device_client.set_microphone_mode("Board Pro", "voice-optimized"))
 
     assert result == (
         "Set microphone mode to voice optimized on Board Pro. Exact configurable "
@@ -5070,9 +4921,7 @@ def test_device_client_config_backed_microphone_mode_fails_before_mutation_when_
         )
     )
     _ = build_client_queue(api_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     device_client = DeviceClient(
         AppConfig(
@@ -5091,9 +4940,7 @@ def test_device_client_config_backed_microphone_mode_fails_before_mutation_when_
             "Webex reports configurable microphone values: Wide\\."
         ),
     ):
-        _ = asyncio.run(
-            device_client.set_microphone_mode("Board Pro", "voice-optimized")
-        )
+        _ = asyncio.run(device_client.set_microphone_mode("Board Pro", "voice-optimized"))
 
     assert api_client.requests == [
         (
@@ -5157,13 +5004,9 @@ def test_device_client_config_backed_display_mode_uses_exact_webex_values_before
         )
     )
     config_client = QueuedAsyncClient()
-    config_client.responses.append(
-        make_response("PATCH", "/deviceConfigurations", 200, [])
-    )
+    config_client.responses.append(make_response("PATCH", "/deviceConfigurations", 200, []))
     _ = build_client_queue(api_client, config_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     device_client = DeviceClient(
         AppConfig(
@@ -5261,15 +5104,11 @@ def test_device_client_config_backed_display_mode_accepts_empty_success_body(
         httpx.Response(
             200,
             content=b"",
-            request=httpx.Request(
-                "PATCH", "https://webexapis.com/v1/deviceConfigurations"
-            ),
+            request=httpx.Request("PATCH", "https://webexapis.com/v1/deviceConfigurations"),
         )
     )
     _ = build_client_queue(api_client, config_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     device_client = DeviceClient(
         AppConfig(
@@ -5316,19 +5155,13 @@ def test_device_client_display_mode_preflight_accepts_empty_configuration_body(
         httpx.Response(
             200,
             content=b"",
-            request=httpx.Request(
-                "GET", "https://webexapis.com/v1/deviceConfigurations"
-            ),
+            request=httpx.Request("GET", "https://webexapis.com/v1/deviceConfigurations"),
         )
     )
     config_client = QueuedAsyncClient()
-    config_client.responses.append(
-        make_response("PATCH", "/deviceConfigurations", 200, [])
-    )
+    config_client.responses.append(make_response("PATCH", "/deviceConfigurations", 200, []))
     _ = build_client_queue(api_client, config_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     device_client = DeviceClient(
         AppConfig(
@@ -5368,9 +5201,7 @@ def test_device_client_display_mode_empty_devices_body_fails_cleanly(
         )
     )
     _ = build_client_queue(api_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     device_client = DeviceClient(
         AppConfig(
@@ -5428,9 +5259,7 @@ def test_device_client_config_backed_display_mode_fails_before_mutation_when_val
         )
     )
     _ = build_client_queue(api_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     device_client = DeviceClient(
         AppConfig(
@@ -5446,9 +5275,7 @@ def test_device_client_config_backed_display_mode_fails_before_mutation_when_val
         RuntimeError,
         match="Unsupported display mode: unsupported-display-mode",
     ):
-        _ = asyncio.run(
-            device_client.set_display_mode("Codec Pro G2", "unsupported-display-mode")
-        )
+        _ = asyncio.run(device_client.set_display_mode("Codec Pro G2", "unsupported-display-mode"))
 
     assert api_client.requests == []
 
@@ -5494,14 +5321,10 @@ def test_device_client_set_layout_includes_current_layout_and_documented_candida
     )
     command_client = QueuedAsyncClient()
     command_client.responses.append(
-        make_response(
-            "POST", "/xapi/command/Video.Layout.SetLayout", 200, {"status": "ok"}
-        )
+        make_response("POST", "/xapi/command/Video.Layout.SetLayout", 200, {"status": "ok"})
     )
     _ = build_client_queue(api_client, command_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     device_client = DeviceClient(
         AppConfig(
@@ -5590,9 +5413,7 @@ def test_device_client_switch_input_source_400_returns_actionable_error(
         )
     )
     _ = build_client_queue(resolve_client, command_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
     device_client = DeviceClient(
         AppConfig(
             webex_mock_mode=False,
@@ -5640,9 +5461,7 @@ def test_device_client_switch_input_source_resolves_remote_alias_to_connector_id
         )
     )
     _ = build_client_queue(resolve_client, command_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     device_client = DeviceClient(
         AppConfig(
@@ -5694,9 +5513,7 @@ def test_token_manager_provider_fetches_current_token(
         )
     )
     _ = build_client_queue(token_client)
-    monkeypatch.setattr(
-        "assistant_app.token_provider.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("assistant_app.token_provider.httpx.AsyncClient", async_client_factory)
 
     provider = TokenManagerTokenProvider(
         base_url="http://127.0.0.1:3000",
@@ -5727,9 +5544,7 @@ def test_token_manager_provider_falls_back_to_bot_token_on_server_error(
         )
     )
     _ = build_client_queue(token_client)
-    monkeypatch.setattr(
-        "assistant_app.token_provider.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("assistant_app.token_provider.httpx.AsyncClient", async_client_factory)
 
     provider = TokenManagerTokenProvider(
         base_url="http://127.0.0.1:3000",
@@ -5754,9 +5569,7 @@ def test_token_manager_provider_raises_clean_error_without_fallback(
         )
     )
     _ = build_client_queue(token_client)
-    monkeypatch.setattr(
-        "assistant_app.token_provider.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("assistant_app.token_provider.httpx.AsyncClient", async_client_factory)
 
     provider = TokenManagerTokenProvider(
         base_url="http://127.0.0.1:3000",
@@ -5800,9 +5613,7 @@ def test_device_client_set_display_mode_configures_two_monitor_roles(
     config_client = QueuedAsyncClient()
     config_client.responses.append(make_response("PATCH", "/deviceConfigurations", 200, []))
     _ = build_client_queue(resolve_client, config_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     device_client = DeviceClient(
         AppConfig(
@@ -5814,7 +5625,9 @@ def test_device_client_set_display_mode_configures_two_monitor_roles(
         StaticTokenProvider(),
     )
 
-    result = asyncio.run(device_client.set_display_mode("Board Pro", "left-video-right-presentation"))
+    result = asyncio.run(
+        device_client.set_display_mode("Board Pro", "left-video-right-presentation")
+    )
 
     assert result == (
         "Set display mode to left-video-right-presentation on Board Pro "
@@ -5860,9 +5673,7 @@ def test_device_client_lists_supported_camera_modes_from_speakertrack_set_comman
         )
     )
     _ = build_client_queue(api_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
     device_client = DeviceClient(
         AppConfig(
             webex_mock_mode=False,
@@ -5943,9 +5754,7 @@ def test_device_client_get_environment_info_reads_webex_status_result_wrapper_fo
         )
     )
     _ = build_client_queue(api_client)
-    monkeypatch.setattr(
-        "device_executor.device_client.httpx.AsyncClient", async_client_factory
-    )
+    monkeypatch.setattr("device_executor.device_client.httpx.AsyncClient", async_client_factory)
 
     device_client = DeviceClient(
         AppConfig(
@@ -5974,7 +5783,10 @@ def test_device_client_command_error_includes_webex_response_body(
             "POST",
             "/xapi/command/Webex.Join",
             400,
-            {"message": "Invalid meeting number", "errors": [{"description": "Meeting is not joinable"}]},
+            {
+                "message": "Invalid meeting number",
+                "errors": [{"description": "Meeting is not joinable"}],
+            },
         )
     )
     _ = build_client_queue(api_client)

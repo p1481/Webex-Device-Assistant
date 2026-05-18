@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import logging
-import sys
-from collections.abc import AsyncIterator
+import uuid
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
-from typing import ClassVar, cast
+from typing import ClassVar
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from pydantic import BaseModel, ConfigDict
 
 from admin_page import router as admin_page_router
@@ -15,7 +15,13 @@ from assistant_app.admin_service import AdminService
 from assistant_app.agentic_tool_runtime import AllLlmToolRuntime
 from assistant_app.approval_manager import ApprovalManager
 from assistant_app.config import AppConfig
+from assistant_app.logging_config import (
+    bind_request_context,
+    clear_request_context,
+    configure_logging,
+)
 from assistant_app.memory_store import InMemorySessionStore
+from assistant_app.metrics import approvals_pending
 from assistant_app.mode_router import ModeRouter
 from assistant_app.orchestrator import Orchestrator
 from assistant_app.policy_evaluator import PolicyEvaluator
@@ -23,9 +29,11 @@ from assistant_app.provider_registry import ProviderRegistry
 from assistant_app.routes.admin import router as admin_router
 from assistant_app.routes.debug import router as debug_router
 from assistant_app.routes.health import router as health_router
+from assistant_app.routes.metrics import router as metrics_router
 from assistant_app.routes.webhooks import router as webhooks_router
 from assistant_app.state_store import InMemoryStateStore, build_state_store
 from assistant_app.token_provider import TokenManagerTokenProvider
+from assistant_app.tracing import configure_tracing
 from assistant_app.webex_gateway import WebexBotIdentityMismatchError, WebexGateway
 from assistant_app.webhook_controller import WebhookController
 from device_executor.device_client import DeviceClient
@@ -34,8 +42,8 @@ from device_executor.handlers import ExecutionHandlers
 from direct_tool_adapter.adapter import DirectToolAdapter
 from direct_tool_adapter.tools import DirectToolSet
 from shared.contracts import (
+    ApprovalStatus,
     MaskedSecret,
-    ProviderKind,
     ProviderSettings,
     RuntimeAdminSettings,
     StartupConfigStatus,
@@ -66,29 +74,7 @@ def _serialize_provider_settings(settings: ProviderSettings) -> dict[str, object
 
 
 def _configure_logging() -> None:
-    root_logger = logging.getLogger()
-    if root_logger.level > logging.INFO:
-        root_logger.setLevel(logging.INFO)
-
-    has_assistant_handler = any(
-        cast(bool, getattr(handler, "_assistant_app_handler", False))
-        for handler in root_logger.handlers
-    )
-    if not has_assistant_handler:
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setLevel(logging.INFO)
-        handler.setFormatter(
-            logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s")
-        )
-        handler._assistant_app_handler = True
-        root_logger.addHandler(handler)
-
-    for logger_name in (
-        "assistant_app.main",
-        "assistant_app.webex_gateway",
-        "assistant_app.webhook_controller",
-    ):
-        logging.getLogger(logger_name).setLevel(logging.INFO)
+    configure_logging()
 
 
 def build_app() -> FastAPI:
@@ -96,6 +82,19 @@ def build_app() -> FastAPI:
     config = AppConfig.from_env()
     memory_store = InMemorySessionStore()
     state_store = build_state_store(config.admin_state_path)
+
+    # Wire the approvals_pending gauge to the state store so /metrics
+    # reports the true count on every scrape (no event-based inc/dec to
+    # drift over time).
+    approvals_pending.set_function(
+        lambda: float(
+            sum(
+                1
+                for approval in state_store.list_approval_requests()
+                if approval.status == ApprovalStatus.PENDING
+            )
+        )
+    )
     token_provider = TokenManagerTokenProvider(
         base_url=config.webex_token_manager_base_url,
         api_key=config.webex_token_manager_api_key or "",
@@ -122,17 +121,13 @@ def build_app() -> FastAPI:
             ),
             bot_token=MaskedSecret(
                 present=bool(config.webex_bot_token),
-                masked_value=(
-                    "***configured***" if config.webex_bot_token is not None else None
-                ),
+                masked_value=("***configured***" if config.webex_bot_token is not None else None),
                 field_state="restart_required",
             ),
             webhook_secret=MaskedSecret(
                 present=bool(config.webex_webhook_secret),
                 masked_value=(
-                    "***configured***"
-                    if config.webex_webhook_secret is not None
-                    else None
+                    "***configured***" if config.webex_webhook_secret is not None else None
                 ),
                 field_state="restart_required",
             ),
@@ -146,12 +141,7 @@ def build_app() -> FastAPI:
             device_mock_mode=config.device_mock_mode,
         )
     )
-    current_provider_settings = state_store.get_provider_settings()
-    if (
-        current_provider_settings.provider == ProviderKind.RULE_BASED
-        and current_provider_settings.model == "rule-based-default"
-        and current_provider_settings.base_url is None
-    ):
+    if not state_store.is_provider_settings_persisted():
         _ = state_store.update_provider_settings(
             ProviderSettings(
                 provider=config.default_provider,
@@ -179,9 +169,7 @@ def build_app() -> FastAPI:
         )
     )
     state_store.set_action_registry(build_default_action_registry())
-    provider_registry = ProviderRegistry(
-        default_target_device=config.default_target_device
-    )
+    provider_registry = ProviderRegistry(default_target_device=config.default_target_device)
     state_store.register_provider_descriptors(provider_registry.descriptors())
     provider_settings = state_store.get_provider_settings()
     provider = provider_registry.build_analysis_provider(provider_settings)
@@ -197,9 +185,7 @@ def build_app() -> FastAPI:
         direct_tool_adapter,
         model=provider_settings.model or config.default_provider_model or "rule-based-default",
     )
-    mode_router = ModeRouter(
-        device_executor, direct_tool_adapter, all_llm_tool_runtime
-    )
+    mode_router = ModeRouter(device_executor, direct_tool_adapter, all_llm_tool_runtime)
     approval_manager = ApprovalManager(memory_store, state_store)
     admin_service = AdminService(state_store)
     orchestrator = Orchestrator(
@@ -226,6 +212,22 @@ def build_app() -> FastAPI:
     )
 
     app = FastAPI(title=config.app_name, version="0.1.0")
+    configure_tracing(app)
+
+    @app.middleware("http")
+    async def _request_context_middleware(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        request_id = request.headers.get("x-request-id") or uuid.uuid4().hex
+        bind_request_context(request_id=request_id, path=request.url.path, method=request.method)
+        try:
+            response = await call_next(request)
+        finally:
+            clear_request_context()
+        response.headers["x-request-id"] = request_id
+        return response
+
     app.state.services = AppServices(
         config=config,
         orchestrator=orchestrator,
@@ -262,14 +264,13 @@ def build_app() -> FastAPI:
                 _ = reconciled_webhooks
                 _ = reconciled_attachment_actions
             except Exception:
-                logger.exception(
-                    "Startup webhook reconciliation failed; continuing startup."
-                )
+                logger.exception("Startup webhook reconciliation failed; continuing startup.")
         yield
 
     app.router.lifespan_context = lifespan
 
     app.include_router(health_router)
+    app.include_router(metrics_router)
     app.include_router(webhooks_router)
     app.include_router(debug_router)
     app.include_router(admin_router)

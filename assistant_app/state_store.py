@@ -58,9 +58,7 @@ class InMemoryStateStore:
     def __init__(self) -> None:
         self._approval_requests: dict[str, ApprovalRequest] = {}
         self._audit_records: list[AuditRecord] = []
-        self._policy_settings: dict[Intent, CommandPolicy] = dict(
-            DEFAULT_COMMAND_POLICIES
-        )
+        self._policy_settings: dict[Intent, CommandPolicy] = dict(DEFAULT_COMMAND_POLICIES)
         self._provider_settings = ProviderSettings(
             provider=ProviderKind.OLLAMA,
             model=DEFAULT_OLLAMA_MODEL,
@@ -80,10 +78,12 @@ class InMemoryStateStore:
         self._processed_webhook_events: set[str] = set()
         self._session_count = 0
         self._admin_auth_sessions: dict[str, AdminAuthSession] = {}
+        self._provider_settings_persisted: bool = False
 
-    def set_runtime_admin_settings(
-        self, settings: RuntimeAdminSettings
-    ) -> RuntimeAdminSettings:
+    def is_provider_settings_persisted(self) -> bool:
+        return self._provider_settings_persisted
+
+    def set_runtime_admin_settings(self, settings: RuntimeAdminSettings) -> RuntimeAdminSettings:
         self._runtime_admin_settings = settings.model_copy(deep=True)
         return self.get_runtime_admin_settings()
 
@@ -100,9 +100,7 @@ class InMemoryStateStore:
         self._runtime_admin_settings = current
         return self.get_runtime_admin_settings()
 
-    def set_startup_config_status(
-        self, status: StartupConfigStatus
-    ) -> StartupConfigStatus:
+    def set_startup_config_status(self, status: StartupConfigStatus) -> StartupConfigStatus:
         self._startup_config_status = status.model_copy(deep=True)
         return self.get_startup_config_status()
 
@@ -110,9 +108,7 @@ class InMemoryStateStore:
         return self._startup_config_status.model_copy(deep=True)
 
     def set_action_registry(self, items: list[ActionRegistryItem]) -> None:
-        self._action_registry = {
-            item.intent: item.model_copy(deep=True) for item in items
-        }
+        self._action_registry = {item.intent: item.model_copy(deep=True) for item in items}
 
     def list_action_registry(self) -> list[ActionRegistryItem]:
         return [item.model_copy(deep=True) for item in self._action_registry.values()]
@@ -120,9 +116,7 @@ class InMemoryStateStore:
     def set_organization_devices(
         self, devices: list[OrganizationDeviceRecord]
     ) -> list[OrganizationDeviceRecord]:
-        self._organization_devices = [
-            device.model_copy(deep=True) for device in devices
-        ]
+        self._organization_devices = [device.model_copy(deep=True) for device in devices]
         return self.list_organization_devices()
 
     def list_organization_devices(self) -> list[OrganizationDeviceRecord]:
@@ -145,23 +139,17 @@ class InMemoryStateStore:
                 1 for approval in approvals if approval.status == ApprovalStatus.PENDING
             ),
             approvals_approved=sum(
-                1
-                for approval in approvals
-                if approval.status == ApprovalStatus.APPROVED
+                1 for approval in approvals if approval.status == ApprovalStatus.APPROVED
             ),
             approvals_rejected=sum(
-                1
-                for approval in approvals
-                if approval.status == ApprovalStatus.REJECTED
+                1 for approval in approvals if approval.status == ApprovalStatus.REJECTED
             ),
             audit_total=len(self._audit_records),
             sessions_total=self._session_count,
             processed_webhook_events=len(self._processed_webhook_events),
         )
 
-    def register_provider_descriptors(
-        self, descriptors: list[ProviderDescriptor]
-    ) -> None:
+    def register_provider_descriptors(self, descriptors: list[ProviderDescriptor]) -> None:
         self._provider_descriptors = descriptors
 
     def list_provider_descriptors(self) -> list[ProviderDescriptor]:
@@ -180,8 +168,7 @@ class InMemoryStateStore:
 
     def list_policies(self) -> dict[Intent, CommandPolicy]:
         return {
-            intent: policy.model_copy(deep=True)
-            for intent, policy in self._policy_settings.items()
+            intent: policy.model_copy(deep=True) for intent, policy in self._policy_settings.items()
         }
 
     def update_policy(self, intent: Intent, policy: CommandPolicy) -> CommandPolicy:
@@ -198,23 +185,16 @@ class InMemoryStateStore:
         return request.model_copy(deep=True) if request else None
 
     def list_approval_requests(self) -> list[ApprovalRequest]:
-        return [
-            request.model_copy(deep=True)
-            for request in self._approval_requests.values()
-        ]
+        return [request.model_copy(deep=True) for request in self._approval_requests.values()]
 
-    def resolve_approval_request(
-        self, decision: ApprovalDecision
-    ) -> ApprovalRequest | None:
+    def resolve_approval_request(self, decision: ApprovalDecision) -> ApprovalRequest | None:
         request = self._approval_requests.get(decision.request_id)
         if request is None:
             return None
         if request.status != ApprovalStatus.PENDING:
             return None
 
-        request.status = (
-            ApprovalStatus.APPROVED if decision.approved else ApprovalStatus.REJECTED
-        )
+        request.status = ApprovalStatus.APPROVED if decision.approved else ApprovalStatus.REJECTED
         request.resolved_at = decision.decided_at
         self._approval_requests[decision.request_id] = request
         return request.model_copy(deep=True)
@@ -269,9 +249,7 @@ class FileBackedStateStore(InMemoryStateStore):
         self._runtime_admin_overrides = RuntimeAdminSettingsUpdate()
         self._load_persisted_state()
 
-    def set_runtime_admin_settings(
-        self, settings: RuntimeAdminSettings
-    ) -> RuntimeAdminSettings:
+    def set_runtime_admin_settings(self, settings: RuntimeAdminSettings) -> RuntimeAdminSettings:
         runtime_settings = settings.model_copy(deep=True)
         changes = self._runtime_admin_overrides.model_dump(exclude_none=True)
         for key, value in changes.items():
@@ -293,6 +271,7 @@ class FileBackedStateStore(InMemoryStateStore):
 
     def update_provider_settings(self, settings: ProviderSettings) -> ProviderSettings:
         updated = super().update_provider_settings(settings)
+        self._provider_settings_persisted = True
         self._persist_state()
         return updated
 
@@ -320,9 +299,7 @@ class FileBackedStateStore(InMemoryStateStore):
         super().delete_admin_auth_session(session_id)
         self._persist_state()
 
-    def resolve_approval_request(
-        self, decision: ApprovalDecision
-    ) -> ApprovalRequest | None:
+    def resolve_approval_request(self, decision: ApprovalDecision) -> ApprovalRequest | None:
         resolved = super().resolve_approval_request(decision)
         if resolved is not None:
             self._persist_state()
@@ -355,10 +332,9 @@ class FileBackedStateStore(InMemoryStateStore):
                 f"Unsupported persisted state schema version: {document.schema_version}."
             )
 
-        self._runtime_admin_overrides = document.runtime_admin_overrides.model_copy(
-            deep=True
-        )
+        self._runtime_admin_overrides = document.runtime_admin_overrides.model_copy(deep=True)
         if document.provider_settings is not None:
+            self._provider_settings_persisted = True
             self._provider_settings = ProviderSettings(
                 provider=document.provider_settings.provider,
                 model=document.provider_settings.model,
@@ -375,12 +351,9 @@ class FileBackedStateStore(InMemoryStateStore):
             self._policy_settings[Intent(intent_name)] = policy.model_copy(deep=True)
 
         self._approval_requests = {
-            request.request_id: request.model_copy(deep=True)
-            for request in document.approvals
+            request.request_id: request.model_copy(deep=True) for request in document.approvals
         }
-        self._audit_records = [
-            record.model_copy(deep=True) for record in document.audit
-        ]
+        self._audit_records = [record.model_copy(deep=True) for record in document.audit]
         self._admin_auth_sessions = {
             session.session_id: session.model_copy(deep=True)
             for session in document.admin_auth_sessions
@@ -409,8 +382,7 @@ class FileBackedStateStore(InMemoryStateStore):
             approvals=self.list_approval_requests(),
             audit=self.list_audit_records(),
             admin_auth_sessions=[
-                session.model_copy(deep=True)
-                for session in self._admin_auth_sessions.values()
+                session.model_copy(deep=True) for session in self._admin_auth_sessions.values()
             ],
             processed_webhook_event_ids=sorted(self._processed_webhook_events),
         )

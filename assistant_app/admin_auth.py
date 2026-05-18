@@ -12,9 +12,7 @@ from shared.contracts import AdminAuthSession, ApprovalStatus
 ADMIN_SESSION_COOKIE = "wda_admin_session"
 
 
-def attach_admin_session_cookie(
-    response: Response, request: Request, session_id: str
-) -> None:
+def attach_admin_session_cookie(response: Response, request: Request, session_id: str) -> None:
     response.set_cookie(
         ADMIN_SESSION_COOKIE,
         _sign_session_id(session_id, _cookie_secret(request)),
@@ -36,9 +34,7 @@ def get_authenticated_admin_session(request: Request) -> AdminAuthSession:
     session_id = _verify_session_cookie(cookie_value, _cookie_secret(request))
     if session_id is None:
         raise HTTPException(status_code=401, detail="Admin session is invalid.")
-    session = request.app.state.services.admin_service.get_admin_auth_session(
-        session_id
-    )
+    session = request.app.state.services.admin_service.get_admin_auth_session(session_id)
     if session is None:
         raise HTTPException(status_code=401, detail="Admin session was not found.")
     if _is_expired(session):
@@ -74,9 +70,7 @@ def _cookie_secret(request: Request) -> str:
 
 
 def _sign_session_id(session_id: str, secret: str) -> str:
-    digest = hmac.new(
-        secret.encode("utf-8"), session_id.encode("utf-8"), hashlib.sha256
-    )
+    digest = hmac.new(secret.encode("utf-8"), session_id.encode("utf-8"), hashlib.sha256)
     signature = base64.urlsafe_b64encode(digest.digest()).decode("ascii").rstrip("=")
     return f"{session_id}.{signature}"
 

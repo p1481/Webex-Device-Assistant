@@ -307,10 +307,7 @@ def looks_like_internal_meeting_identifier(
         return True
     if "/people/" in lowered_identifier or "/message/" in lowered_identifier:
         return True
-    if (
-        "/webhook/" in lowered_identifier
-        or "/attachment_action/" in lowered_identifier
-    ):
+    if "/webhook/" in lowered_identifier or "/attachment_action/" in lowered_identifier:
         return True
     if "/" in normalized_identifier:
         return True

@@ -1,0 +1,80 @@
+name: Security
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  schedule:
+    # Weekly Monday 02:00 UTC (~11:00 KST)
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  audit:
+    name: Dependency audit (pip-audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Export locked requirements
+        run: uv export --frozen --no-dev --format requirements-txt > requirements-locked.txt
+
+      - name: Install pip-audit
+        run: uv tool install pip-audit
+
+      - name: Run pip-audit
+        run: uv tool run pip-audit -r requirements-locked.txt --strict
+
+  bandit:
+    name: Static security scan (Bandit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Install Bandit
+        run: uv tool install "bandit[sarif]"
+
+      - name: Run Bandit (SARIF for code scanning)
+        run: |
+          uv tool run bandit -r assistant_app device_executor direct_tool_adapter shared \
+            -ll -f sarif -o bandit.sarif || true
+
+      - name: Upload SARIF to GitHub code scanning
+        if: always() && hashFiles('bandit.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: bandit.sarif
+          category: bandit
+
+      - name: Run Bandit (human-readable, gate)
+        run: |
+          uv tool run bandit -r assistant_app device_executor direct_tool_adapter shared \
+            -ll -iii

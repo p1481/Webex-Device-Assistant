@@ -34,9 +34,7 @@ class ModeRouter:
         execution_request = self.build_request(message, proposal, policy_decision)
         return await self.execute_request(execution_request)
 
-    async def execute_request(
-        self, execution_request: ExecutionRequest
-    ) -> ExecutionResult:
+    async def execute_request(self, execution_request: ExecutionRequest) -> ExecutionResult:
         if execution_request.execution_mode == ExecutionMode.SEPARATED:
             return await self.device_executor.execute(execution_request)
         if execution_request.execution_mode == ExecutionMode.ALL_LLM:
@@ -59,15 +57,9 @@ class ModeRouter:
             and proposal.get_environment_info is not None
         ):
             target_device = proposal.get_environment_info.target_device
-        elif (
-            proposal.intent == Intent.GET_CAMERA_MODE
-            and proposal.get_camera_mode is not None
-        ):
+        elif proposal.intent == Intent.GET_CAMERA_MODE and proposal.get_camera_mode is not None:
             target_device = proposal.get_camera_mode.target_device
-        elif (
-            proposal.intent == Intent.GET_ROOM_BOOKING
-            and proposal.get_room_booking is not None
-        ):
+        elif proposal.intent == Intent.GET_ROOM_BOOKING and proposal.get_room_booking is not None:
             target_device = proposal.get_room_booking.target_device
         elif proposal.intent == Intent.LIST_DEVICES:
             target_device = None
@@ -93,53 +85,30 @@ class ModeRouter:
             target_device = proposal.set_microphone_mode.target_device
         elif proposal.intent == Intent.SET_VOLUME and proposal.set_volume is not None:
             target_device = proposal.set_volume.target_device
-        elif (
-            proposal.intent == Intent.SET_VIDEO_MUTE
-            and proposal.set_video_mute is not None
-        ):
+        elif proposal.intent == Intent.SET_VIDEO_MUTE and proposal.set_video_mute is not None:
             target_device = proposal.set_video_mute.target_device
-        elif (
-            proposal.intent == Intent.SET_SELFVIEW and proposal.set_selfview is not None
-        ):
+        elif proposal.intent == Intent.SET_SELFVIEW and proposal.set_selfview is not None:
             target_device = proposal.set_selfview.target_device
-        elif (
-            proposal.intent == Intent.SET_CAMERA_MODE
-            and proposal.set_camera_mode is not None
-        ):
+        elif proposal.intent == Intent.SET_CAMERA_MODE and proposal.set_camera_mode is not None:
             target_device = proposal.set_camera_mode.target_device
         elif proposal.intent == Intent.SET_LAYOUT and proposal.set_layout is not None:
             target_device = proposal.set_layout.target_device
-        elif (
-            proposal.intent == Intent.SET_PRESENTATION
-            and proposal.set_presentation is not None
-        ):
+        elif proposal.intent == Intent.SET_PRESENTATION and proposal.set_presentation is not None:
             target_device = proposal.set_presentation.target_device
         elif (
             proposal.intent == Intent.SWITCH_INPUT_SOURCE
             and proposal.switch_input_source is not None
         ):
             target_device = proposal.switch_input_source.target_device
-        elif (
-            proposal.intent == Intent.ASSIGN_MATRIX
-            and proposal.assign_matrix is not None
-        ):
+        elif proposal.intent == Intent.ASSIGN_MATRIX and proposal.assign_matrix is not None:
             target_device = proposal.assign_matrix.target_device
-        elif (
-            proposal.intent == Intent.UNASSIGN_MATRIX
-            and proposal.unassign_matrix is not None
-        ):
+        elif proposal.intent == Intent.UNASSIGN_MATRIX and proposal.unassign_matrix is not None:
             target_device = proposal.unassign_matrix.target_device
         elif proposal.intent == Intent.SWAP_MATRIX and proposal.swap_matrix is not None:
             target_device = proposal.swap_matrix.target_device
-        elif (
-            proposal.intent == Intent.SET_DISPLAY_MODE
-            and proposal.set_display_mode is not None
-        ):
+        elif proposal.intent == Intent.SET_DISPLAY_MODE and proposal.set_display_mode is not None:
             target_device = proposal.set_display_mode.target_device
-        elif (
-            proposal.intent == Intent.SET_DISPLAY_ROLE
-            and proposal.set_display_role is not None
-        ):
+        elif proposal.intent == Intent.SET_DISPLAY_ROLE and proposal.set_display_role is not None:
             target_device = proposal.set_display_role.target_device
         elif (
             proposal.intent == Intent.ACTIVATE_CAMERA_PRESET
@@ -151,19 +120,13 @@ class ModeRouter:
             and proposal.adjust_camera_position is not None
         ):
             target_device = proposal.adjust_camera_position.target_device
-        elif (
-            proposal.intent == Intent.SET_SPEAKERTRACK
-            and proposal.set_speakertrack is not None
-        ):
+        elif proposal.intent == Intent.SET_SPEAKERTRACK and proposal.set_speakertrack is not None:
             target_device = proposal.set_speakertrack.target_device
         elif proposal.intent == Intent.SET_STANDBY and proposal.set_standby is not None:
             target_device = proposal.set_standby.target_device
         elif proposal.intent == Intent.REBOOT and proposal.reboot is not None:
             target_device = proposal.reboot.target_device
-        elif (
-            proposal.intent == Intent.FACTORY_RESET
-            and proposal.factory_reset is not None
-        ):
+        elif proposal.intent == Intent.FACTORY_RESET and proposal.factory_reset is not None:
             target_device = proposal.factory_reset.target_device
 
         return ExecutionRequest(
@@ -177,8 +140,7 @@ class ModeRouter:
             reason=policy_decision.reason,
             get_status=(
                 proposal.get_status
-                if proposal.intent == Intent.GET_STATUS
-                and proposal.get_status is not None
+                if proposal.intent == Intent.GET_STATUS and proposal.get_status is not None
                 else None
             ),
             get_environment_info=(
@@ -200,20 +162,16 @@ class ModeRouter:
                 else None
             ),
             list_devices=(
-                proposal.list_devices
-                if proposal.intent == Intent.LIST_DEVICES
-                else None
+                proposal.list_devices if proposal.intent == Intent.LIST_DEVICES else None
             ),
             webex_join=(
                 proposal.webex_join
-                if proposal.intent == Intent.WEBEX_JOIN
-                and proposal.webex_join is not None
+                if proposal.intent == Intent.WEBEX_JOIN and proposal.webex_join is not None
                 else None
             ),
             join_obtp=(
                 proposal.join_obtp
-                if proposal.intent == Intent.JOIN_OBTP
-                and proposal.join_obtp is not None
+                if proposal.intent == Intent.JOIN_OBTP and proposal.join_obtp is not None
                 else None
             ),
             dial=(
@@ -228,8 +186,7 @@ class ModeRouter:
             ),
             send_dtmf=(
                 proposal.send_dtmf
-                if proposal.intent == Intent.SEND_DTMF
-                and proposal.send_dtmf is not None
+                if proposal.intent == Intent.SEND_DTMF and proposal.send_dtmf is not None
                 else None
             ),
             set_microphone_mute=(
@@ -246,20 +203,17 @@ class ModeRouter:
             ),
             set_volume=(
                 proposal.set_volume
-                if proposal.intent == Intent.SET_VOLUME
-                and proposal.set_volume is not None
+                if proposal.intent == Intent.SET_VOLUME and proposal.set_volume is not None
                 else None
             ),
             set_video_mute=(
                 proposal.set_video_mute
-                if proposal.intent == Intent.SET_VIDEO_MUTE
-                and proposal.set_video_mute is not None
+                if proposal.intent == Intent.SET_VIDEO_MUTE and proposal.set_video_mute is not None
                 else None
             ),
             set_selfview=(
                 proposal.set_selfview
-                if proposal.intent == Intent.SET_SELFVIEW
-                and proposal.set_selfview is not None
+                if proposal.intent == Intent.SET_SELFVIEW and proposal.set_selfview is not None
                 else None
             ),
             set_camera_mode=(
@@ -270,8 +224,7 @@ class ModeRouter:
             ),
             set_layout=(
                 proposal.set_layout
-                if proposal.intent == Intent.SET_LAYOUT
-                and proposal.set_layout is not None
+                if proposal.intent == Intent.SET_LAYOUT and proposal.set_layout is not None
                 else None
             ),
             set_presentation=(
@@ -288,8 +241,7 @@ class ModeRouter:
             ),
             assign_matrix=(
                 proposal.assign_matrix
-                if proposal.intent == Intent.ASSIGN_MATRIX
-                and proposal.assign_matrix is not None
+                if proposal.intent == Intent.ASSIGN_MATRIX and proposal.assign_matrix is not None
                 else None
             ),
             unassign_matrix=(
@@ -300,8 +252,7 @@ class ModeRouter:
             ),
             swap_matrix=(
                 proposal.swap_matrix
-                if proposal.intent == Intent.SWAP_MATRIX
-                and proposal.swap_matrix is not None
+                if proposal.intent == Intent.SWAP_MATRIX and proposal.swap_matrix is not None
                 else None
             ),
             set_display_mode=(
@@ -336,8 +287,7 @@ class ModeRouter:
             ),
             set_standby=(
                 proposal.set_standby
-                if proposal.intent == Intent.SET_STANDBY
-                and proposal.set_standby is not None
+                if proposal.intent == Intent.SET_STANDBY and proposal.set_standby is not None
                 else None
             ),
             reboot=(
@@ -347,8 +297,7 @@ class ModeRouter:
             ),
             factory_reset=(
                 proposal.factory_reset
-                if proposal.intent == Intent.FACTORY_RESET
-                and proposal.factory_reset is not None
+                if proposal.intent == Intent.FACTORY_RESET and proposal.factory_reset is not None
                 else None
             ),
         )

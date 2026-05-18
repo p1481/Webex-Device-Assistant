@@ -27,13 +27,9 @@ def desired_messages_webhooks(
     from assistant_app.webex_gateway import WebexWebhookRegistration
 
     if not gateway.config.webex_webhook_target_url:
-        raise RuntimeError(
-            "WEBEX_WEBHOOK_TARGET_URL is required for webhook lifecycle operations."
-        )
+        raise RuntimeError("WEBEX_WEBHOOK_TARGET_URL is required for webhook lifecycle operations.")
     if not gateway.config.webex_webhook_secret:
-        raise RuntimeError(
-            "WEBEX_WEBHOOK_SECRET is required for webhook lifecycle operations."
-        )
+        raise RuntimeError("WEBEX_WEBHOOK_SECRET is required for webhook lifecycle operations.")
     return [
         WebexWebhookRegistration(
             name=gateway.config.webex_webhook_direct_name,
@@ -60,13 +56,9 @@ def desired_attachment_action_webhook(
     from assistant_app.webex_gateway import WebexWebhookRegistration
 
     if not gateway.config.webex_webhook_target_url:
-        raise RuntimeError(
-            "WEBEX_WEBHOOK_TARGET_URL is required for webhook lifecycle operations."
-        )
+        raise RuntimeError("WEBEX_WEBHOOK_TARGET_URL is required for webhook lifecycle operations.")
     if not gateway.config.webex_webhook_secret:
-        raise RuntimeError(
-            "WEBEX_WEBHOOK_SECRET is required for webhook lifecycle operations."
-        )
+        raise RuntimeError("WEBEX_WEBHOOK_SECRET is required for webhook lifecycle operations.")
     attachment_target_url = gateway.config.webex_webhook_target_url.replace(
         "/webhooks/webex/messages",
         "/webhooks/webex/attachment-actions",
@@ -87,9 +79,7 @@ async def list_webhooks(gateway: WebexGateway) -> list[WebexWebhookRecord]:
     if gateway.config.webex_mock_mode:
         return []
 
-    async with httpx.AsyncClient(
-        base_url=gateway.config.webex_api_base, timeout=10.0
-    ) as client:
+    async with httpx.AsyncClient(base_url=gateway.config.webex_api_base, timeout=10.0) as client:
         response = await client.get("/webhooks", headers=await gateway._auth_headers())
         _ = response.raise_for_status()
 
@@ -119,13 +109,9 @@ async def create_webhook(
     from assistant_app.webex_gateway import WebexWebhookRecord
 
     if gateway.config.webex_mock_mode:
-        raise RuntimeError(
-            "Webhook lifecycle operations are disabled in mock mode."
-        )
+        raise RuntimeError("Webhook lifecycle operations are disabled in mock mode.")
 
-    async with httpx.AsyncClient(
-        base_url=gateway.config.webex_api_base, timeout=10.0
-    ) as client:
+    async with httpx.AsyncClient(base_url=gateway.config.webex_api_base, timeout=10.0) as client:
         response = await client.post(
             "/webhooks",
             headers=await gateway._auth_headers(),
@@ -142,11 +128,7 @@ async def ensure_webhook(
     owned_candidates: list[WebexWebhookRecord],
 ) -> WebexWebhookRecord:
     current = next(
-        (
-            webhook
-            for webhook in owned_candidates
-            if webhook_matches(gateway, webhook, desired)
-        ),
+        (webhook for webhook in owned_candidates if webhook_matches(gateway, webhook, desired)),
         None,
     )
     if current is not None:
@@ -171,11 +153,7 @@ async def ensure_webhook(
         and webhook_looks_app_owned(gateway, webhook, desired)
     ]
     recovered = next(
-        (
-            webhook
-            for webhook in refreshed_candidates
-            if webhook_matches(gateway, webhook, desired)
-        ),
+        (webhook for webhook in refreshed_candidates if webhook_matches(gateway, webhook, desired)),
         None,
     )
     if recovered is not None:
@@ -188,13 +166,9 @@ async def ensure_webhook(
 
 async def delete_webhook(gateway: WebexGateway, webhook_id: str) -> None:
     if gateway.config.webex_mock_mode:
-        raise RuntimeError(
-            "Webhook lifecycle operations are disabled in mock mode."
-        )
+        raise RuntimeError("Webhook lifecycle operations are disabled in mock mode.")
 
-    async with httpx.AsyncClient(
-        base_url=gateway.config.webex_api_base, timeout=10.0
-    ) as client:
+    async with httpx.AsyncClient(base_url=gateway.config.webex_api_base, timeout=10.0) as client:
         response = await client.delete(
             f"/webhooks/{webhook_id}", headers=await gateway._auth_headers()
         )
@@ -204,10 +178,7 @@ async def delete_webhook(gateway: WebexGateway, webhook_id: str) -> None:
 async def reconcile_messages_webhooks(
     gateway: WebexGateway,
 ) -> list[WebexWebhookRecord]:
-    if (
-        gateway.config.webex_mock_mode
-        or not gateway.config.webex_webhook_reconcile_on_startup
-    ):
+    if gateway.config.webex_mock_mode or not gateway.config.webex_webhook_reconcile_on_startup:
         return []
 
     desired_webhooks = gateway.desired_messages_webhooks()
@@ -231,9 +202,7 @@ async def reconcile_messages_webhooks(
 
     for desired in desired_webhooks:
         reconciled.append(
-            await gateway.ensure_webhook(
-                desired, owned_by_filter.get(desired.filter, [])
-            )
+            await gateway.ensure_webhook(desired, owned_by_filter.get(desired.filter, []))
         )
 
     return reconciled
@@ -242,10 +211,7 @@ async def reconcile_messages_webhooks(
 async def reconcile_attachment_action_webhook(
     gateway: WebexGateway,
 ) -> WebexWebhookRecord | None:
-    if (
-        gateway.config.webex_mock_mode
-        or not gateway.config.webex_webhook_reconcile_on_startup
-    ):
+    if gateway.config.webex_mock_mode or not gateway.config.webex_webhook_reconcile_on_startup:
         return None
 
     desired = gateway.desired_attachment_action_webhook()
@@ -283,9 +249,7 @@ def webhook_matches(
     )
 
 
-def filters_match(
-    gateway: WebexGateway, current: str | None, desired: str | None
-) -> bool:
+def filters_match(gateway: WebexGateway, current: str | None, desired: str | None) -> bool:
     return normalize_filter(gateway, current) == normalize_filter(gateway, desired)
 
 
@@ -298,9 +262,7 @@ def normalize_filter(
     normalized_pairs: list[tuple[str, str]] = []
     for key, value in parse_qsl(raw_filter, keep_blank_values=True):
         if key == "mentionedPeople" and value == "me":
-            value = (
-                gateway.bot_person_id or gateway.config.webex_bot_person_id or value
-            )
+            value = gateway.bot_person_id or gateway.config.webex_bot_person_id or value
         normalized_pairs.append((key, value))
     normalized_pairs.sort()
     return tuple(normalized_pairs)

@@ -37,7 +37,7 @@ class RuleBasedChatProvider:
                 tool_calls=[
                     ToolCall(
                         name="execute_device_action",
-                        arguments='{}',
+                        arguments="{}",
                     )
                 ],
                 raw={"provider": ProviderKind.RULE_BASED.value},
@@ -55,8 +55,7 @@ class OllamaChatProvider:
 
     async def generate(self, request: ChatRequest) -> ChatResponse:
         messages: list[dict[str, str]] = [
-            {"role": message.role, "content": message.content}
-            for message in request.messages
+            {"role": message.role, "content": message.content} for message in request.messages
         ]
         if request.system is not None:
             messages = [
@@ -212,9 +211,7 @@ class ProviderRegistry:
         self, settings: ProviderSettings
     ) -> RuleBasedProvider | OllamaProvider:
         if settings.provider == ProviderKind.RULE_BASED:
-            provider = RuleBasedProvider(
-                default_target_device=self.default_target_device
-            )
+            provider = RuleBasedProvider(default_target_device=self.default_target_device)
             provider.bind_settings(settings)
             return provider
 

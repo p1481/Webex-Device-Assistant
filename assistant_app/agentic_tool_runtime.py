@@ -55,11 +55,7 @@ class AllLlmToolRuntime:
                     ChatMessage(
                         role="user",
                         content=json.dumps(
-                            {
-                                "execution_request": execution_request.model_dump(
-                                    mode="json"
-                                )
-                            },
+                            {"execution_request": execution_request.model_dump(mode="json")},
                             ensure_ascii=False,
                         ),
                     )
@@ -69,11 +65,7 @@ class AllLlmToolRuntime:
         )
 
         tool_call = next(
-            (
-                call
-                for call in response.tool_calls
-                if call.name == self.EXECUTE_DEVICE_ACTION_TOOL
-            ),
+            (call for call in response.tool_calls if call.name == self.EXECUTE_DEVICE_ACTION_TOOL),
             None,
         )
         if tool_call is None:
@@ -114,9 +106,7 @@ class AllLlmToolRuntime:
         return None
 
     @staticmethod
-    def _error_result(
-        execution_request: ExecutionRequest, message: str
-    ) -> ExecutionResult:
+    def _error_result(execution_request: ExecutionRequest, message: str) -> ExecutionResult:
         return ExecutionResult(
             request_id=execution_request.request_id,
             intent=execution_request.intent,

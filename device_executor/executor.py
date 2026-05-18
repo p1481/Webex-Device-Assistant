@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+from assistant_app.metrics import (
+    device_xapi_calls_total,
+    device_xapi_duration_seconds,
+    observe_duration,
+)
+from assistant_app.tracing import traced
 from device_executor.device_client import DeviceResolutionError
 from device_executor.handlers import ExecutionHandlers
 from shared.contracts import (
@@ -50,10 +56,23 @@ class DeviceExecutor:
             message=str(exc),
         )
 
+    @traced("device_executor.execute")
     async def execute(self, request: ExecutionRequest) -> ExecutionResult:
-        if (
-            request.approval_state == ApprovalState.REQUIRED
-            and not self._allowed_without_approval(request)
+        endpoint = request.intent.value if hasattr(request.intent, "value") else str(request.intent)
+        status_label = "error"
+        with observe_duration(device_xapi_duration_seconds, endpoint=endpoint):
+            try:
+                result = await self._execute_inner(request)
+                status_label = (
+                    result.status.value if hasattr(result.status, "value") else str(result.status)
+                )
+                return result
+            finally:
+                device_xapi_calls_total.labels(endpoint=endpoint, status=status_label).inc()
+
+    async def _execute_inner(self, request: ExecutionRequest) -> ExecutionResult:
+        if request.approval_state == ApprovalState.REQUIRED and not self._allowed_without_approval(
+            request
         ):
             return ExecutionResult(
                 request_id=request.request_id,

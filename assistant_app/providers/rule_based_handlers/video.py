@@ -87,9 +87,7 @@ def handle_layout_and_display(
     _ = session
 
     layout_name = provider._extract_layout_name(text)
-    if layout_name is not None and (
-        "layout" in lowered or layout_name == "Prominent"
-    ):
+    if layout_name is not None and ("layout" in lowered or layout_name == "Prominent"):
         return OrchestrationDecision(
             action_proposal=ActionProposal(
                 intent=Intent.SET_LAYOUT,
@@ -103,9 +101,7 @@ def handle_layout_and_display(
 
     display_mode = provider._extract_display_mode(lowered)
     if (
-        "display mode" in lowered
-        or "monitor mode" in lowered
-        or display_mode is not None
+        "display mode" in lowered or "monitor mode" in lowered or display_mode is not None
     ) and display_mode is not None:
         return OrchestrationDecision(
             action_proposal=ActionProposal(

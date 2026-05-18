@@ -36,9 +36,7 @@ class TokenManagerTokenProvider:
             payload_dict = cast(dict[str, object], payload)
             token = payload_dict.get("accessToken")
             if not isinstance(token, str) or not token.strip():
-                raise RuntimeError(
-                    "Token manager response did not include accessToken."
-                )
+                raise RuntimeError("Token manager response did not include accessToken.")
             return token.strip()
         except Exception as exc:
             if isinstance(self.fallback_token, str) and self.fallback_token.strip():

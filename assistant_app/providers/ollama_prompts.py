@@ -124,9 +124,7 @@ def build_messages(
         "target_device": message.target_device,
         "person_email": message.person_email,
         "preferred_mode": (
-            message.preferred_mode.value
-            if message.preferred_mode is not None
-            else None
+            message.preferred_mode.value if message.preferred_mode is not None else None
         ),
         "default_target_device": provider.default_target_device,
         "latest_user_text": message.text,
@@ -160,30 +158,22 @@ def build_render_messages(
         "policy_reason": policy_reason,
         "canonical_text": canonical_text,
         "device_status": (
-            execution_result.device_status.model_dump(
-                mode="json", exclude_none=True
-            )
+            execution_result.device_status.model_dump(mode="json", exclude_none=True)
             if execution_result.device_status is not None
             else None
         ),
         "environment_info_status": (
-            execution_result.environment_info_status.model_dump(
-                mode="json", exclude_none=True
-            )
+            execution_result.environment_info_status.model_dump(mode="json", exclude_none=True)
             if execution_result.environment_info_status is not None
             else None
         ),
         "camera_mode_status": (
-            execution_result.camera_mode_status.model_dump(
-                mode="json", exclude_none=True
-            )
+            execution_result.camera_mode_status.model_dump(mode="json", exclude_none=True)
             if execution_result.camera_mode_status is not None
             else None
         ),
         "room_booking_status": (
-            execution_result.room_booking_status.model_dump(
-                mode="json", exclude_none=True
-            )
+            execution_result.room_booking_status.model_dump(mode="json", exclude_none=True)
             if execution_result.room_booking_status is not None
             else None
         ),
@@ -195,10 +185,7 @@ def build_render_messages(
         "failed_target_device": execution_result.failed_target_device,
         "resolution_error": execution_result.resolution_error,
         "candidate_devices": (
-            [
-                candidate.model_dump(mode="json")
-                for candidate in execution_result.candidate_devices
-            ]
+            [candidate.model_dump(mode="json") for candidate in execution_result.candidate_devices]
             if execution_result.candidate_devices is not None
             else None
         ),
@@ -231,9 +218,7 @@ def parse_decision(
 ) -> OrchestrationDecision | None:
     stripped = content.strip()
     if stripped.startswith("```"):
-        stripped = re.sub(
-            r"^```(?:json)?\s*|\s*```$", "", stripped, flags=re.DOTALL
-        )
+        stripped = re.sub(r"^```(?:json)?\s*|\s*```$", "", stripped, flags=re.DOTALL)
 
     try:
         data = json.loads(stripped)
@@ -252,9 +237,7 @@ def parse_decision(
     nested_action = data.get("action_proposal")
     if isinstance(nested_action, dict):
         merged_nested_action = dict(nested_action)
-        if "summary" not in merged_nested_action and isinstance(
-            data.get("summary"), str
-        ):
+        if "summary" not in merged_nested_action and isinstance(data.get("summary"), str):
             merged_nested_action["summary"] = data["summary"]
         if "confidence" not in merged_nested_action and isinstance(
             data.get("confidence"), (int, float)
@@ -283,11 +266,7 @@ def parse_decision(
 
     if reply_text is None and proposal is None:
         return None
-    if (
-        reply_text is not None
-        and proposal is None
-        and looks_like_structured_output(reply_text)
-    ):
+    if reply_text is not None and proposal is None and looks_like_structured_output(reply_text):
         return None
     return OrchestrationDecision(reply_text=reply_text, action_proposal=proposal)
 
@@ -324,9 +303,7 @@ def build_action_proposal(
         return None
 
     confidence = raw_proposal.get("confidence", 1.0)
-    normalized_confidence = (
-        float(confidence) if isinstance(confidence, (int, float)) else 1.0
-    )
+    normalized_confidence = float(confidence) if isinstance(confidence, (int, float)) else 1.0
 
     if intent == Intent.CHAT or intent == Intent.RESET_CONTEXT:
         return ActionProposal(
@@ -348,9 +325,7 @@ def build_action_proposal(
                 target_device=provider._normalize_target_device(
                     raw_get_status.get("target_device"), message
                 ),
-                include_metrics=(
-                    include_metrics if isinstance(include_metrics, bool) else True
-                ),
+                include_metrics=(include_metrics if isinstance(include_metrics, bool) else True),
             ),
         )
 
@@ -413,9 +388,7 @@ def build_action_proposal(
             confidence=normalized_confidence,
             list_devices=ListDevicesParams(
                 limit=limit,
-                online_only=(
-                    online_only if isinstance(online_only, bool) else False
-                ),
+                online_only=(online_only if isinstance(online_only, bool) else False),
             ),
         )
 
@@ -424,9 +397,7 @@ def build_action_proposal(
         if not isinstance(raw_webex_join, dict):
             return None
         meeting_identifier = raw_webex_join.get("meeting_identifier")
-        normalized_meeting_identifier = provider._normalize_meeting_identifier(
-            meeting_identifier
-        )
+        normalized_meeting_identifier = provider._normalize_meeting_identifier(meeting_identifier)
         if normalized_meeting_identifier is None:
             return None
         return ActionProposal(
@@ -724,9 +695,7 @@ def build_action_proposal(
             or not layout.strip()
         ):
             return None
-        if source_id is not None and (
-            not isinstance(source_id, str) or not source_id.strip()
-        ):
+        if source_id is not None and (not isinstance(source_id, str) or not source_id.strip()):
             return None
         if remote_main is not None and not isinstance(remote_main, bool):
             return None
@@ -755,9 +724,7 @@ def build_action_proposal(
         remote_main = raw_unassign_matrix.get("remote_main")
         if not isinstance(output, str) or not output.strip():
             return None
-        if source_id is not None and (
-            not isinstance(source_id, str) or not source_id.strip()
-        ):
+        if source_id is not None and (not isinstance(source_id, str) or not source_id.strip()):
             return None
         if remote_main is not None and not isinstance(remote_main, bool):
             return None
@@ -966,9 +933,7 @@ def build_action_proposal(
                 target_device=provider._normalize_target_device(
                     raw_factory_reset.get("target_device"), message
                 ),
-                acknowledged=(
-                    acknowledged if isinstance(acknowledged, bool) else False
-                ),
+                acknowledged=(acknowledged if isinstance(acknowledged, bool) else False),
             ),
         )
 

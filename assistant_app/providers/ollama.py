@@ -9,6 +9,7 @@ from assistant_app.ollama_support import (
 from assistant_app.providers import ollama_normalizers, ollama_prompts
 from assistant_app.providers.ollama_normalizers import CAMERA_MODE_LAYOUT_ALIASES
 from assistant_app.providers.rule_based import RuleBasedProvider
+from assistant_app.tracing import traced
 from shared.contracts import (
     ActionProposal,
     DisplayMode,
@@ -44,6 +45,7 @@ class OllamaProvider:
         if self.settings.base_url is None:
             self.settings.base_url = DEFAULT_OLLAMA_BASE_URL
 
+    @traced("provider.analyze_message")
     async def analyze_message(
         self,
         message: InboundUserMessage,
@@ -68,22 +70,16 @@ class OllamaProvider:
         except httpx.HTTPError as exc:
             if fallback.action_proposal is not None or fallback.pending_action is not None:
                 return fallback
-            return OrchestrationDecision(
-                reply_text=f"Ollama provider unavailable: {exc}"
-            )
+            return OrchestrationDecision(reply_text=f"Ollama provider unavailable: {exc}")
 
         raw: object = response.json()
         if not isinstance(raw, dict):
-            return OrchestrationDecision(
-                reply_text="Ollama returned an unexpected response shape."
-            )
+            return OrchestrationDecision(reply_text="Ollama returned an unexpected response shape.")
         if "error" in raw:
             error_text = raw.get("error")
             return OrchestrationDecision(
                 reply_text=(
-                    error_text
-                    if isinstance(error_text, str)
-                    else "Ollama returned an error."
+                    error_text if isinstance(error_text, str) else "Ollama returned an error."
                 )
             )
 
@@ -98,9 +94,7 @@ class OllamaProvider:
         if not isinstance(content, str) or not content.strip():
             if fallback.action_proposal is not None or fallback.pending_action is not None:
                 return fallback
-            return OrchestrationDecision(
-                reply_text="Ollama did not return assistant content."
-            )
+            return OrchestrationDecision(reply_text="Ollama did not return assistant content.")
 
         decision = self._parse_decision(content, message)
         if decision is not None:
@@ -257,9 +251,7 @@ class OllamaProvider:
         policy_reason: str,
         canonical_text: str,
     ) -> list[dict[str, str]]:
-        return ollama_prompts.build_render_messages(
-            execution_result, policy_reason, canonical_text
-        )
+        return ollama_prompts.build_render_messages(execution_result, policy_reason, canonical_text)
 
     def _parse_decision(
         self, content: str, message: InboundUserMessage
@@ -298,9 +290,7 @@ class OllamaProvider:
     def _normalize_camera_mode(self, raw_mode: str) -> WritableCameraMode | None:
         return ollama_normalizers.normalize_camera_mode(raw_mode)
 
-    def _normalize_meeting_identifier(
-        self, raw_meeting_identifier: object
-    ) -> str | None:
+    def _normalize_meeting_identifier(self, raw_meeting_identifier: object) -> str | None:
         return ollama_normalizers.normalize_meeting_identifier(raw_meeting_identifier)
 
     def _looks_like_internal_meeting_identifier(

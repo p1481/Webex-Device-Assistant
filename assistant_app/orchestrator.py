@@ -1,9 +1,18 @@
 from __future__ import annotations
 
+import time
 from collections.abc import Awaitable, Callable
 
 from assistant_app.approval_manager import ApprovalManager
 from assistant_app.memory_store import InMemorySessionStore
+from assistant_app.metrics import (
+    assistant_request_duration_seconds,
+    assistant_requests_total,
+    get_request_labels,
+    observe_duration,
+    provider_analyze_duration_seconds,
+    set_request_labels,
+)
 from assistant_app.mode_router import ModeRouter
 from assistant_app.orchestration import (
     card_builders,
@@ -13,6 +22,7 @@ from assistant_app.orchestration import (
 )
 from assistant_app.policy_evaluator import PolicyEvaluator
 from assistant_app.providers.base import LLMProvider
+from assistant_app.tracing import traced
 from shared.contracts import (
     ActionProposal,
     ApprovalRequest,
@@ -146,7 +156,15 @@ class Orchestrator:
     }
 
     _INTENT_CAPABILITIES: dict[Intent, set[str]] = {
-        Intent.GET_STATUS: {"audio", "camera", "display", "meeting", "presentation", "selfview", "standby"},
+        Intent.GET_STATUS: {
+            "audio",
+            "camera",
+            "display",
+            "meeting",
+            "presentation",
+            "selfview",
+            "standby",
+        },
         Intent.GET_ENVIRONMENT_INFO: {"environment"},
         Intent.GET_CAMERA_MODE: {"camera"},
         Intent.GET_ROOM_BOOKING: {"meeting"},
@@ -184,8 +202,7 @@ class Orchestrator:
         policy_evaluator: PolicyEvaluator,
         mode_router: ModeRouter,
         approval_manager: ApprovalManager,
-        device_lister: Callable[[], Awaitable[list[OrganizationDeviceRecord]]]
-        | None = None,
+        device_lister: Callable[[], Awaitable[list[OrganizationDeviceRecord]]] | None = None,
         camera_mode_lister: Callable[[str], Awaitable[tuple[str, ...]]] | None = None,
     ) -> None:
         self.provider: LLMProvider = provider
@@ -193,20 +210,39 @@ class Orchestrator:
         self.policy_evaluator: PolicyEvaluator = policy_evaluator
         self.mode_router: ModeRouter = mode_router
         self.approval_manager: ApprovalManager = approval_manager
-        self.device_lister: (
-            Callable[[], Awaitable[list[OrganizationDeviceRecord]]] | None
-        ) = device_lister
+        self.device_lister: Callable[[], Awaitable[list[OrganizationDeviceRecord]]] | None = (
+            device_lister
+        )
         self.camera_mode_lister: Callable[[str], Awaitable[tuple[str, ...]]] | None = (
             camera_mode_lister
         )
 
+    @traced("orchestrator.handle_message")
     async def handle_message(self, message: InboundUserMessage) -> OutboundReply:
+        # Reset per-request labels — ContextVar inherits parent task's
+        # values, so without this an unrelated prior request could leak
+        # its intent label into the next one.
+        set_request_labels(intent="unknown", mode="unknown")
+        outcome = "error"
+        start = time.perf_counter()
+        try:
+            reply = await self._handle_message_inner(message)
+            outcome = "ok"
+            return reply
+        finally:
+            elapsed = time.perf_counter() - start
+            intent_label, mode_label = get_request_labels()
+            assistant_request_duration_seconds.labels(intent=intent_label).observe(elapsed)
+            assistant_requests_total.labels(
+                intent=intent_label, mode=mode_label, outcome=outcome
+            ).inc()
+
+    async def _handle_message_inner(self, message: InboundUserMessage) -> OutboundReply:
         session = self.memory_store.append_user_turn(message.session_id, message.text)
-        pending_action = self.memory_store.get_pending_action(
-            message.session_id, message.user_id
-        )
+        pending_action = self.memory_store.get_pending_action(message.session_id, message.user_id)
 
         if self._is_reset_message(message.text):
+            set_request_labels(intent=Intent.RESET_CONTEXT.value)
             return self._reset_session(message)
 
         if pending_action is not None:
@@ -266,9 +302,13 @@ class Orchestrator:
             )
             return reply
 
-        decision = await self.provider.analyze_message(message, session)
+        provider_name = type(self.provider).__name__
+        with observe_duration(provider_analyze_duration_seconds, provider=provider_name):
+            decision = await self.provider.analyze_message(message, session)
 
         proposal = decision.action_proposal
+        if proposal is not None:
+            set_request_labels(intent=proposal.intent.value)
         if proposal is not None and proposal.intent == Intent.RESET_CONTEXT:
             return self._reset_session(
                 message,
@@ -289,18 +329,14 @@ class Orchestrator:
             )
             return reply
 
-        missing_target_pending_action = self._build_missing_target_pending_action(
-            proposal
-        )
+        missing_target_pending_action = self._build_missing_target_pending_action(proposal)
         if missing_target_pending_action is not None:
             _ = self.memory_store.set_pending_action(
                 message.session_id,
                 message.user_id,
                 missing_target_pending_action,
             )
-            reply = await self._build_pending_reply(
-                message, missing_target_pending_action
-            )
+            reply = await self._build_pending_reply(message, missing_target_pending_action)
             _ = self.memory_store.append_assistant_turn(
                 message.session_id,
                 reply.text,
@@ -313,10 +349,7 @@ class Orchestrator:
             _ = self.memory_store.append_assistant_turn(message.session_id, reply_text)
             return OutboundReply(text=reply_text, room_id=message.room_id)
 
-        if (
-            proposal.intent == Intent.CHAT
-            and proposal.summary == "Start admin login approval."
-        ):
+        if proposal.intent == Intent.CHAT and proposal.summary == "Start admin login approval.":
             approval_request = self.approval_manager.create_admin_auth_request(message)
             reply = self._build_approval_reply(
                 approval_request.request_id,
@@ -338,9 +371,8 @@ class Orchestrator:
         message: InboundUserMessage,
         proposal: ActionProposal,
     ) -> OutboundReply:
-        policy_decision = self.policy_evaluator.evaluate(
-            proposal, message.preferred_mode
-        )
+        policy_decision = self.policy_evaluator.evaluate(proposal, message.preferred_mode)
+        set_request_labels(mode=policy_decision.selected_mode.value)
         if policy_decision.requires_approval:
             execution_request = self.mode_router.build_request(
                 message,
@@ -365,20 +397,14 @@ class Orchestrator:
             )
             return reply
 
-        execution_result = await self.mode_router.execute(
-            message, proposal, policy_decision
-        )
-        reply_text = self._format_execution_result(
-            execution_result, policy_decision.reason
-        )
+        execution_result = await self.mode_router.execute(message, proposal, policy_decision)
+        reply_text = self._format_execution_result(execution_result, policy_decision.reason)
         reply_markdown = await self._render_execution_markdown(
             execution_result,
             policy_decision.reason,
             reply_text,
         )
-        _ = self.memory_store.append_assistant_turn(
-            message.session_id, reply_text, proposal.intent
-        )
+        _ = self.memory_store.append_assistant_turn(message.session_id, reply_text, proposal.intent)
         return OutboundReply(
             text=reply_text,
             markdown=reply_markdown,
@@ -397,9 +423,7 @@ class Orchestrator:
         message: InboundUserMessage,
         pending_action: PendingActionProposal,
     ) -> OutboundReply:
-        return await pending_state.handle_pending_follow_up(
-            self, message, pending_action
-        )
+        return await pending_state.handle_pending_follow_up(self, message, pending_action)
 
     async def resume_pending_action_selection(
         self,
@@ -468,9 +492,7 @@ class Orchestrator:
     ) -> bool:
         return card_builders.device_supports_intent(self, device, intent)
 
-    async def _load_device_choices_for_intent(
-        self, intent: Intent | None
-    ) -> list[dict[str, str]]:
+    async def _load_device_choices_for_intent(self, intent: Intent | None) -> list[dict[str, str]]:
         return await card_builders.load_device_choices_for_intent(self, intent)
 
     def _apply_pending_setting_selection(
@@ -482,7 +504,6 @@ class Orchestrator:
         return pending_state.apply_pending_setting_selection(
             self, pending_action, setting_field_name, setting_value
         )
-
 
     async def _build_target_device_selection_reply(
         self,
@@ -510,9 +531,7 @@ class Orchestrator:
         message: InboundUserMessage,
         pending_action: PendingActionProposal,
     ) -> OutboundReply:
-        return card_builders.build_display_mode_selection_reply(
-            self, message, pending_action
-        )
+        return card_builders.build_display_mode_selection_reply(self, message, pending_action)
 
     def _camera_mode_title(self, mode: str) -> str:
         return card_builders.camera_mode_title(mode)
@@ -533,16 +552,12 @@ class Orchestrator:
         message: InboundUserMessage,
         pending_action: PendingActionProposal,
     ) -> OutboundReply:
-        return await card_builders.build_camera_mode_selection_reply(
-            self, message, pending_action
-        )
+        return await card_builders.build_camera_mode_selection_reply(self, message, pending_action)
 
     def _is_reset_message(self, text: str) -> bool:
         return text_extractors.is_reset_message(text)
 
-    def _next_missing_pending_field(
-        self, pending_action: PendingActionProposal
-    ) -> str | None:
+    def _next_missing_pending_field(self, pending_action: PendingActionProposal) -> str | None:
         return pending_state.next_missing_pending_field(self, pending_action)
 
     def _build_follow_up_question(self, pending_action: PendingActionProposal) -> str:
@@ -571,14 +586,10 @@ class Orchestrator:
     ) -> tuple[str, str] | None:
         return pending_state.get_proposal_setting_field_and_value(self, proposal)
 
-    def _clear_proposal_target_setting_value(
-        self, pending_action: PendingActionProposal
-    ) -> bool:
+    def _clear_proposal_target_setting_value(self, pending_action: PendingActionProposal) -> bool:
         return pending_state.clear_proposal_target_setting_value(self, pending_action)
 
-    def _pending_action_needs_target_device(
-        self, pending_action: PendingActionProposal
-    ) -> bool:
+    def _pending_action_needs_target_device(self, pending_action: PendingActionProposal) -> bool:
         return pending_state.pending_action_needs_target_device(self, pending_action)
 
     def _collect_pending_follow_up(
@@ -604,9 +615,7 @@ class Orchestrator:
     def _get_action_payload(self, proposal: ActionProposal) -> object | None:
         return pending_state.get_action_payload(proposal)
 
-    def _with_target_device(
-        self, proposal: ActionProposal, target_device: str
-    ) -> ActionProposal:
+    def _with_target_device(self, proposal: ActionProposal, target_device: str) -> ActionProposal:
         return pending_state.with_target_device(proposal, target_device)
 
     def _resolve_pending_target_device_response(
@@ -640,9 +649,7 @@ class Orchestrator:
     def _extract_direct_target_device_response(self, text: str) -> str | None:
         return text_extractors.extract_direct_target_device_response(text)
 
-    async def execute_approved_request(
-        self, approval_request: ApprovalRequest
-    ) -> OutboundReply:
+    async def execute_approved_request(self, approval_request: ApprovalRequest) -> OutboundReply:
         execution_request = approval_request.execution_request
         if execution_request is None:
             return OutboundReply(

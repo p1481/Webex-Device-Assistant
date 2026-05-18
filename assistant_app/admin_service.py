@@ -39,11 +39,7 @@ class AdminService:
                 outcome="updated",
                 detail=(
                     f"Provider set to {updated.provider.value}"
-                    + (
-                        f" with model {updated.model}."
-                        if updated.model is not None
-                        else "."
-                    )
+                    + (f" with model {updated.model}." if updated.model is not None else ".")
                 ),
             )
         )
@@ -99,9 +95,7 @@ class AdminService:
     def get_stats(self) -> AdminStats:
         return self.state_store.get_stats()
 
-    async def can_apply_provider_live(
-        self, settings: ProviderSettings
-    ) -> tuple[bool, str | None]:
+    async def can_apply_provider_live(self, settings: ProviderSettings) -> tuple[bool, str | None]:
         if settings.provider.value == "rule_based":
             return True, None
         if settings.provider.value == "ollama":

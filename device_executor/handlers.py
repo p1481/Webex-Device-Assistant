@@ -10,9 +10,7 @@ class ExecutionHandlers:
 
     async def handle(self, request: ExecutionRequest) -> ExecutionResult:
         if request.intent == Intent.GET_STATUS and request.get_status is not None:
-            status_snapshot = await self.device_client.get_status(
-                request.get_status.target_device
-            )
+            status_snapshot = await self.device_client.get_status(request.get_status.target_device)
             return ExecutionResult(
                 request_id=request.request_id,
                 intent=request.intent,
@@ -43,10 +41,7 @@ class ExecutionHandlers:
                 environment_info_status=environment_info_status,
             )
 
-        if (
-            request.intent == Intent.GET_CAMERA_MODE
-            and request.get_camera_mode is not None
-        ):
+        if request.intent == Intent.GET_CAMERA_MODE and request.get_camera_mode is not None:
             camera_mode_status = await self.device_client.get_camera_mode(
                 request.get_camera_mode.target_device
             )
@@ -62,10 +57,7 @@ class ExecutionHandlers:
                 camera_mode_status=camera_mode_status,
             )
 
-        if (
-            request.intent == Intent.GET_ROOM_BOOKING
-            and request.get_room_booking is not None
-        ):
+        if request.intent == Intent.GET_ROOM_BOOKING and request.get_room_booking is not None:
             room_booking_status = await self.device_client.get_room_booking(
                 request.get_room_booking.target_device
             )
@@ -112,9 +104,7 @@ class ExecutionHandlers:
             )
 
         if request.intent == Intent.JOIN_OBTP and request.join_obtp is not None:
-            message = await self.device_client.join_obtp(
-                request.join_obtp.target_device
-            )
+            message = await self.device_client.join_obtp(request.join_obtp.target_device)
             return ExecutionResult(
                 request_id=request.request_id,
                 intent=request.intent,
@@ -167,10 +157,7 @@ class ExecutionHandlers:
                 approval_request_id=request.approval_request_id,
             )
 
-        if (
-            request.intent == Intent.SET_MICROPHONE_MUTE
-            and request.set_microphone_mute is not None
-        ):
+        if request.intent == Intent.SET_MICROPHONE_MUTE and request.set_microphone_mute is not None:
             message = await self.device_client.set_microphone_mute(
                 request.set_microphone_mute.target_device,
                 request.set_microphone_mute.muted,
@@ -184,10 +171,7 @@ class ExecutionHandlers:
                 approval_request_id=request.approval_request_id,
             )
 
-        if (
-            request.intent == Intent.SET_MICROPHONE_MODE
-            and request.set_microphone_mode is not None
-        ):
+        if request.intent == Intent.SET_MICROPHONE_MODE and request.set_microphone_mode is not None:
             message = await self.device_client.set_microphone_mode(
                 request.set_microphone_mode.target_device,
                 request.set_microphone_mode.mode.value,
@@ -215,10 +199,7 @@ class ExecutionHandlers:
                 approval_request_id=request.approval_request_id,
             )
 
-        if (
-            request.intent == Intent.SET_VIDEO_MUTE
-            and request.set_video_mute is not None
-        ):
+        if request.intent == Intent.SET_VIDEO_MUTE and request.set_video_mute is not None:
             message = await self.device_client.set_video_mute(
                 request.set_video_mute.target_device,
                 request.set_video_mute.muted,
@@ -246,10 +227,7 @@ class ExecutionHandlers:
                 approval_request_id=request.approval_request_id,
             )
 
-        if (
-            request.intent == Intent.SET_CAMERA_MODE
-            and request.set_camera_mode is not None
-        ):
+        if request.intent == Intent.SET_CAMERA_MODE and request.set_camera_mode is not None:
             message = await self.device_client.set_camera_mode(
                 request.set_camera_mode.target_device,
                 request.set_camera_mode.mode.value,
@@ -277,10 +255,7 @@ class ExecutionHandlers:
                 approval_request_id=request.approval_request_id,
             )
 
-        if (
-            request.intent == Intent.SET_PRESENTATION
-            and request.set_presentation is not None
-        ):
+        if request.intent == Intent.SET_PRESENTATION and request.set_presentation is not None:
             message = await self.device_client.set_presentation(
                 request.set_presentation.target_device,
                 request.set_presentation.enabled,
@@ -294,10 +269,7 @@ class ExecutionHandlers:
                 approval_request_id=request.approval_request_id,
             )
 
-        if (
-            request.intent == Intent.SWITCH_INPUT_SOURCE
-            and request.switch_input_source is not None
-        ):
+        if request.intent == Intent.SWITCH_INPUT_SOURCE and request.switch_input_source is not None:
             message = await self.device_client.switch_input_source(
                 request.switch_input_source.target_device,
                 request.switch_input_source.source_id,
@@ -329,10 +301,7 @@ class ExecutionHandlers:
                 approval_request_id=request.approval_request_id,
             )
 
-        if (
-            request.intent == Intent.UNASSIGN_MATRIX
-            and request.unassign_matrix is not None
-        ):
+        if request.intent == Intent.UNASSIGN_MATRIX and request.unassign_matrix is not None:
             message = await self.device_client.unassign_matrix(
                 request.unassign_matrix.target_device,
                 request.unassign_matrix.output,
@@ -363,10 +332,7 @@ class ExecutionHandlers:
                 approval_request_id=request.approval_request_id,
             )
 
-        if (
-            request.intent == Intent.SET_DISPLAY_MODE
-            and request.set_display_mode is not None
-        ):
+        if request.intent == Intent.SET_DISPLAY_MODE and request.set_display_mode is not None:
             message = await self.device_client.set_display_mode(
                 request.set_display_mode.target_device,
                 request.set_display_mode.mode.value,
@@ -380,10 +346,7 @@ class ExecutionHandlers:
                 approval_request_id=request.approval_request_id,
             )
 
-        if (
-            request.intent == Intent.SET_DISPLAY_ROLE
-            and request.set_display_role is not None
-        ):
+        if request.intent == Intent.SET_DISPLAY_ROLE and request.set_display_role is not None:
             message = await self.device_client.set_display_role(
                 request.set_display_role.target_device,
                 request.set_display_role.connector_id,
@@ -435,10 +398,7 @@ class ExecutionHandlers:
                 approval_request_id=request.approval_request_id,
             )
 
-        if (
-            request.intent == Intent.SET_SPEAKERTRACK
-            and request.set_speakertrack is not None
-        ):
+        if request.intent == Intent.SET_SPEAKERTRACK and request.set_speakertrack is not None:
             message = await self.device_client.set_speakertrack(
                 request.set_speakertrack.target_device,
                 request.set_speakertrack.enabled,

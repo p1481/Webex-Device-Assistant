@@ -85,9 +85,7 @@ class WebexBotIdentity(BaseModel):
 class WebexGateway:
     DIRECT_WEBHOOK_FILTER: ClassVar[str] = "roomType=direct"
     GROUP_WEBHOOK_FILTER: ClassVar[str] = "roomType=group&mentionedPeople=me"
-    ATTACHMENT_ACTIONS_WEBHOOK_NAME: ClassVar[str] = (
-        "webex-device-assistant-attachment-actions"
-    )
+    ATTACHMENT_ACTIONS_WEBHOOK_NAME: ClassVar[str] = "webex-device-assistant-attachment-actions"
     STATUS_PATHS: ClassVar[tuple[str, ...]] = (
         "Audio.Volume",
         "Call[*].Status",
@@ -151,9 +149,7 @@ class WebexGateway:
         if self.config.webex_mock_mode:
             return None
 
-        async with httpx.AsyncClient(
-            base_url=self.config.webex_api_base, timeout=10.0
-        ) as client:
+        async with httpx.AsyncClient(base_url=self.config.webex_api_base, timeout=10.0) as client:
             response = await client.get("/people/me", headers=await self._auth_headers())
             _ = response.raise_for_status()
 
@@ -200,9 +196,7 @@ class WebexGateway:
     async def list_webhooks(self) -> list[WebexWebhookRecord]:
         return await webex_webhooks.list_webhooks(self)
 
-    async def create_webhook(
-        self, registration: WebexWebhookRegistration
-    ) -> WebexWebhookRecord:
+    async def create_webhook(self, registration: WebexWebhookRegistration) -> WebexWebhookRecord:
         return await webex_webhooks.create_webhook(self, registration)
 
     async def ensure_webhook(
@@ -234,9 +228,7 @@ class WebexGateway:
     def _filters_match(self, current: str | None, desired: str | None) -> bool:
         return webex_webhooks.filters_match(self, current, desired)
 
-    def _normalize_filter(
-        self, raw_filter: str | None
-    ) -> tuple[tuple[str, str], ...] | None:
+    def _normalize_filter(self, raw_filter: str | None) -> tuple[tuple[str, str], ...] | None:
         return webex_webhooks.normalize_filter(self, raw_filter)
 
     def _webhook_looks_app_owned(
@@ -254,9 +246,7 @@ class WebexGateway:
     async def send_reply(self, reply: OutboundReply) -> None:
         await webex_messages.send_reply(self, reply)
 
-    async def fetch_attachment_action_details(
-        self, action_id: str
-    ) -> WebexAttachmentActionDetails:
+    async def fetch_attachment_action_details(self, action_id: str) -> WebexAttachmentActionDetails:
         return await webex_messages.fetch_attachment_action_details(self, action_id)
 
     async def send_direct_card_to_email(

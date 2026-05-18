@@ -11,11 +11,7 @@ import httpx
 from assistant_app.config import AppConfig
 from assistant_app.token_provider import WebexTokenProvider
 from shared.contracts import (
-    CameraModeStatus,
-    DeviceStatusSnapshot,
-    EnvironmentInfoStatus,
     OrganizationDeviceRecord,
-    RoomBookingStatus,
 )
 
 
@@ -73,7 +69,7 @@ class DeviceResolutionError(RuntimeError):
         self.candidate_devices: list[OrganizationDeviceRecord] = candidate_devices or []
 
 
-class DeviceClient:
+class _DeviceClientBase:
     DEVICE_ALIASES: ClassVar[dict[str, str]] = {
         "홈오피스": "Home Office",
         "룸바": "Room Bar",
@@ -246,345 +242,6 @@ class DeviceClient:
         self.config: AppConfig = config
         self.token_provider: WebexTokenProvider = token_provider
 
-    async def get_status(self, target_device: str) -> DeviceStatusSnapshot:
-        if self.config.device_mock_mode:
-            return DeviceStatusSnapshot(
-                target_device=target_device,
-                source="mock-device-client",
-                device_id="mock-device-1",
-                display_name=target_device,
-                workspace_id="mock-workspace-1",
-                product="Room Kit",
-                product_platform="RoomOS",
-                place="Mock HQ",
-                software_version="RoomOS 11.0",
-                software_display_name="RoomOS 11.0",
-                serial_number="MOCK123456",
-                online=True,
-                connection_status="connected",
-                system_state="Available",
-                volume=35,
-                volume_muted=False,
-                microphones_muted=False,
-                call_active=False,
-                active_call_count=0,
-                presentation_active=False,
-                presentation_mode="Off",
-                selfview_mode="Off",
-                selfview_fullscreen="Off",
-                speakertrack_state="Inactive",
-                presentertrack_status="Inactive",
-                standby_state="Off",
-                detail="Mock device status. Real mode uses Webex cloud xAPI over the Webex APIs.",
-            )
-
-        async with httpx.AsyncClient(
-            base_url=self.config.webex_api_base, timeout=10.0
-        ) as client:
-            device = await self._resolve_device(client, target_device)
-            status_payload = await self._fetch_status(
-                client, device.id, self.STATUS_NAMES
-            )
-
-        volume = self._extract_audio_volume(status_payload)
-        volume_muted = self._extract_bool_status(
-            self._lookup_path(status_payload, ["Audio", "VolumeMute"])
-        )
-        microphones_muted = self._extract_bool_status(
-            self._lookup_path(status_payload, ["Audio", "Microphones", "Mute"])
-        )
-        active_calls = self._extract_active_call_count(status_payload)
-        presentation_active = self._extract_presentation_active(status_payload)
-        presentation_mode = self._extract_presentation_mode(status_payload)
-        standby_state = self._extract_standby_state(status_payload)
-        camera_observation = self._extract_camera_mode_observation(status_payload)
-
-        detail_parts = [
-            f"Resolved Webex deviceId={device.id}",
-            f"displayName={device.display_name or target_device}",
-        ]
-        if standby_state is not None:
-            detail_parts.append(f"standby_state={standby_state}")
-
-        return DeviceStatusSnapshot(
-            target_device=target_device,
-            source="webex-cloud-xapi",
-            device_id=device.id,
-            display_name=device.display_name,
-            workspace_id=device.workspace_id,
-            product=device.product,
-            product_platform=self._extract_product_platform(status_payload),
-            place=device.place,
-            software_version=self._extract_software_version(status_payload),
-            software_display_name=self._extract_software_display_name(status_payload),
-            serial_number=self._extract_serial_number(status_payload),
-            online=device.online if device.online is not None else True,
-            connection_status=device.connection_status,
-            system_state=self._extract_system_state(status_payload),
-            active_interface=self._extract_network_string(
-                status_payload, ["Network", 0, "ActiveInterface"]
-            ),
-            ipv4_address=self._extract_network_string(
-                status_payload, ["Network", 0, "IPv4", "Address"]
-            ),
-            wifi_status=self._extract_network_string(
-                status_payload, ["Network", 0, "Wifi", "Status"]
-            ),
-            volume=volume,
-            volume_muted=volume_muted,
-            microphones_muted=microphones_muted,
-            call_active=(active_calls > 0) if active_calls is not None else None,
-            active_call_count=active_calls,
-            presentation_active=presentation_active,
-            presentation_mode=presentation_mode,
-            selfview_mode=self._extract_selfview_mode(status_payload),
-            selfview_fullscreen=self._extract_selfview_fullscreen(status_payload),
-            speakertrack_state=camera_observation.speakertrack_state,
-            presentertrack_status=camera_observation.presentertrack_status,
-            standby_state=standby_state,
-            detail=", ".join(detail_parts),
-        )
-
-    async def get_camera_mode(self, target_device: str) -> CameraModeStatus:
-        if self.config.device_mock_mode:
-            return CameraModeStatus(
-                target_device=target_device,
-                source="mock-device-client",
-                device_id="mock-device-1",
-                display_name=target_device,
-                current_mode="best_overview",
-                effective_mode="best_overview",
-                available_modes=list(self.CAMERA_MODE_ORDER),
-                detail=(
-                    "Mock camera mode status. PresenterTrack is reported separately and "
-                    "set_camera_mode only allows best_overview, speaker_closeup, or frames."
-                ),
-            )
-
-        async with httpx.AsyncClient(
-            base_url=self.config.webex_api_base, timeout=10.0
-        ) as client:
-            device = await self._resolve_device(client, target_device)
-            status_payload = await self._fetch_status(
-                client, device.id, self.CAMERA_STATUS_NAMES
-            )
-
-        observation = self._extract_camera_mode_observation(status_payload)
-        return CameraModeStatus(
-            target_device=target_device,
-            source="webex-cloud-xapi",
-            device_id=device.id,
-            display_name=device.display_name,
-            current_mode=observation.current_mode,
-            effective_mode=observation.effective_mode,
-            available_modes=list(observation.available_modes),
-            detail=observation.detail,
-        )
-
-    async def get_environment_info(self, target_device: str) -> EnvironmentInfoStatus:
-        if self.config.device_mock_mode:
-            return EnvironmentInfoStatus(
-                target_device=target_device,
-                source="mock-device-client",
-                device_id="mock-device-1",
-                display_name=target_device,
-                temperature_celsius=22.5,
-                relative_humidity_percent=45.0,
-                ambient_noise_db=38.0,
-                people_count=2,
-                air_quality_index=72,
-                detail=(
-                    "Mock environment info. Real mode uses Webex cloud xAPI room analytics "
-                    "with best-effort nulls for unsupported sensor values."
-                ),
-            )
-
-        async with httpx.AsyncClient(
-            base_url=self.config.webex_api_base, timeout=10.0
-        ) as client:
-            device = await self._resolve_device(client, target_device)
-            status_payload = await self._fetch_status_for_names(
-                client,
-                device.id,
-                self.ENVIRONMENT_STATUS_NAMES,
-            )
-
-        temperature_celsius = self._extract_environment_temperature(status_payload)
-        relative_humidity_percent = self._extract_environment_humidity(status_payload)
-        ambient_noise_db = self._extract_environment_noise(status_payload)
-        people_count = self._extract_environment_people_count(status_payload)
-        air_quality_index = self._extract_environment_air_quality_index(status_payload)
-
-        detail_parts = [
-            f"Resolved Webex deviceId={device.id}",
-            f"displayName={device.display_name or target_device}",
-            "best_effort_nulls=true",
-        ]
-
-        return EnvironmentInfoStatus(
-            target_device=target_device,
-            source="webex-cloud-xapi",
-            device_id=device.id,
-            display_name=device.display_name,
-            temperature_celsius=temperature_celsius,
-            relative_humidity_percent=relative_humidity_percent,
-            ambient_noise_db=ambient_noise_db,
-            people_count=people_count,
-            air_quality_index=air_quality_index,
-            detail=", ".join(detail_parts),
-        )
-
-    async def get_room_booking(self, target_device: str) -> RoomBookingStatus:
-        if self.config.device_mock_mode:
-            return RoomBookingStatus(
-                target_device=target_device,
-                source="mock-device-client",
-                device_id="mock-device-1",
-                display_name=target_device,
-                availability_status="Booked",
-                availability_timestamp="2026-04-23T09:25:00Z",
-                current_booking_id="mock-booking-current",
-                is_booked_now=True,
-                next_booking_id="mock-booking-next",
-                next_meeting_title="Weekly Staff Meeting",
-                next_meeting_start_time="2026-04-23T09:30:00Z",
-                next_meeting_end_time="2026-04-23T10:00:00Z",
-                obtp_available=True,
-                obtp_join_method="webex",
-                detail=(
-                    "Mock room booking status. Real mode uses Bookings.Availability.* "
-                    "plus Bookings.List Upcoming with best-effort nulls."
-                ),
-            )
-
-        async with httpx.AsyncClient(
-            base_url=self.config.webex_api_base, timeout=10.0
-        ) as client:
-            device = await self._resolve_device(client, target_device)
-            status_payload = await self._fetch_status_for_names(
-                client,
-                device.id,
-                self.ROOM_BOOKING_STATUS_NAMES,
-            )
-            bookings_payload = await self._execute_command_with_client(
-                client,
-                device.id,
-                "Bookings.List",
-                {"ScheduleType": "Upcoming"},
-            )
-
-        availability_status = self._extract_booking_availability_status(status_payload)
-        availability_timestamp = self._extract_booking_availability_timestamp(
-            status_payload
-        )
-        current_booking_id = self._extract_booking_current_id(status_payload)
-        next_booking = self._extract_next_booking(bookings_payload)
-        next_booking_id = next_booking.booking_id if next_booking is not None else None
-        next_meeting_title = next_booking.title if next_booking is not None else None
-        next_meeting_start_time = (
-            next_booking.start_time if next_booking is not None else None
-        )
-        next_meeting_end_time = (
-            next_booking.end_time if next_booking is not None else None
-        )
-        obtp_available = (
-            next_booking.obtp_available if next_booking is not None else None
-        )
-        obtp_join_method = (
-            next_booking.join_method if next_booking is not None else None
-        )
-
-        return RoomBookingStatus(
-            target_device=target_device,
-            source="webex-cloud-xapi",
-            device_id=device.id,
-            display_name=device.display_name,
-            availability_status=availability_status,
-            availability_timestamp=availability_timestamp,
-            current_booking_id=current_booking_id,
-            is_booked_now=self._derive_is_booked_now(
-                availability_status, current_booking_id
-            ),
-            next_booking_id=next_booking_id,
-            next_meeting_title=next_meeting_title,
-            next_meeting_start_time=next_meeting_start_time,
-            next_meeting_end_time=next_meeting_end_time,
-            obtp_available=obtp_available,
-            obtp_join_method=obtp_join_method,
-            detail=(
-                f"Resolved Webex deviceId={device.id}, displayName={device.display_name or target_device}, "
-                "best_effort_nulls=true"
-            ),
-        )
-
-    async def join_obtp(self, target_device: str) -> str:
-        if self.config.device_mock_mode:
-            return f"Mock OBTP join requested on {target_device} for the next Webex meeting."
-
-        async with httpx.AsyncClient(
-            base_url=self.config.webex_api_base, timeout=10.0
-        ) as client:
-            device = await self._resolve_device(client, target_device)
-            bookings_payload = await self._execute_command_with_client(
-                client,
-                device.id,
-                "Bookings.List",
-                {"ScheduleType": "Upcoming"},
-            )
-
-        next_booking = self._extract_next_joinable_booking(bookings_payload)
-        if next_booking is None:
-            raise RuntimeError(
-                f"No confidently joinable upcoming booking was found on {device.display_name or target_device}."
-            )
-        if next_booking.join_method is None or next_booking.join_number is None:
-            raise RuntimeError(
-                f"No confidently joinable upcoming booking was found on {device.display_name or target_device}."
-            )
-
-        command_key_map = {
-            "webex": "Webex.Join",
-            "microsoftteams": "MicrosoftTeams.Join",
-            "zoom": "Zoom.Join",
-        }
-        command_key = command_key_map.get(next_booking.join_method)
-        if command_key is None:
-            raise RuntimeError(
-                f"No confidently joinable upcoming booking was found on {device.display_name or target_device}."
-            )
-
-        _ = await self._execute_command(
-            device.id,
-            command_key,
-            self._build_meeting_join_arguments(
-                next_booking.join_number,
-                device.display_name or target_device,
-            ),
-        )
-        meeting_label = next_booking.title or "the next scheduled meeting"
-        return (
-            f"Requested OBTP join for {meeting_label} on {device.display_name or target_device} "
-            f"using {next_booking.join_method}."
-        )
-
-    async def webex_join(self, target_device: str, meeting_identifier: str) -> str:
-        if self.config.device_mock_mode:
-            return f"Mock Webex join requested for {meeting_identifier} on {target_device}."
-
-        device = await self._with_resolved_device(target_device)
-        _ = await self._execute_command(
-            device.id,
-            "Webex.Join",
-            self._build_meeting_join_arguments(
-                meeting_identifier,
-                device.display_name or target_device,
-            ),
-        )
-        return (
-            f"Webex join requested for {meeting_identifier} on "
-            f"{device.display_name or target_device}."
-        )
-
     def _build_meeting_join_arguments(
         self,
         meeting_identifier: str,
@@ -592,217 +249,7 @@ class DeviceClient:
     ) -> dict[str, object]:
         return {"Number": meeting_identifier}
 
-    async def dial(self, target_device: str, address: str) -> str:
-        if self.config.device_mock_mode:
-            return f"Mock dial requested to {address} on {target_device}."
-
-        device = await self._with_resolved_device(target_device)
-        _ = await self._execute_command(device.id, "Dial", {"Number": address})
-        return f"Dial requested to {address} on {device.display_name or target_device}."
-
-    async def hang_up(self, target_device: str, call_id: int | None = None) -> str:
-        if self.config.device_mock_mode:
-            return f"Mock hang up requested for {target_device}."
-
-        device = await self._with_resolved_device(target_device)
-        arguments: dict[str, object] | None = (
-            {"CallId": call_id} if call_id is not None else None
-        )
-        _ = await self._execute_command(device.id, "Call.Disconnect", arguments)
-        return f"Hang up requested for {device.display_name or target_device}."
-
-    async def send_dtmf(
-        self,
-        target_device: str,
-        tones: str,
-        call_id: int | None = None,
-    ) -> str:
-        if self.config.device_mock_mode:
-            return f"Mock DTMF {tones} requested on {target_device}."
-
-        device = await self._with_resolved_device(target_device)
-        arguments: dict[str, object] = {"DTMFString": tones}
-        if call_id is not None:
-            arguments["CallId"] = call_id
-        _ = await self._execute_command(device.id, "Call.DTMFSend", arguments)
-        return f"DTMF {tones} sent on {device.display_name or target_device}."
-
-    async def set_microphone_mute(self, target_device: str, muted: bool) -> str:
-        if self.config.device_mock_mode:
-            action = "muted" if muted else "unmuted"
-            return f"Mock microphones {action} on {target_device}."
-
-        device = await self._with_resolved_device(target_device)
-        command = "Audio.Microphones.Mute" if muted else "Audio.Microphones.Unmute"
-        _ = await self._execute_command(device.id, command, None)
-        action = "Muted" if muted else "Unmuted"
-        return f"{action} microphones on {device.display_name or target_device}."
-
-    async def set_microphone_mode(self, target_device: str, mode: str) -> str:
-        if self.config.device_mock_mode:
-            return f"Mock microphone mode set to {mode} on {target_device}."
-
-        async with httpx.AsyncClient(
-            base_url=self.config.webex_api_base, timeout=10.0
-        ) as client:
-            device = await self._resolve_device(client, target_device)
-            configurable_values = await self._fetch_device_configuration_enum_values(
-                client,
-                self._device_configuration_target_id(device),
-                self.CONFIG_KEYS["microphone_mode"],
-            )
-
-        device_name = device.display_name or target_device
-        exact_values_guidance = self._build_microphone_mode_guidance(
-            configurable_values
-        )
-        if mode == "music-mode":
-            _ = await self._execute_command(
-                device.id,
-                "Audio.Microphones.MusicMode.Start",
-                None,
-            )
-            return f"Started music mode on {device_name}.{exact_values_guidance}"
-        if mode == "noise-reduction":
-            _ = await self._execute_command(
-                device.id,
-                "Audio.Microphones.NoiseRemoval.Activate",
-                None,
-            )
-            return f"Activated noise reduction on {device_name}.{exact_values_guidance}"
-        config_value = self.MICROPHONE_MODE_CONFIG_VALUES.get(mode)
-        if config_value is not None:
-            if configurable_values is None:
-                raise RuntimeError(
-                    f"Cannot set microphone mode to {self._render_microphone_mode_label(mode)} on {device_name} "
-                    "because Webex did not return exact configurable microphone values."
-                )
-            if config_value not in configurable_values:
-                raise RuntimeError(
-                    f"Cannot set microphone mode to {self._render_microphone_mode_label(mode)} on {device_name} "
-                    "because Webex reports configurable microphone values: "
-                    f"{self._format_exact_values(configurable_values)}."
-                )
-        if mode == "normal":
-            _ = await self._execute_command(
-                device.id,
-                "Audio.Microphones.NoiseRemoval.Deactivate",
-                None,
-            )
-            _ = await self._patch_device_config(
-                self._device_configuration_target_id(device),
-                [
-                    {
-                        "op": "replace",
-                        "path": self.CONFIG_PATHS["microphone_mode"],
-                        "value": self.MICROPHONE_MODE_CONFIG_VALUES["normal"],
-                    }
-                ],
-            )
-            return f"Set microphone mode to normal on {device_name}.{exact_values_guidance}"
-        if mode == "voice-optimized":
-            _ = await self._patch_device_config(
-                self._device_configuration_target_id(device),
-                [
-                    {
-                        "op": "replace",
-                        "path": self.CONFIG_PATHS["microphone_mode"],
-                        "value": self.MICROPHONE_MODE_CONFIG_VALUES["voice-optimized"],
-                    }
-                ],
-            )
-            return (
-                f"Set microphone mode to voice optimized on {device_name}."
-                f"{exact_values_guidance}"
-            )
-        raise RuntimeError(f"Unsupported microphone mode: {mode}")
-
-    async def set_volume(self, target_device: str, level: int) -> str:
-        if self.config.device_mock_mode:
-            return f"Mock volume set to {level} on {target_device}."
-
-        device = await self._with_resolved_device(target_device)
-        _ = await self._execute_command(device.id, "Audio.Volume.Set", {"Level": level})
-        return f"Set volume to {level} on {device.display_name or target_device}."
-
-    async def set_video_mute(self, target_device: str, muted: bool) -> str:
-        if self.config.device_mock_mode:
-            action = "muted" if muted else "unmuted"
-            return f"Mock main video {action} on {target_device}."
-
-        device = await self._with_resolved_device(target_device)
-        command = (
-            "Video.Input.MainVideo.Mute" if muted else "Video.Input.MainVideo.Unmute"
-        )
-        _ = await self._execute_command(device.id, command, None)
-        action = "Muted" if muted else "Unmuted"
-        return f"{action} main video on {device.display_name or target_device}."
-
-    async def set_selfview(self, target_device: str, enabled: bool) -> str:
-        if self.config.device_mock_mode:
-            action = "enabled" if enabled else "disabled"
-            return f"Mock selfview {action} on {target_device}."
-
-        device = await self._with_resolved_device(target_device)
-        _ = await self._execute_command(
-            device.id,
-            "Video.Selfview.Set",
-            {"Mode": "On" if enabled else "Off"},
-        )
-        action = "Enabled" if enabled else "Disabled"
-        return f"{action} selfview on {device.display_name or target_device}."
-
-    async def set_camera_mode(self, target_device: str, mode: str) -> str:
-        if self.config.device_mock_mode:
-            return f"Mock camera mode set to {mode} on {target_device}."
-
-        normalized_mode = mode.strip()
-        config_value = self.CAMERA_MODE_CONFIG_VALUES.get(normalized_mode)
-        if config_value is None:
-            alias_key = " ".join(normalized_mode.casefold().replace("_", " ").split())
-            canonical_mode = self.CAMERA_MODE_CONFIG_ALIASES.get(alias_key)
-            if canonical_mode is None:
-                canonical_mode = self.CAMERA_MODE_CONFIG_ALIASES.get(
-                    alias_key.replace(" ", "")
-                )
-            if canonical_mode is not None:
-                normalized_mode = canonical_mode
-                config_value = self.CAMERA_MODE_CONFIG_VALUES.get(canonical_mode)
-        if config_value is None:
-            raise RuntimeError(
-                "Unsupported camera mode request. Supported camera modes are: "
-                "Manual, Dynamic, BestOverview, Closeup, Frames, GroupAndSpeaker."
-            )
-
-        async with httpx.AsyncClient(
-            base_url=self.config.webex_api_base, timeout=10.0
-        ) as client:
-            device = await self._resolve_device(client, target_device)
-
-        _ = await self._execute_command(
-            device.id,
-            "Cameras.SpeakerTrack.Set",
-            {"Behavior": config_value},
-        )
-        device_name = device.display_name or target_device
-        return (
-            f"Set camera mode to {normalized_mode} on {device_name} "
-            f"(Cameras.SpeakerTrack.Set Behavior: {config_value})."
-        )
-
-    async def list_supported_camera_modes(self, target_device: str) -> tuple[str, ...]:
-        if self.config.device_mock_mode:
-            return self.CAMERA_MODE_ORDER
-
-        async with httpx.AsyncClient(
-            base_url=self.config.webex_api_base, timeout=10.0
-        ) as client:
-            _ = await self._resolve_device(client, target_device)
-        return self.CAMERA_MODE_ORDER
-
-    def _normalize_supported_camera_mode_values(
-        self, values: tuple[str, ...]
-    ) -> tuple[str, ...]:
+    def _normalize_supported_camera_mode_values(self, values: tuple[str, ...]) -> tuple[str, ...]:
         normalized_modes: list[str] = []
         for value in values:
             stripped = value.strip()
@@ -810,9 +257,7 @@ class DeviceClient:
                 continue
             mode = self.CAMERA_MODE_CONFIG_VALUES.get(stripped)
             if mode is None:
-                normalized_key = " ".join(
-                    stripped.casefold().replace("_", " ").split()
-                )
+                normalized_key = " ".join(stripped.casefold().replace("_", " ").split())
                 mode = self.CAMERA_MODE_CONFIG_ALIASES.get(normalized_key)
                 if mode is None:
                     compact_key = normalized_key.replace(" ", "")
@@ -821,351 +266,8 @@ class DeviceClient:
                 normalized_modes.append(mode)
         return tuple(normalized_modes)
 
-    async def set_layout(self, target_device: str, layout_name: str) -> str:
-        normalized_layout_name = self._normalize_layout_name(layout_name)
-        if self.config.device_mock_mode:
-            return f"Mock layout set to {normalized_layout_name} on {target_device}."
-
-        async with httpx.AsyncClient(
-            base_url=self.config.webex_api_base, timeout=10.0
-        ) as client:
-            device = await self._resolve_device(client, target_device)
-            current_layout = await self._fetch_current_layout(client, device.id)
-        _ = await self._execute_command(
-            device.id,
-            "Video.Layout.SetLayout",
-            {"LayoutName": normalized_layout_name},
-        )
-        return (
-            f"Set layout to {normalized_layout_name} on {device.display_name or target_device}."
-            f"{self._build_layout_guidance(current_layout)}"
-        )
-
-    async def set_presentation(self, target_device: str, enabled: bool) -> str:
-        if self.config.device_mock_mode:
-            action = "started" if enabled else "stopped"
-            return f"Mock presentation {action} on {target_device}."
-
-        device = await self._with_resolved_device(target_device)
-        command = "Presentation.Start" if enabled else "Presentation.Stop"
-        _ = await self._execute_command(device.id, command, None)
-        action = "Started" if enabled else "Stopped"
-        return f"{action} presentation on {device.display_name or target_device}."
-
-    async def switch_input_source(self, target_device: str, source_id: str) -> str:
-        if self.config.device_mock_mode:
-            return f"Mock input source switched to {source_id} on {target_device}."
-
-        device = await self._with_resolved_device(target_device)
-        connector_id = self._resolve_input_source_id(source_id)
-        try:
-            _ = await self._execute_command(
-                device.id,
-                "Video.Input.SetMainVideoSource",
-                {"ConnectorId": connector_id},
-            )
-        except (httpx.HTTPStatusError, RuntimeError) as exc:
-            response = getattr(exc, "response", None)
-            if isinstance(exc, RuntimeError) or (response is not None and response.status_code == 400):
-                raise RuntimeError(
-                    f"Cannot switch input source to {source_id} on "
-                    f"{device.display_name or target_device}. Webex rejected "
-                    f"connector {connector_id}; check that the source is connected "
-                    "and supported by this device."
-                ) from exc
-            raise
-        return (
-            f"Switched input source to {source_id} on "
-            f"{device.display_name or target_device}."
-        )
-
-    async def assign_matrix(
-        self,
-        target_device: str,
-        output: str,
-        mode: str,
-        layout: str,
-        source_id: str | None = None,
-        remote_main: bool | None = None,
-    ) -> str:
-        if self.config.device_mock_mode:
-            return (
-                "Mock video matrix assign requested for "
-                f"output {output} on {target_device}."
-            )
-
-        device = await self._with_resolved_device(target_device)
-        arguments: dict[str, object] = {
-            "Output": output,
-            "Mode": mode,
-            "Layout": layout,
-        }
-        if source_id is not None:
-            arguments["SourceId"] = source_id
-        if remote_main is not None:
-            arguments["RemoteMain"] = "On" if remote_main else "Off"
-        _ = await self._execute_command(device.id, "Video.Matrix.Assign", arguments)
-        return (
-            f"Assigned video matrix output {output} on "
-            f"{device.display_name or target_device}."
-        )
-
-    async def unassign_matrix(
-        self,
-        target_device: str,
-        output: str,
-        source_id: str | None = None,
-        remote_main: bool | None = None,
-    ) -> str:
-        if self.config.device_mock_mode:
-            return (
-                "Mock video matrix unassign requested for "
-                f"output {output} on {target_device}."
-            )
-
-        device = await self._with_resolved_device(target_device)
-        arguments: dict[str, object] = {"Output": output}
-        if source_id is not None:
-            arguments["SourceId"] = source_id
-        if remote_main is not None:
-            arguments["RemoteMain"] = "On" if remote_main else "Off"
-        _ = await self._execute_command(device.id, "Video.Matrix.Unassign", arguments)
-        return (
-            f"Unassigned video matrix output {output} on "
-            f"{device.display_name or target_device}."
-        )
-
-    async def swap_matrix(
-        self,
-        target_device: str,
-        output_a: str,
-        output_b: str,
-    ) -> str:
-        if self.config.device_mock_mode:
-            return (
-                "Mock video matrix swap requested for "
-                f"outputs {output_a} and {output_b} on {target_device}."
-            )
-
-        device = await self._with_resolved_device(target_device)
-        _ = await self._execute_command(
-            device.id,
-            "Video.Matrix.Swap",
-            {"OutputA": output_a, "OutputB": output_b},
-        )
-        return (
-            f"Swapped video matrix outputs {output_a} and {output_b} on "
-            f"{device.display_name or target_device}."
-        )
-
-    async def set_display_mode(self, target_device: str, mode: str) -> str:
-        if self.config.device_mock_mode:
-            return f"Mock display mode set to {mode} on {target_device}."
-
-        role_values = self.DISPLAY_MODE_ROLE_VALUES.get(mode)
-        if role_values is None:
-            raise RuntimeError(f"Unsupported display mode: {mode}")
-        connector_one_role, connector_two_role = role_values
-
-        async with httpx.AsyncClient(
-            base_url=self.config.webex_api_base, timeout=10.0
-        ) as client:
-            device = await self._resolve_device(client, target_device)
-
-        _ = await self._patch_device_config(
-            self._device_configuration_target_id(device),
-            [
-                {
-                    "op": "replace",
-                    "path": "Video.Output.Connector[1].MonitorRole/sources/configured/value",
-                    "value": connector_one_role,
-                },
-                {
-                    "op": "replace",
-                    "path": "Video.Output.Connector[2].MonitorRole/sources/configured/value",
-                    "value": connector_two_role,
-                },
-            ],
-        )
-        return (
-            f"Set display mode to {mode} on {device.display_name or target_device} "
-            f"(connector 1: {connector_one_role}, connector 2: {connector_two_role})."
-        )
-
-    async def set_display_role(
-        self, target_device: str, connector_id: int, role: str
-    ) -> str:
-        if self.config.device_mock_mode:
-            return f"Mock display role for connector {connector_id} set to {role} on {target_device}."
-
-        device = await self._with_resolved_device(target_device)
-        role_map = {
-            "auto": "Auto",
-            "first": "First",
-            "second": "Second",
-            "third": "Third",
-            "presentation-only": "PresentationOnly",
-            "recorder": "Recorder",
-        }
-        config_value = role_map.get(role)
-        if config_value is None:
-            raise RuntimeError(f"Unsupported display role: {role}")
-        _ = await self._patch_device_config(
-            self._device_configuration_target_id(device),
-            [
-                {
-                    "op": "replace",
-                    "path": f"Video.Output.Connector[{connector_id}].MonitorRole/sources/configured/value",
-                    "value": config_value,
-                }
-            ],
-        )
-        return (
-            f"Set display role for connector {connector_id} to {role} on "
-            f"{device.display_name or target_device}."
-        )
-
-    async def activate_camera_preset(self, target_device: str, preset_id: str) -> str:
-        if self.config.device_mock_mode:
-            return f"Mock camera preset {preset_id} activated on {target_device}."
-
-        device = await self._with_resolved_device(target_device)
-        _ = await self._execute_command(
-            device.id,
-            "Camera.Preset.Activate",
-            {"PresetId": preset_id},
-        )
-        return (
-            f"Activated camera preset {preset_id} on "
-            f"{device.display_name or target_device}."
-        )
-
-    async def adjust_camera_position(
-        self,
-        target_device: str,
-        camera_id: str,
-        pan: int | None = None,
-        tilt: int | None = None,
-        zoom: int | None = None,
-    ) -> str:
-        device_name = target_device
-        if self.config.device_mock_mode:
-            return self._build_camera_position_message(
-                device_name,
-                camera_id,
-                pan,
-                tilt,
-                zoom,
-            )
-
-        camera_id_int = self._parse_camera_id(camera_id)
-        async with httpx.AsyncClient(
-            base_url=self.config.webex_api_base, timeout=10.0
-        ) as client:
-            device = await self._resolve_device(client, target_device)
-            device_name = device.display_name or target_device
-            current_position = await self._fetch_camera_position(
-                client,
-                device.id,
-                camera_id_int,
-            )
-
-        arguments: dict[str, object] = {"CameraId": camera_id_int}
-        if pan is not None:
-            current_pan = current_position.get("pan")
-            if current_pan is None:
-                raise RuntimeError(
-                    f"Cannot adjust pan for camera {camera_id_int} on {device_name} because Webex did not return the current pan position."
-                )
-            arguments["Pan"] = current_pan + pan
-        if tilt is not None:
-            current_tilt = current_position.get("tilt")
-            if current_tilt is None:
-                raise RuntimeError(
-                    f"Cannot adjust tilt for camera {camera_id_int} on {device_name} because Webex did not return the current tilt position."
-                )
-            arguments["Tilt"] = current_tilt + tilt
-        if zoom is not None:
-            current_zoom = current_position.get("zoom")
-            if current_zoom is None:
-                raise RuntimeError(
-                    f"Cannot adjust zoom for camera {camera_id_int} on {device_name} because Webex did not return the current zoom position."
-                )
-            arguments["Zoom"] = max(0, current_zoom + zoom)
-
-        _ = await self._execute_command(device.id, "Camera.PositionSet", arguments)
-        return self._build_camera_position_message(
-            device_name,
-            str(camera_id_int),
-            pan,
-            tilt,
-            zoom,
-        )
-
-    async def set_speakertrack(self, target_device: str, enabled: bool) -> str:
-        if self.config.device_mock_mode:
-            action = "enabled" if enabled else "disabled"
-            return f"Mock SpeakerTrack {action} on {target_device}."
-
-        device = await self._with_resolved_device(target_device)
-        command = (
-            "Cameras.SpeakerTrack.Activate"
-            if enabled
-            else "Cameras.SpeakerTrack.Deactivate"
-        )
-        _ = await self._execute_command(device.id, command, None)
-        action = "Enabled" if enabled else "Disabled"
-        return f"{action} SpeakerTrack on {device.display_name or target_device}."
-
-    async def set_standby(self, target_device: str, enabled: bool) -> str:
-        if self.config.device_mock_mode:
-            action = "activated" if enabled else "deactivated"
-            return f"Mock standby {action} on {target_device}."
-
-        device = await self._with_resolved_device(target_device)
-        command = "Standby.Activate" if enabled else "Standby.Deactivate"
-        _ = await self._execute_command(device.id, command, None)
-        action = "Activated" if enabled else "Deactivated"
-        return f"{action} standby on {device.display_name or target_device}."
-
-    async def reboot(self, target_device: str) -> str:
-        if self.config.device_mock_mode:
-            return f"Mock reboot requested for {target_device}."
-
-        device = await self._with_resolved_device(target_device)
-        _ = await self._execute_command(device.id, "SystemUnit.Boot", None)
-        return f"Reboot requested for {device.display_name or target_device}."
-
-    async def factory_reset(self, target_device: str, acknowledged: bool) -> str:
-        if not acknowledged:
-            raise RuntimeError("Factory reset requires explicit acknowledgement.")
-
-        if self.config.device_mock_mode:
-            return f"Mock factory reset requested for {target_device}."
-
-        device = await self._with_resolved_device(target_device)
-        _ = await self._execute_command(
-            device.id,
-            "SystemUnit.FactoryReset",
-            {"Confirm": "Yes"},
-        )
-        return f"Factory reset requested for {device.display_name or target_device}."
-
-    async def list_devices(self) -> list[OrganizationDeviceRecord]:
-        if self.config.device_mock_mode:
-            return self._build_candidate_devices(self._mock_device_items())
-
-        async with httpx.AsyncClient(
-            base_url=self.config.webex_api_base, timeout=10.0
-        ) as client:
-            items = await self._fetch_device_items(client)
-
-        return self._build_candidate_devices(items)
-
     async def _auth_headers(self) -> dict[str, str]:
-        return {
-            "Authorization": f"Bearer {await self.token_provider.get_bearer_token()}"
-        }
+        return {"Authorization": f"Bearer {await self.token_provider.get_bearer_token()}"}
 
     async def _resolve_device(
         self, client: httpx.AsyncClient, target_device: str
@@ -1179,19 +281,14 @@ class DeviceClient:
         )
 
         device = next(
-            (
-                item
-                for item in normalized_items
-                if item.get("displayName") == alias_target
-            ),
+            (item for item in normalized_items if item.get("displayName") == alias_target),
             None,
         )
         if device is None and normalized_target:
             normalized_matches = [
                 item
                 for item in normalized_items
-                if self._normalize_device_name(item.get("displayName"))
-                == normalized_target
+                if self._normalize_device_name(item.get("displayName")) == normalized_target
             ]
             if len(normalized_matches) == 1:
                 device = normalized_matches[0]
@@ -1212,8 +309,7 @@ class DeviceClient:
                 if item.get("displayName") == alias_target
                 or (
                     normalized_target
-                    and self._normalize_device_name(item.get("displayName"))
-                    == normalized_target
+                    and self._normalize_device_name(item.get("displayName")) == normalized_target
                 )
             ]
             if len(inventory_matches) == 1:
@@ -1246,9 +342,7 @@ class DeviceClient:
         connection_status = device.get("connectionStatus")
         return ResolvedDevice(
             id=device_id,
-            webex_device_id=(
-                webex_device_id if isinstance(webex_device_id, str) else None
-            ),
+            webex_device_id=(webex_device_id if isinstance(webex_device_id, str) else None),
             display_name=display_name if isinstance(display_name, str) else None,
             workspace_id=workspace_id if isinstance(workspace_id, str) else None,
             product=product if isinstance(product, str) else None,
@@ -1258,23 +352,17 @@ class DeviceClient:
                 if isinstance(connection_status, str)
                 else None
             ),
-            connection_status=(
-                connection_status if isinstance(connection_status, str) else None
-            ),
+            connection_status=(connection_status if isinstance(connection_status, str) else None),
         )
 
-    def _normalize_device_items(
-        self, item_list: list[object]
-    ) -> list[dict[str, object]]:
+    def _normalize_device_items(self, item_list: list[object]) -> list[dict[str, object]]:
         normalized_items: list[dict[str, object]] = []
         for raw_item in item_list:
             if isinstance(raw_item, dict):
                 normalized_items.append(cast(dict[str, object], raw_item))
         return normalized_items
 
-    def _filter_device_items(
-        self, items: list[dict[str, object]]
-    ) -> list[dict[str, object]]:
+    def _filter_device_items(self, items: list[dict[str, object]]) -> list[dict[str, object]]:
         return [item for item in items if self._is_supported_main_device(item)]
 
     async def _fetch_device_items(
@@ -1336,22 +424,16 @@ class DeviceClient:
             product=product if isinstance(product, str) else None,
             device_type=self._normalize_device_type(item.get("type")),
             permissions=self._normalize_permissions(item.get("permissions")),
-            webex_device_id=(
-                webex_device_id if isinstance(webex_device_id, str) else None
-            ),
+            webex_device_id=(webex_device_id if isinstance(webex_device_id, str) else None),
             place=place if isinstance(place, str) else None,
-            software_version=(
-                software_version if isinstance(software_version, str) else None
-            ),
+            software_version=(software_version if isinstance(software_version, str) else None),
             serial_number=serial_number if isinstance(serial_number, str) else None,
             online=(
                 connection_status.lower() == "connected"
                 if isinstance(connection_status, str)
                 else None
             ),
-            connection_status=(
-                connection_status if isinstance(connection_status, str) else None
-            ),
+            connection_status=(connection_status if isinstance(connection_status, str) else None),
         )
 
     def _normalize_device_type(self, raw_value: object) -> str | None:
@@ -1442,9 +524,7 @@ class DeviceClient:
         return " ".join(raw_name.casefold().split())
 
     async def _with_resolved_device(self, target_device: str) -> ResolvedDevice:
-        async with httpx.AsyncClient(
-            base_url=self.config.webex_api_base, timeout=10.0
-        ) as client:
+        async with httpx.AsyncClient(base_url=self.config.webex_api_base, timeout=10.0) as client:
             return await self._resolve_device(client, target_device)
 
     def _device_configuration_target_id(self, device: ResolvedDevice) -> str:
@@ -1456,9 +536,7 @@ class DeviceClient:
         command_key: str,
         arguments: dict[str, object] | None,
     ) -> dict[str, object]:
-        async with httpx.AsyncClient(
-            base_url=self.config.webex_api_base, timeout=10.0
-        ) as client:
+        async with httpx.AsyncClient(base_url=self.config.webex_api_base, timeout=10.0) as client:
             return await self._execute_command_with_client(
                 client, device_id, command_key, arguments
             )
@@ -1532,9 +610,7 @@ class DeviceClient:
         device_id: str,
         operations: list[dict[str, object]],
     ) -> list[object]:
-        async with httpx.AsyncClient(
-            base_url=self.config.webex_api_base, timeout=10.0
-        ) as client:
+        async with httpx.AsyncClient(base_url=self.config.webex_api_base, timeout=10.0) as client:
             response = await client.patch(
                 "/deviceConfigurations",
                 headers={
@@ -1619,9 +695,7 @@ class DeviceClient:
             if isinstance(sources, dict):
                 configured = cast(dict[object, object], sources).get("configured")
                 if isinstance(configured, dict):
-                    nested_value_space = cast(dict[object, object], configured).get(
-                        "valueSpace"
-                    )
+                    nested_value_space = cast(dict[object, object], configured).get("valueSpace")
                     if isinstance(nested_value_space, dict):
                         value_space = cast(dict[str, object], nested_value_space)
         if not isinstance(value_space, dict):
@@ -1664,9 +738,7 @@ class DeviceClient:
         merged_payload: dict[str, object] = {}
         for name_batch in self._chunked(status_names, 10):
             try:
-                batch_payload = await self._fetch_status_batch(
-                    client, device_id, name_batch
-                )
+                batch_payload = await self._fetch_status_batch(client, device_id, name_batch)
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code != 400 or len(name_batch) == 1:
                     raise
@@ -1759,9 +831,7 @@ class DeviceClient:
             )
         return {
             "pan": self._extract_int_status(
-                self._lookup_path(
-                    payload, ["Cameras", "Camera", camera_id - 1, "Position", "Pan"]
-                ),
+                self._lookup_path(payload, ["Cameras", "Camera", camera_id - 1, "Position", "Pan"]),
             ),
             "tilt": self._extract_int_status(
                 self._lookup_path(
@@ -1851,9 +921,7 @@ class DeviceClient:
         return None
 
     def _extract_active_call_count(self, payload: dict[str, object]) -> int | None:
-        count = self._lookup_path(
-            payload, ["SystemUnit", "State", "NumberOfActiveCalls"]
-        )
+        count = self._lookup_path(payload, ["SystemUnit", "State", "NumberOfActiveCalls"])
         if isinstance(count, int):
             return count
         if isinstance(count, str) and count.isdigit():
@@ -1936,14 +1004,10 @@ class DeviceClient:
         return version if isinstance(version, str) else None
 
     def _extract_serial_number(self, payload: dict[str, object]) -> str | None:
-        serial = self._lookup_path(
-            payload, ["SystemUnit", "Hardware", "Module", "SerialNumber"]
-        )
+        serial = self._lookup_path(payload, ["SystemUnit", "Hardware", "Module", "SerialNumber"])
         return serial if isinstance(serial, str) else None
 
-    def _extract_environment_temperature(
-        self, payload: dict[str, object]
-    ) -> float | None:
+    def _extract_environment_temperature(self, payload: dict[str, object]) -> float | None:
         primary = self._extract_numeric_status(
             self._lookup_path(payload, ["RoomAnalytics", "AmbientTemperature"])
         )
@@ -1970,15 +1034,11 @@ class DeviceClient:
             self._lookup_path(payload, ["RoomAnalytics", "AmbientNoise", "Level", "A"])
         )
 
-    def _extract_environment_people_count(
-        self, payload: dict[str, object]
-    ) -> int | None:
+    def _extract_environment_people_count(self, payload: dict[str, object]) -> int | None:
         value = self._lookup_path(payload, ["RoomAnalytics", "PeopleCount", "Current"])
         return self._extract_int_status(value)
 
-    def _extract_environment_air_quality_index(
-        self, payload: dict[str, object]
-    ) -> int | None:
+    def _extract_environment_air_quality_index(self, payload: dict[str, object]) -> int | None:
         value = self._extract_first_peripheral_numeric_status(
             payload,
             ["RoomAnalytics", "AirQuality", "Index"],
@@ -1987,15 +1047,11 @@ class DeviceClient:
             return None
         return int(value)
 
-    def _extract_booking_availability_status(
-        self, payload: dict[str, object]
-    ) -> str | None:
+    def _extract_booking_availability_status(self, payload: dict[str, object]) -> str | None:
         value = self._lookup_path(payload, ["Bookings", "Availability", "Status"])
         return value if isinstance(value, str) and value.strip() else None
 
-    def _extract_booking_availability_timestamp(
-        self, payload: dict[str, object]
-    ) -> str | None:
+    def _extract_booking_availability_timestamp(self, payload: dict[str, object]) -> str | None:
         value = self._lookup_path(payload, ["Bookings", "Availability", "TimeStamp"])
         return value if isinstance(value, str) and value.strip() else None
 
@@ -2034,9 +1090,7 @@ class DeviceClient:
         )
         return sorted_bookings[0]
 
-    def _extract_next_booking(
-        self, payload: dict[str, object]
-    ) -> BookingObservation | None:
+    def _extract_next_booking(self, payload: dict[str, object]) -> BookingObservation | None:
         bookings = self._extract_booking_entries(payload)
         if not bookings:
             return None
@@ -2046,9 +1100,7 @@ class DeviceClient:
         )
         return sorted_bookings[0]
 
-    def _extract_booking_entries(
-        self, payload: dict[str, object]
-    ) -> list[BookingObservation]:
+    def _extract_booking_entries(self, payload: dict[str, object]) -> list[BookingObservation]:
         raw_items = self._lookup_path(payload, ["Bookings", "ListResult", "Booking"])
         if isinstance(raw_items, dict):
             items = [raw_items]
@@ -2059,14 +1111,10 @@ class DeviceClient:
 
         booking_entries: list[BookingObservation] = []
         for raw_item in items:
-            booking_entries.append(
-                self._normalize_booking_entry(cast(dict[str, object], raw_item))
-            )
+            booking_entries.append(self._normalize_booking_entry(cast(dict[str, object], raw_item)))
         return booking_entries
 
-    def _normalize_booking_entry(
-        self, booking: dict[str, object]
-    ) -> BookingObservation:
+    def _normalize_booking_entry(self, booking: dict[str, object]) -> BookingObservation:
         booking_id = self._first_string_value(
             booking,
             ("Id", "BookingId", "MeetingId"),
@@ -2129,9 +1177,7 @@ class DeviceClient:
                 ),
                 ("zoom", ("ZoomJoinNumber", "ZoomMeetingNumber", "ZoomUrl")),
             )
-            if any(
-                self._first_string_value(booking, (key,)) is not None for key in keys
-            )
+            if any(self._first_string_value(booking, (key,)) is not None for key in keys)
         ]
 
         methods = set(explicit_methods)
@@ -2178,17 +1224,13 @@ class DeviceClient:
                 "JoinMeetingNumber",
             ),
         }
-        candidate = self._first_string_value(
-            booking, candidate_keys_by_method[join_method]
-        )
+        candidate = self._first_string_value(booking, candidate_keys_by_method[join_method])
         if candidate is None:
             return None
         stripped = candidate.strip()
         return stripped or None
 
-    def _first_string_value(
-        self, payload: dict[str, object], keys: tuple[str, ...]
-    ) -> str | None:
+    def _first_string_value(self, payload: dict[str, object], keys: tuple[str, ...]) -> str | None:
         for key in keys:
             value = payload.get(key)
             if isinstance(value, str) and value.strip():
@@ -2255,9 +1297,7 @@ class DeviceClient:
                 return numeric_value
         return None
 
-    def _lookup_path(
-        self, payload: dict[str, object], path: Sequence[str | int]
-    ) -> object | None:
+    def _lookup_path(self, payload: dict[str, object], path: Sequence[str | int]) -> object | None:
         current: object = payload
         for key in path:
             if isinstance(key, int):
@@ -2317,28 +1357,21 @@ class DeviceClient:
             f"device-reported support): {candidates}."
         )
 
-    def _extract_camera_mode_observation(
-        self, payload: dict[str, object]
-    ) -> CameraModeObservation:
+    def _extract_camera_mode_observation(self, payload: dict[str, object]) -> CameraModeObservation:
         speakertrack_available = self._status_is_available(
             self._lookup_path(payload, ["Cameras", "SpeakerTrack", "Availability"])
         )
         frames_available = self._status_is_available(
-            self._lookup_path(
-                payload, ["Cameras", "SpeakerTrack", "Frames", "Availability"]
-            )
+            self._lookup_path(payload, ["Cameras", "SpeakerTrack", "Frames", "Availability"])
         )
         presentertrack_available = self._status_is_available(
             self._lookup_path(payload, ["Cameras", "PresenterTrack", "Availability"])
         )
 
-        raw_speakertrack_state = self._lookup_path(
-            payload, ["Cameras", "SpeakerTrack", "State"]
-        )
+        raw_speakertrack_state = self._lookup_path(payload, ["Cameras", "SpeakerTrack", "State"])
         speakertrack_state = (
             raw_speakertrack_state.strip()
-            if isinstance(raw_speakertrack_state, str)
-            and raw_speakertrack_state.strip()
+            if isinstance(raw_speakertrack_state, str) and raw_speakertrack_state.strip()
             else None
         )
         speakertrack_state_token = self._normalize_mode_token(raw_speakertrack_state)
@@ -2359,13 +1392,10 @@ class DeviceClient:
         )
         presentertrack_status = (
             raw_presentertrack_status.strip()
-            if isinstance(raw_presentertrack_status, str)
-            and raw_presentertrack_status.strip()
+            if isinstance(raw_presentertrack_status, str) and raw_presentertrack_status.strip()
             else None
         )
-        presentertrack_status_token = self._normalize_mode_token(
-            raw_presentertrack_status
-        )
+        presentertrack_status_token = self._normalize_mode_token(raw_presentertrack_status)
 
         speakertrack_active = speakertrack_state_token in {
             "active",
@@ -2414,9 +1444,7 @@ class DeviceClient:
                 "PresenterTrack is active and is reported separately from the writable camera mode slice."
             )
         elif not available_modes:
-            detail_parts.append(
-                "No supported writable camera modes were reported by the device."
-            )
+            detail_parts.append("No supported writable camera modes were reported by the device.")
 
         return CameraModeObservation(
             current_mode=current_mode,

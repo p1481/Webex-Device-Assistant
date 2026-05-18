@@ -16,6 +16,7 @@ from assistant_app.providers.rule_based_handlers import matrix as _matrix_handle
 from assistant_app.providers.rule_based_handlers import meeting as _meeting_handler
 from assistant_app.providers.rule_based_handlers import system as _system_handler
 from assistant_app.providers.rule_based_handlers import video as _video_handler
+from assistant_app.tracing import traced
 from shared.contracts import (
     ActionProposal,
     DisplayMode,
@@ -83,6 +84,7 @@ class RuleBasedProvider:
         _ = canonical_text
         return None
 
+    @traced("provider.analyze_message")
     async def analyze_message(
         self,
         message: InboundUserMessage,
@@ -101,9 +103,7 @@ class RuleBasedProvider:
             )
 
         target_device = self._extract_target_device(text, message.target_device)
-        mentioned_target_device = self._extract_mentioned_target_device(
-            text, message.target_device
-        )
+        mentioned_target_device = self._extract_mentioned_target_device(text, message.target_device)
 
         early_decision = _system_handler.handle_early(
             text=text,
@@ -432,9 +432,7 @@ class RuleBasedProvider:
     def _extract_camera_position(self, text: str) -> CameraPositionMatch | None:
         return _rbx.extract_camera_position(text)
 
-    def _extract_microphone_mode(
-        self, lowered_text: str
-    ) -> MicrophoneProcessingMode | None:
+    def _extract_microphone_mode(self, lowered_text: str) -> MicrophoneProcessingMode | None:
         return _rbx.extract_microphone_mode(lowered_text)
 
     def _extract_display_mode(self, lowered_text: str) -> DisplayMode | None:

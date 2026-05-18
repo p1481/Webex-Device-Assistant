@@ -27,9 +27,7 @@ class PolicyEvaluator:
                 selected_mode=self.default_mode,
                 allowed_modes=[self.default_mode],
                 risk_level=DEFAULT_COMMAND_POLICIES[Intent.GET_STATUS].risk_level,
-                approval_state=DEFAULT_COMMAND_POLICIES[
-                    Intent.GET_STATUS
-                ].approval_state,
+                approval_state=DEFAULT_COMMAND_POLICIES[Intent.GET_STATUS].approval_state,
                 reason="Resetting conversation state is local to the assistant session.",
             )
 
